@@ -39,6 +39,19 @@ Nunca commitear secretos.
   `Conversacion` (realtime de mensajes, modo IA/humano, ventana 24 h) y `Ficha` (edición del contacto y etiquetas).
   Selects compartidos en `lib/consultas.js` (no exportar constantes desde archivos `use client`).
 - Demo: `npm run demo -- cargar | limpiar | simular <tel> "texto"` (teléfonos 54900000000xx). Borrar antes de producción.
+- Rutas del panel en `app/(panel)/` (riel compartido en el layout; en celular es barra inferior):
+  `bandeja` (chats), `audios` (biblioteca, bucket privado `audios`), `asesor` (config IA, conocimiento, costos).
+- Envío (`lib/whatsapp/enviar.js` + `meta.js`): texto, audio de biblioteca (link firmado) y plantillas (tabla
+  `plantillas`, nombre/idioma = los aprobados en Meta). Sin WHATSAPP_TOKEN/PHONE_NUMBER_ID = MODO PRUEBA (no sale nada).
+  Si escribe el asesor, la conversación pasa a modo humano.
+- Leads (`lib/leads.js`): `POST /api/leads` (x-api-key = LEADS_API_KEY, u Origin en LEADS_ORIGENES; JSON o <form>,
+  campo trampa `website`, `redirigir` para forms). Botón "+" en la bandeja para carga manual (Swiss Medical).
+  Deduplica por teléfono normalizado (549…); bienvenida (plantilla `bienvenida`) solo a contactos nuevos.
+- Asesor IA (`lib/ia/asesor.js`): se dispara desde el webhook por cada mensaje entrante en modo `ia`, espera
+  IA_DEMORA_MS (8 s) y responde solo si sigue siendo el último mensaje. claude-sonnet-5-5, effort medium,
+  `fallbacks: "default"`, system cacheado; herramientas enviar_mensaje/enviar_audio/actualizar_ficha/etiquetar/
+  cambiar_etapa/pasar_a_humano. Registra tokens y costo en `ia_ejecuciones`. Sin ANTHROPIC_API_KEY no responde.
+- Pendiente: transcripción de audios entrantes (proveedor a definir), cotizador (falta el index.html), seguimientos.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.
 
