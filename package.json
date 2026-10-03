@@ -2,5 +2,5 @@
   "name": "crm-asesor",
   "private": true,
   "scripts": { "dev": "next dev", "build": "next build", "start": "next start" },
-  "dependencies": { "next": "latest", "react": "latest", "react-dom": "latest" }
+  "dependencies": { "next": "16.3.8", "react": "19.3.0", "react-dom": "19.3.0" }
 }
