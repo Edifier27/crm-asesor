@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { colorEtiqueta, nombreVisible } from '@/lib/formato';
+import Cotizacion from './Cotizacion';
 
-const ZONAS = ['AMBA', 'INTERIOR', 'CORDOBA', 'PATAGONIA', 'TDF', 'RESTO'];
 const ORIGENES = { swiss_medical: 'Swiss Medical', web: 'Web', whatsapp: 'WhatsApp', manual: 'Manual' };
 
-export default function Ficha({ conversacion, etapas, todasEtiquetas, abierta, onCerrar }) {
+export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, abierta, onCerrar }) {
   const supabase = createClient();
   const [contacto, setContacto] = useState(conversacion.contacto);
   const [etiquetas, setEtiquetas] = useState(conversacion.contacto.etiquetas.map((e) => e.etiqueta).filter(Boolean));
@@ -47,7 +47,6 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, abierta, o
 
   const etapaActual = etapas.find((e) => e.id === contacto.etapa_id);
   const embudo = etapas.filter((e) => e.nombre !== 'Perdido');
-  const integrantes = contacto.relevamiento?.integrantes ?? [];
   const disponibles = catalogo.filter((e) => !etiquetas.some((x) => x.id === e.id));
 
   return (
@@ -121,19 +120,6 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, abierta, o
 
       <dl className="datos">
         <div><dt>Origen</dt><dd>{ORIGENES[contacto.origen]}{contacto.origen_detalle ? ` · ${contacto.origen_detalle}` : ''}</dd></div>
-        <div>
-          <dt>Zona</dt>
-          <dd>
-            <select value={contacto.zona ?? ''} onChange={(e) => guardar({ zona: e.target.value || null })} aria-label="Zona">
-              <option value="">Sin definir</option>
-              {ZONAS.map((z) => <option key={z} value={z}>{z}</option>)}
-            </select>
-          </dd>
-        </div>
-        <div>
-          <dt>Grupo</dt>
-          <dd>{integrantes.length ? integrantes.map((i) => `${i.parentesco} ${i.edad}`).join(' · ') : 'Sin relevar'}</dd>
-        </div>
         {contacto.relevamiento?.situacion && <div><dt>Situación</dt><dd>{contacto.relevamiento.situacion}</dd></div>}
       </dl>
 
@@ -149,10 +135,8 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, abierta, o
           onBlur={(e) => e.target.value !== (contacto.notas ?? '') && guardar({ notas: e.target.value || null })} />
       </label>
 
-      <div className="bloque proximamente">
-        <span className="bloque-titulo">Cotización automática</span>
-        <p>Cuando importemos las tablas del cotizador, acá vas a ver los planes con precio y campañas.</p>
-      </div>
+      <Cotizacion conversacionId={conversacion.id} contacto={contacto} lista={lista}
+        onContacto={(campos) => setContacto((c) => ({ ...c, ...campos }))} />
     </aside>
   );
 }

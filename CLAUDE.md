@@ -51,7 +51,9 @@ Nunca commitear secretos.
   IA_DEMORA_MS (8 s) y responde solo si sigue siendo el último mensaje. claude-sonnet-5-5, effort medium,
   `fallbacks: "default"`, system cacheado; herramientas enviar_mensaje/enviar_audio/actualizar_ficha/etiquetar/
   cambiar_etapa/pasar_a_humano. Registra tokens y costo en `ia_ejecuciones`. Sin ANTHROPIC_API_KEY no responde.
-- Pendiente: transcripción de audios entrantes (proveedor a definir), cotizador (falta el index.html), seguimientos.
+- Cotizador: `lib/cotizador.js` replica EXACTA la fórmula del index.html (verificado 44/44). Listas en `listas_precios`
+  (una activa; página Precios importa el index.html sin ejecutarlo). Cotización en la ficha guarda `contactos.cotizacion`.
+- Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.
 

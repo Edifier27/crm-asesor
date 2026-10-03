@@ -11,24 +11,25 @@ export default async function ChatPage({ params }) {
   const { data: conversacion } = await supabase
     .from('conversaciones')
     .select(`id, modo, ventana_expira_at, resumen_ia,
-      contacto:contactos(id, nombre, telefono, email, zona, origen, origen_detalle, etapa_id, relevamiento, notas,
+      contacto:contactos(id, nombre, telefono, email, zona, origen, origen_detalle, etapa_id, relevamiento, notas, cotizacion,
         etiquetas:contacto_etiquetas(etiqueta:etiquetas(id, nombre, color)))`)
     .eq('id', id)
     .maybeSingle();
   if (!conversacion) notFound();
 
-  const [{ data: mensajes }, { data: etapas }, { data: etiquetas }, { data: audios }, { data: plantillas }] = await Promise.all([
+  const [{ data: mensajes }, { data: etapas }, { data: etiquetas }, { data: audios }, { data: plantillas }, { data: lista }] = await Promise.all([
     supabase.from('mensajes').select(SELECT_MENSAJE).eq('conversacion_id', id).order('creado_at').limit(500),
     supabase.from('etapas').select('id, nombre, orden, color').order('orden'),
     supabase.from('etiquetas').select('id, nombre, color').order('nombre'),
     supabase.from('audios').select('id, titulo, descripcion, duracion_seg').eq('activo', true).order('titulo'),
-    supabase.from('plantillas').select('id, nombre, cuerpo, uso').eq('activa', true).order('nombre')
+    supabase.from('plantillas').select('id, nombre, cuerpo, uso').eq('activa', true).order('nombre'),
+    supabase.from('listas_precios').select('vigencia, precios, tope_aportes, aumento').eq('activa', true).maybeSingle()
   ]);
 
   // key: al cambiar de chat se reinicia el estado de los componentes de cliente
   return (
     <ChatVista key={id} conversacion={conversacion} mensajesIniciales={mensajes ?? []}
       etapas={etapas ?? []} etiquetas={etiquetas ?? []} audios={audios ?? []} plantillas={plantillas ?? []}
-      modoPrueba={modoPrueba()} />
+      modoPrueba={modoPrueba()} lista={lista} />
   );
 }

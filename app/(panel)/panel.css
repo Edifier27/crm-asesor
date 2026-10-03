@@ -318,3 +318,32 @@
   .riel-marca, .riel-espacio, .riel-usuario { display: none; }
   .app > .lista, .app > .vacio, .app > .pagina { flex: 1; min-height: 0; }
 }
+
+/* ───── Cotización en la ficha ───── */
+.cotizacion { border-top: 1px solid var(--linea); padding-top: 16px; gap: 10px; }
+.cot-cabecera { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.cot-vigencia { font-size: 12px; color: var(--texto-suave); }
+.cot-miembros { display: flex; flex-direction: column; gap: 6px; }
+.cot-miembro { display: flex; align-items: center; gap: 8px; }
+.cot-miembro input[type="number"] { width: 80px; font: inherit; padding: 7px 9px; border: 1px solid var(--borde); border-radius: 8px; }
+.cot-miembro .boton-icono { width: 32px; height: 32px; font-size: 18px; margin-left: auto; }
+.cot-miembros > .boton-secundario { align-self: flex-start; }
+.cot-campanias { display: flex; flex-wrap: wrap; gap: 6px; }
+.cot-campanias .chip-filtro { font-size: 12px; padding: 6px 10px; }
+.carrusel { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; margin: 0 -4px; padding-inline: 4px; }
+.plan {
+  flex: 0 0 170px; scroll-snap-align: start; border: 1px solid var(--linea); border-radius: 12px; padding: 10px;
+  display: flex; flex-direction: column; gap: 4px; background: #fff;
+}
+.plan.elegido { border-color: var(--acento); background: #F0F8F6; }
+.plan-nombre { font-weight: 700; font-size: 15px; }
+.plan-desc { font-size: 12px; color: var(--texto-suave); line-height: 1.35; }
+.plan-lista { font-size: 12px; color: var(--texto-suave); text-decoration: line-through; margin-top: auto; }
+.plan-final { font-size: 17px; font-weight: 700; color: var(--acento); font-variant-numeric: tabular-nums; }
+.plan-final small { font-size: 11px; font-weight: 500; color: var(--texto-suave); }
+.plan .check { font-size: 13px; }
+.cotizacion > .boton-primario { min-height: 40px; }
+.campo-aumento { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--texto-suave); }
+.campo-aumento input { width: 70px; font: inherit; padding: 6px 8px; border: 1px solid var(--borde); border-radius: 8px; }
+.tabla-precios td, .tabla-precios th { text-align: right; font-variant-numeric: tabular-nums; }
+.tabla-precios td:first-child, .tabla-precios th:first-child { text-align: left; }
