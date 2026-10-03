@@ -34,7 +34,11 @@ Nunca commitear secretos.
 - `supabase/migrations/0001_esquema_inicial.sql`: esquema + RLS (solo perfiles activos ven datos).
   Se aplica a mano en el SQL Editor; las migraciones siguientes van numeradas en la misma carpeta.
 - Auth: email + contraseña (Supabase Auth). `proxy.js` (Next 16 = ex middleware) refresca la sesión y
-  manda a `/login`; excluye `/api/*`. `app/bandeja/page.js` es placeholder.
+  manda a `/login`; excluye `/api/*`.
+- Bandeja (`app/bandeja`): layout con riel + `ListaChats` (realtime, filtros, búsqueda); `[id]/` con
+  `Conversacion` (realtime de mensajes, modo IA/humano, ventana 24 h) y `Ficha` (edición del contacto y etiquetas).
+  Selects compartidos en `lib/consultas.js` (no exportar constantes desde archivos `use client`).
+- Demo: `npm run demo -- cargar | limpiar | simular <tel> "texto"` (teléfonos 54900000000xx). Borrar antes de producción.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.
 
