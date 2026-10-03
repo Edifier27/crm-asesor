@@ -7,7 +7,7 @@ import { SELECT_MENSAJE } from '@/lib/consultas';
 import Redactor from './Redactor';
 import Simulador from './Simulador';
 import Burbuja from '../../componentes/Burbuja';
-import { colorAvatar, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo, ventana } from '@/lib/formato';
+import { colorAvatar, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo, ultimoDelCliente, ventana } from '@/lib/formato';
 
 const ORIGENES = { swiss_medical: 'asignado por Swiss Medical', web: 'vía formulario', whatsapp: 'escribió por WhatsApp', manual: 'cargado a mano' };
 // La marca vence a los 2 minutos por si una ejecución se cortó sin limpiarla
@@ -61,6 +61,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
   }
 
   const v = ventana(expira);
+  const cliente = ultimoDelCliente(mensajes);
 
   return (
     <main className="conversacion">
@@ -73,6 +74,12 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
           <span className="conv-nombre">{nombreVisible(contacto)}</span>
           <span className="conv-detalle">{telefonoLindo(contacto.telefono)} · {ORIGENES[contacto.origen]}{contacto.origen_detalle ? ` (${contacto.origen_detalle})` : ''}</span>
         </div>
+        {cliente && (
+          <span className={`minutero ${cliente.nivel}`} title="Último mensaje del cliente">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+            <span>Último mensaje del cliente: <strong>{cliente.texto}</strong></span>
+          </span>
+        )}
         <span className={`ventana ${v.abierta ? 'abierta' : 'cerrada'}`}>{v.texto}</span>
         <label className="interruptor-ia">
           <input type="checkbox" checked={modo === 'ia'} onChange={(e) => cambiarModo(e.target.checked ? 'ia' : 'humano')} />

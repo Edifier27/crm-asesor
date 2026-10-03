@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { SELECT_MENSAJE } from '@/lib/consultas';
-import { colorAvatar, cuandoSeguimiento, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo } from '@/lib/formato';
+import { colorAvatar, cuandoSeguimiento, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo, ultimoDelCliente } from '@/lib/formato';
 import Burbuja from '../componentes/Burbuja';
 import Simulador from '../bandeja/[id]/Simulador';
 
@@ -18,6 +18,9 @@ export default function EnVivo({ conversacion, etapas, onEtapa, onCerrar }) {
   const { contacto } = conversacion;
   const [mensajes, setMensajes] = useState(null);
   const fondo = useRef(null);
+  const [, refrescarReloj] = useState(0);
+  useEffect(() => { const t = setInterval(() => refrescarReloj((n) => n + 1), 60_000); return () => clearInterval(t); }, []);
+  const cliente = mensajes ? ultimoDelCliente(mensajes) : null;
 
   useEffect(() => {
     let vivo = true;
@@ -84,6 +87,12 @@ export default function EnVivo({ conversacion, etapas, onEtapa, onCerrar }) {
           </select>
         </div>
 
+        {cliente && (
+          <div className={`minutero en-vivo-minutero ${cliente.nivel}`}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+            <span>Último mensaje del cliente: <strong>{cliente.texto}</strong></span>
+          </div>
+        )}
         {conversacion.seguimiento_at && (
           <div className={`en-vivo-paso${cuandoSeguimiento(conversacion.seguimiento_at).vencido ? ' vencido' : ''}`}>
             <strong>Próximo paso · {conversacion.seguimiento_responsable === 'asesor' ? 'vos' : 'IA'}:</strong> {cuandoSeguimiento(conversacion.seguimiento_at).texto}

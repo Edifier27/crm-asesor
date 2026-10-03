@@ -479,3 +479,11 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .cotizacion-lista { align-self: flex-start; font-size: 11px; font-weight: 700; color: #0B5A4E; background: #D5EEEA; padding: 3px 8px; border-radius: 999px; }
 .aviso-zona { margin: 0; font-size: 12px; color: #6B4E00; background: #FFF4D6; border-radius: 8px; padding: 8px 10px; line-height: 1.4; }
 .pp-aviso { font-size: 12px; color: #6B4E00; }
+
+/* Minutero: último mensaje del cliente */
+.minutero { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 5px 10px; border-radius: 999px; background: #F0F2F1; color: #3E4A47; }
+.minutero strong { font-weight: 700; font-variant-numeric: tabular-nums; }
+.minutero.atencion { background: #FFF1D6; color: #7A4B00; }
+.minutero.urgente { background: #FBE3E3; color: #8B1E1E; }
+.en-vivo-minutero { display: flex; margin: 10px 14px 0; border-radius: 10px; }
+@media (max-width: 760px) { .conv-cabecera .minutero { order: 11; flex-basis: 100%; justify-content: center; } }
