@@ -24,8 +24,15 @@ Ver `.env.example`. `WHATSAPP_VERIFY_TOKEN` ya está cargada en Vercel (producti
 Nunca commitear secretos.
 
 ## Estado actual
-- `app/api/whatsapp/route.js`: webhook (GET verificación, POST solo loguea).
-- `app/page.js`: página placeholder. `robots` bloquea indexación.
+- Repo: github.com/Edifier27/crm-asesor (privado). Push a `main` = deploy a producción en Vercel.
+- Supabase: proyecto `crm-asesor` (sifjydpsjtujhkmmllgf, São Paulo), org Edifier27's Org (Free).
+- `app/api/whatsapp/route.js`: webhook (GET verificación; POST valida `X-Hub-Signature-256` y solo loguea).
+- `supabase/migrations/0001_esquema_inicial.sql`: esquema + RLS (solo perfiles activos ven datos).
+  Se aplica a mano en el SQL Editor; las migraciones siguientes van numeradas en la misma carpeta.
+- Auth: email + contraseña (Supabase Auth). `proxy.js` (Next 16 = ex middleware) refresca la sesión y
+  manda a `/login`; excluye `/api/*`. `app/bandeja/page.js` es placeholder.
+- Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
+- `robots` bloquea indexación.
 
 ## MVP (orden sugerido)
 1. Login (Supabase Auth) y esquema de base: contactos/leads, conversaciones, mensajes, etiquetas,

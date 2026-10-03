@@ -1,3 +1,8 @@
+import { Figtree } from 'next/font/google';
+import './globals.css';
+
+const figtree = Figtree({ subsets: ['latin'], display: 'swap' });
+
 export const metadata = {
   title: 'CRM Asesor',
   robots: { index: false, follow: false }
@@ -6,7 +11,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="es">
-      <body style={{ margin: 0, fontFamily: 'system-ui, sans-serif', background: '#F4F5F4', color: '#1A2421' }}>{children}</body>
+      <body className={figtree.className}>{children}</body>
     </html>
   );
 }
