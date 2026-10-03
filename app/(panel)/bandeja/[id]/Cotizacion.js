@@ -105,16 +105,14 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
   function enviarCotizacion() {
     const planes = resultados.filter((r) => elegidos.includes(r.plan));
     if (!planes.length) return;
-    const nombre = contacto.nombre?.trim().split(/\s+/)[0];
+    // Solo el primer nombre (nunca nombre y apellido), con mayúscula inicial
+    const primero = contacto.nombre?.trim().split(/\s+/)[0];
+    const nombre = primero ? primero.charAt(0).toUpperCase() + primero.slice(1).toLowerCase() : null;
+    // Formato pedido por Darío: encabezado + una línea por plan, sin cierre ni "por mes"
     const texto = [
       `${nombre ? `${nombre}, te` : 'Te'} paso la cotización de Swiss Medical (${lista.vigencia}) para ${grupoTexto(validos)} en ${provincia ?? ZONA_ROTULO[zona]}:`,
       '',
-      ...planes.map((r) => `• Plan ${r.plan}: ${pesos(r.final)} por mes`),
-      '',
-      modalidad === 'derivacion'
-        ? 'Valores con derivación de aportes (ya descontado el aporte según el sueldo).'
-        : `Valores mensuales${campania !== 'individual50' ? ` con la promoción ${rotuloCampania(campania)}` : ''}.`,
-      '¿Querés que te cuente las diferencias entre los planes?'
+      ...planes.map((r) => `• Plan ${r.plan}: ${pesos(r.final)}`)
     ].join('\n');
     setAviso('');
     iniciar(async () => {
