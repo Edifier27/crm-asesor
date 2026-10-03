@@ -1,6 +1,9 @@
 // Webhook de WhatsApp Cloud API (Meta)
 // GET: verificacion del webhook. POST: recepcion de mensajes y estados.
 import crypto from 'node:crypto';
+import { after } from 'next/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { procesarEvento } from '@/lib/whatsapp/procesar';
 
 export const runtime = 'nodejs';
 
@@ -31,13 +34,36 @@ export async function POST(request) {
     console.warn('whatsapp_webhook_firma_invalida');
     return new Response('Unauthorized', { status: 401 });
   }
+  let body;
   try {
-    const body = JSON.parse(rawBody);
-    // Por ahora solo registramos lo que llega. Luego: guardar en Supabase y disparar la IA.
-    console.log('whatsapp_webhook', JSON.stringify(body));
-  } catch (e) {
-    console.error('whatsapp_webhook_error', e);
+    body = JSON.parse(rawBody);
+  } catch {
+    return new Response('Bad Request', { status: 400 });
   }
-  // Meta exige responder 200 rapido para no reintentar
+
+  // 1) Guardar el evento crudo ANTES de procesar. Si esto falla, devolvemos 500 y Meta reintenta.
+  const supabase = createAdminClient();
+  const { data: evento, error } = await supabase
+    .from('webhook_eventos')
+    .insert({ fuente: 'whatsapp', payload: body })
+    .select('id')
+    .single();
+  if (error) {
+    console.error('whatsapp_webhook_guardar', error);
+    return new Response('Error', { status: 500 });
+  }
+
+  // 2) Procesar después de responder: Meta exige un 200 rápido.
+  //    Si falla, queda el error en webhook_eventos para reprocesar (los mensajes son idempotentes).
+  after(async () => {
+    try {
+      await procesarEvento(body);
+      await supabase.from('webhook_eventos').update({ procesado_at: new Date().toISOString() }).eq('id', evento.id);
+    } catch (e) {
+      console.error('whatsapp_webhook_procesar', evento.id, e);
+      await supabase.from('webhook_eventos').update({ error: String(e.message ?? e) }).eq('id', evento.id);
+    }
+  });
+
   return new Response('OK', { status: 200 });
 }

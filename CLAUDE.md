@@ -26,7 +26,11 @@ Nunca commitear secretos.
 ## Estado actual
 - Repo: github.com/Edifier27/crm-asesor (privado). Push a `main` = deploy a producción en Vercel.
 - Supabase: proyecto `crm-asesor` (sifjydpsjtujhkmmllgf, São Paulo), org Edifier27's Org (Free).
-- `app/api/whatsapp/route.js`: webhook (GET verificación; POST valida `X-Hub-Signature-256` y solo loguea).
+- `app/api/whatsapp/route.js`: webhook. GET verificación; POST valida `X-Hub-Signature-256`, guarda el
+  evento crudo en `webhook_eventos` (si falla → 500 y Meta reintenta), responde 200 y procesa en `after()`
+  con `lib/whatsapp/procesar.js` → RPC `registrar_mensaje_entrante` / `actualizar_estado_mensaje`
+  (migración 0002; idempotentes por `wa_message_id`, el estado nunca retrocede).
+- `lib/supabase/admin.js`: cliente service role (solo servidor). En local la Secret key va a mano en `.env.local`.
 - `supabase/migrations/0001_esquema_inicial.sql`: esquema + RLS (solo perfiles activos ven datos).
   Se aplica a mano en el SQL Editor; las migraciones siguientes van numeradas en la misma carpeta.
 - Auth: email + contraseña (Supabase Auth). `proxy.js` (Next 16 = ex middleware) refresca la sesión y
