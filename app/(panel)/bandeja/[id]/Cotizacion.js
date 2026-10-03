@@ -2,7 +2,8 @@
 
 import { useMemo, useRef, useState, useTransition } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { CAMPANIAS, ZONAS, ZONA_ROTULO, cotizar, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
+import { CAMPANIAS, ZONA_ROTULO, cotizar, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
+import { PROVINCIAS, datosProvincia, provinciaDesdeTexto } from '@/lib/provincias';
 import { REGIONES, TIERS, cartillaDe, planPdf, regionSugerida, tierDePlan } from '@/lib/documentos';
 import { fechaCorta, hora } from '@/lib/formato';
 import { enviarDesdeBandeja, verDocumento } from './acciones';
@@ -32,15 +33,18 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
     const desde = miembrosDesdeRelevamiento(contacto.relevamiento?.integrantes);
     return desde.length ? desde : [{ edad: '', esHijo: false }];
   });
-  const [zona, setZona] = useState(contacto.zona ?? 'AMBA');
+  // La provincia manda: de ella salen la zona de precios y la región de la cartilla
+  const [provincia, setProvincia] = useState(() =>
+    contacto.relevamiento?.provincia ?? provinciaDesdeTexto(contacto.relevamiento?.localidad) ?? null);
+  const datosProv = datosProvincia(provincia);
+  const zona = datosProv?.zona ?? contacto.zona ?? 'AMBA';
   const [modalidad, setModalidad] = useState(guardada.modalidad ?? 'directo');
   const [campania, setCampania] = useState(guardada.campania ?? 'individual50');
   const [sueldos, setSueldos] = useState(guardada.sueldos ?? ['', '']);
   const [enviadas, setEnviadas] = useState(guardada.enviadas ?? []);   // historial de lo enviado al lead
   const [elegidos, setElegidos] = useState([]);
-  const [detalle, setDetalle] = useState(null);                         // plan desplegado abajo del carrusel
-  const [vista, setVista] = useState('cotizacion');                     // 'cotizacion' (discriminado) | 'docs' (plan y cartilla)
-  const [region, setRegion] = useState(() => regionSugerida(contacto.zona, contacto.relevamiento?.localidad));
+  const [desplegado, setDesplegado] = useState(null);                   // plan con el desglose abierto
+  const [planDocs, setPlanDocs] = useState(null);                       // plan elegido para enviar folleto y cartilla
   const [aviso, setAviso] = useState('');
   const [enviando, iniciar] = useTransition();
   const temporizador = useRef();
@@ -51,6 +55,8 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [lista, JSON.stringify(validos), zona, modalidad, campania, JSON.stringify(sueldos)]
   );
+  const region = regionSugerida(zona, contacto.relevamiento?.localidad, provincia);
+  const planDocsActivo = planDocs ?? resultados[0]?.plan ?? null;
 
   // Última vez que se envió cada plan (cotización o folleto)
   const ultimoEnvio = useMemo(() => {
@@ -65,15 +71,15 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
 
   // Guarda grupo, zona y parámetros en la ficha (agrupado para no escribir en cada tecla)
   function persistir(cambios) {
-    const sig = { miembros, zona, modalidad, campania, sueldos, enviadas, ...cambios };
+    const sig = { miembros, provincia, modalidad, campania, sueldos, enviadas, ...cambios };
     clearTimeout(temporizador.current);
     temporizador.current = setTimeout(async () => {
       const integrantes = sig.miembros.filter((m) => m.edad !== '').map((m, i) => ({
         parentesco: m.esHijo ? 'Hijo/a' : (i === 0 ? 'Titular' : 'Adulto'), edad: Number(m.edad)
       }));
       const campos = {
-        zona: sig.zona,
-        relevamiento: { ...(contacto.relevamiento ?? {}), integrantes, ...(cambios.zona ? { zona_confirmada: true } : {}) },
+        zona: datosProvincia(sig.provincia)?.zona ?? contacto.zona,
+        relevamiento: { ...(contacto.relevamiento ?? {}), integrantes, provincia: sig.provincia, ...(cambios.provincia ? { zona_confirmada: true } : {}) },
         cotizacion: cotizacionGuardada(sig)
       };
       const { error } = await supabase.from('contactos').update(campos).eq('id', contacto.id);
@@ -90,11 +96,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
     if (!error) onContacto(campos);
   }
 
-  const cambiar = (setter, clave) => (valor) => {
-    setter(valor);
-    persistir({ [clave]: valor });
-    if (clave === 'zona') setRegion(regionSugerida(valor, null));
-  };
+  const cambiar = (setter, clave) => (valor) => { setter(valor); persistir({ [clave]: valor }); };
   const setMiembro = (i, campos) => {
     const nuevos = miembros.map((m, j) => (j === i ? { ...m, ...campos } : m));
     setMiembros(nuevos); persistir({ miembros: nuevos });
@@ -105,7 +107,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
     if (!planes.length) return;
     const nombre = contacto.nombre?.trim().split(/\s+/)[0];
     const texto = [
-      `${nombre ? `${nombre}, te` : 'Te'} paso la cotización de Swiss Medical (${lista.vigencia}) para ${grupoTexto(validos)} en ${ZONA_ROTULO[zona]}:`,
+      `${nombre ? `${nombre}, te` : 'Te'} paso la cotización de Swiss Medical (${lista.vigencia}) para ${grupoTexto(validos)} en ${provincia ?? ZONA_ROTULO[zona]}:`,
       '',
       ...planes.map((r) => `• Plan ${r.plan}: ${pesos(r.final)} por mes`),
       '',
@@ -166,9 +168,9 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
     );
   }
 
-  const desglose = detalle ? detalleCotizacion(lista, { miembros: validos, zona, modalidad, campania, sueldos: sueldos.map(Number) }, detalle) : null;
-  const pdf = detalle ? planPdf(detalle) : null;
-  const cartilla = detalle ? cartillaDe(detalle, region) : null;
+  const desglose = desplegado ? detalleCotizacion(lista, { miembros: validos, zona, modalidad, campania, sueldos: sueldos.map(Number) }, desplegado) : null;
+  const pdf = planDocsActivo ? planPdf(planDocsActivo) : null;
+  const cartilla = planDocsActivo ? cartillaDe(planDocsActivo, region) : null;
 
   return (
     <div className="bloque cotizacion">
@@ -199,9 +201,10 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
       </div>
 
       <div className="campos-dobles">
-        <label className="campo"><span>Zona</span>
-          <select value={zona} onChange={(e) => cambiar(setZona, 'zona')(e.target.value)}>
-            {ZONAS.map((z) => <option key={z} value={z}>{ZONA_ROTULO[z]}</option>)}
+        <label className="campo"><span>Provincia</span>
+          <select value={provincia ?? ''} onChange={(e) => cambiar(setProvincia, 'provincia')(e.target.value || null)}>
+            {!provincia && <option value="">Elegí la provincia</option>}
+            {PROVINCIAS.map((p) => <option key={p.nombre} value={p.nombre}>{p.nombre}</option>)}
           </select>
         </label>
         <label className="campo"><span>Modalidad</span>
@@ -211,6 +214,10 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
           </select>
         </label>
       </div>
+      <p className="cot-derivado">
+        Precios <strong>{ZONA_ROTULO[zona]}</strong> · Cartilla <strong>{REGIONES[region]}</strong>
+        {!provincia && ' (elegí la provincia para confirmar)'}
+      </p>
       {modalidad === 'derivacion' && (
         <div className="campos-dobles">
           {[0, 1].map((i) => (
@@ -238,7 +245,8 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
           {resultados.map((r) => {
             const elegido = elegidos.includes(r.plan);
             return (
-              <article key={r.plan} className={`plan${elegido ? ' elegido' : ''}${detalle === r.plan ? ' con-detalle' : ''}`}>
+              <article key={r.plan} className={`plan${elegido ? ' elegido' : ''}${planDocsActivo === r.plan ? ' con-detalle' : ''}`}
+                onClick={(e) => { if (!e.target.closest('button, label, input')) setPlanDocs(r.plan); }}>
                 <span className="plan-nombre">{r.plan}</span>
                 {ultimoEnvio[r.plan] && <span className="plan-enviado">Enviado {cuando(ultimoEnvio[r.plan])}</span>}
                 {r.lista !== r.conDescuento && <span className="plan-lista">{pesos(r.lista)}</span>}
@@ -249,92 +257,45 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
                     onChange={(e) => setElegidos(e.target.checked ? [...elegidos, r.plan] : elegidos.filter((p) => p !== r.plan))} />
                   Incluir
                 </label>
-                <span className="plan-botones">
-                  {[['cotizacion', 'Ver cotización'], ['docs', 'Plan y cartilla']].map(([v, rotulo]) => (
-                    <button key={v} type="button" className={`plan-docs${detalle === r.plan && vista === v ? ' activo' : ''}`}
-                      aria-expanded={detalle === r.plan && vista === v}
-                      onClick={() => { const cerrar = detalle === r.plan && vista === v; setDetalle(cerrar ? null : r.plan); setVista(v); }}>
-                      {rotulo}
-                    </button>
-                  ))}
-                </span>
+                <button type="button" className={`plan-docs${desplegado === r.plan ? ' activo' : ''}`} aria-expanded={desplegado === r.plan}
+                  onClick={() => { setDesplegado(desplegado === r.plan ? null : r.plan); setPlanDocs(r.plan); }}>
+                  {desplegado === r.plan ? 'Ocultar cotización' : 'Ver cotización'}
+                </button>
               </article>
             );
           })}
         </div>
       )}
 
-      {detalle && (
-        <div className="docs-plan" aria-label={`Documentos del plan ${detalle}`}>
+      {desplegado && desglose && (
+        <div className="docs-plan desglose" aria-label={`Cotización del plan ${desplegado}`}>
           <div className="docs-cabecera">
-            <strong>Plan {detalle}</strong>
-            <button type="button" className="boton-icono" aria-label="Cerrar" onClick={() => setDetalle(null)}>×</button>
+            <strong>Cotización plan {desplegado}</strong>
+            <button type="button" className="boton-icono" aria-label="Cerrar" onClick={() => setDesplegado(null)}>×</button>
           </div>
-          <div className="docs-pestanias" role="tablist">
-            {[['cotizacion', 'Cotización'], ['docs', 'Plan y cartilla']].map(([v, r]) => (
-              <button key={v} type="button" role="tab" aria-selected={vista === v} className={`chip-filtro${vista === v ? ' activo' : ''}`} onClick={() => setVista(v)}>{r}</button>
+          <table>
+            <tbody>
+              {desglose.filas.map((fila, i) => (
+                <tr key={i}>
+                  <td>{fila.rotulo}</td>
+                  <td className="num">{pesos(fila.cuota)}</td>
+                  <td className="num desc">{fila.pct ? `−${Math.round(fila.pct * 100)}%` : ''}</td>
+                  <td className="num">{pesos(fila.neto)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <dl>
+            <div><dt>Cuota sin descuento</dt><dd>{pesos(desglose.lista)}</dd></div>
+            {desglose.descuentos > 0 && <div><dt>{campania === 'individual50' ? 'Descuento menores de 26' : `Descuentos (${rotuloCampania(campania)})`}</dt><dd>−{pesos(desglose.descuentos)}</dd></div>}
+            <div><dt>Cuota con descuento</dt><dd>{pesos(desglose.conDescuento)}</dd></div>
+            {desglose.aportes.map((a, i) => (
+              <div key={i}><dt>Aporte sueldo {pesos(a.sueldo)}</dt><dd>−{pesos(a.aporte)}</dd></div>
             ))}
-          </div>
-
-          {vista === 'cotizacion' && desglose && (
-            <div className="desglose">
-              <table>
-                <tbody>
-                  {desglose.filas.map((fila, i) => (
-                    <tr key={i}>
-                      <td>{fila.rotulo}</td>
-                      <td className="num">{pesos(fila.cuota)}</td>
-                      <td className="num desc">{fila.pct ? `−${Math.round(fila.pct * 100)}%` : ''}</td>
-                      <td className="num">{pesos(fila.neto)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <dl>
-                <div><dt>Cuota sin descuento</dt><dd>{pesos(desglose.lista)}</dd></div>
-                {desglose.descuentos > 0 && <div><dt>{campania === 'individual50' ? 'Descuento menores de 26' : `Descuentos (${rotuloCampania(campania)})`}</dt><dd>−{pesos(desglose.descuentos)}</dd></div>}
-                <div><dt>Cuota con descuento</dt><dd>{pesos(desglose.conDescuento)}</dd></div>
-                {desglose.aportes.map((a, i) => (
-                  <div key={i}><dt>Aporte sueldo {pesos(a.sueldo)}</dt><dd>−{pesos(a.aporte)}</dd></div>
-                ))}
-                <div className="total"><dt>{desglose.totalAportes > 0 ? 'A pagar (cuota − aportes)' : 'Total por mes'}</dt><dd>{pesos(desglose.final)}</dd></div>
-              </dl>
-              {desglose.aumento ? <span className="selector-detalle">Incluye aumento de {desglose.aumento}% sobre la lista.</span> : null}
-              <button type="button" className="boton-secundario" onClick={() => copiarDesglose(detalle, desglose)}>Copiar detalle</button>
-            </div>
-          )}
-
-          {vista === 'docs' && pdf && (
-            <div className="doc-fila">
-              <span className="doc-nombre">Folleto del plan (PDF)</span>
-              <button type="button" className="boton-secundario" onClick={() => ver(pdf.path)}>Ver</button>
-              <button type="button" className="boton-primario" disabled={enviando}
-                onClick={() => enviarDocumento(pdf, `Te paso el detalle del plan ${detalle} de Swiss Medical.`, { tipo: 'plan', plan: detalle })}>
-                Enviar plan
-              </button>
-            </div>
-          )}
-          {vista === 'docs' && (
-          <div className="doc-fila">
-            <span className="doc-nombre">
-              Cartilla {TIERS[tierDePlan(detalle)]}
-              <select value={region} onChange={(e) => setRegion(e.target.value)} aria-label="Región de la cartilla">
-                {Object.entries(REGIONES).map(([k, r]) => <option key={k} value={k}>{r}</option>)}
-              </select>
-            </span>
-            {cartilla ? (
-              <>
-                <button type="button" className="boton-secundario" onClick={() => ver(cartilla.path)}>Ver</button>
-                <button type="button" className="boton-primario" disabled={enviando}
-                  onClick={() => enviarDocumento(cartilla, `Cartilla de la zona ${REGIONES[region]} para el plan ${detalle}.`, { tipo: 'cartilla', plan: detalle, region, tier: cartilla.tier })}>
-                  Enviar cartilla
-                </button>
-              </>
-            ) : (
-              <span className="selector-detalle">Esta región no tiene cartilla {TIERS[tierDePlan(detalle)]} (S1 y SMG02 son solo AMBA).</span>
-            )}
-          </div>
-          )}
+            <div className="total"><dt>{desglose.totalAportes > 0 ? 'A pagar (cuota − aportes)' : 'Total por mes'}</dt><dd>{pesos(desglose.final)}</dd></div>
+          </dl>
+          {desglose.aumento ? <span className="selector-detalle">Incluye aumento de {desglose.aumento}% sobre la lista.</span> : null}
+          <button type="button" className="boton-secundario" onClick={() => copiarDesglose(desplegado, desglose)}>Copiar detalle</button>
         </div>
       )}
 
@@ -342,6 +303,36 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
       <button type="button" className="boton-primario" disabled={!elegidos.length || enviando} onClick={enviarCotizacion}>
         {enviando ? 'Enviando…' : elegidos.length ? `Enviar ${elegidos.length} plan${elegidos.length > 1 ? 'es' : ''} al lead` : 'Elegí planes para enviar'}
       </button>
+
+      {planDocsActivo && (
+        <div className="plan-cartilla" aria-label="Plan y cartilla">
+          <span className="bloque-titulo">Plan y cartilla · <strong>{planDocsActivo}</strong> <span className="pc-ayuda">(tocá otro plan para cambiar)</span></span>
+          {pdf && (
+            <div className="doc-fila">
+              <span className="doc-nombre">Folleto del plan {planDocsActivo}</span>
+              <button type="button" className="boton-secundario" onClick={() => ver(pdf.path)}>Ver</button>
+              <button type="button" className="boton-primario" disabled={enviando}
+                onClick={() => enviarDocumento(pdf, `Te paso el detalle del plan ${planDocsActivo} de Swiss Medical.`, { tipo: 'plan', plan: planDocsActivo })}>
+                Enviar plan
+              </button>
+            </div>
+          )}
+          <div className="doc-fila">
+            <span className="doc-nombre">Cartilla {TIERS[tierDePlan(planDocsActivo)]} · {REGIONES[region]}</span>
+            {cartilla ? (
+              <>
+                <button type="button" className="boton-secundario" onClick={() => ver(cartilla.path)}>Ver</button>
+                <button type="button" className="boton-primario" disabled={enviando}
+                  onClick={() => enviarDocumento(cartilla, `Cartilla de ${REGIONES[region]} para el plan ${planDocsActivo}.`, { tipo: 'cartilla', plan: planDocsActivo, region, tier: cartilla.tier })}>
+                  Enviar cartilla
+                </button>
+              </>
+            ) : (
+              <span className="selector-detalle">El {planDocsActivo} no se comercializa en esta provincia (S1 y SMG02 son solo AMBA).</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {enviadas.length > 0 && (
         <div className="historial-envios">

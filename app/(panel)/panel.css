@@ -524,3 +524,9 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .doc-enviado { display: flex; align-items: center; gap: 8px; background: #FFFFFF99; border-radius: 8px; padding: 8px; }
 .doc-enviado-texto { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; }
 .doc-enviado .boton-secundario { min-height: 30px; font-size: 12px; }
+.cot-derivado { margin: -4px 0 0; font-size: 12px; color: var(--texto-suave); }
+.cot-derivado strong { color: var(--texto); }
+.plan { cursor: pointer; }
+.plan-cartilla { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--linea); border-radius: 12px; padding: 12px; background: #fff; }
+.plan-cartilla .bloque-titulo strong { color: var(--acento); }
+.pc-ayuda { font-weight: 400; }
