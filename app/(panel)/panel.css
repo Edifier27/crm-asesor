@@ -537,3 +537,57 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .punto-rec { width: 10px; height: 10px; border-radius: 50%; background: #DC2626; animation: latido 1s infinite; }
 .girando { width: 18px; height: 18px; border: 2px solid #ffffff66; border-top-color: #fff; border-radius: 50%; animation: girar 0.8s linear infinite; }
 @keyframes girar { to { transform: rotate(360deg); } }
+
+/* ───── Respuestas, reacciones, tildes, deshacer, emojis ───── */
+.burbuja-envoltura { position: relative; display: flex; align-items: flex-start; gap: 4px; max-width: 100%; }
+.burbuja-envoltura.saliente { align-self: flex-end; flex-direction: row-reverse; }
+.burbuja-envoltura.entrante { align-self: flex-start; }
+.burbuja-envoltura .burbuja { max-width: min(560px, 78vw); }
+.burbuja-acciones { display: flex; align-items: center; gap: 2px; opacity: 0; transition: opacity 0.12s; position: relative; }
+.burbuja-envoltura:hover .burbuja-acciones, .burbuja-acciones.abierto, .burbuja-acciones:focus-within { opacity: 1; }
+@media (hover: none) { .burbuja-acciones { opacity: 1; } }
+.accion-mini {
+  width: 28px; height: 28px; border-radius: 50%; border: 0; background: #FFFFFFCC; color: #4A5753; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 1px 2px #00000022;
+}
+.accion-mini:hover { background: #fff; color: var(--acento); }
+.selector-reacciones {
+  position: absolute; bottom: calc(100% + 4px); display: flex; gap: 2px; background: #fff; border-radius: 999px;
+  padding: 4px 6px; box-shadow: 0 6px 18px #00000030; z-index: 4; white-space: nowrap;
+}
+.burbuja-envoltura.saliente .selector-reacciones { right: 0; }
+.burbuja-envoltura.entrante .selector-reacciones { left: 0; }
+.selector-reacciones button { border: 0; background: transparent; font-size: 20px; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; }
+.selector-reacciones button:hover, .selector-reacciones button.activa { background: #EDE8E0; }
+.reacciones {
+  align-self: flex-start; margin: 2px 0 -14px; display: inline-flex; gap: 2px; background: #fff; border-radius: 999px;
+  padding: 1px 6px; font-size: 13px; box-shadow: 0 1px 3px #00000026;
+}
+.burbuja:has(.reacciones) { margin-bottom: 12px; }
+.cita {
+  display: flex; flex-direction: column; gap: 1px; border-left: 4px solid var(--acento); background: #0000000D;
+  border-radius: 6px; padding: 5px 8px; font-size: 12.5px;
+}
+.cita strong { color: var(--acento); font-size: 12px; }
+.cita span { color: #3E4A47; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.burbuja.eliminada .burbuja-texto { color: var(--texto-suave); font-style: italic; }
+.aviso-eliminado { font-size: 12px; font-weight: 600; color: #8B1E1E; }
+.marca { font-style: italic; }
+.tildes { display: inline-flex; vertical-align: middle; margin-left: 4px; color: #8A9592; }
+.tildes.leido { color: #2B8FD6; }
+.tildes.fallo { color: #B91C1C; font-weight: 700; }
+.pendiente { display: flex; align-items: center; gap: 10px; padding: 8px 16px; background: #E9F5F1; font-size: 13px; }
+.pendiente > span:first-child { font-weight: 700; color: var(--acento); white-space: nowrap; }
+.pendiente-texto { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--texto-suave); }
+.respondiendo { display: flex; align-items: center; gap: 8px; margin: 8px 16px 0; padding: 8px 10px; background: #fff; border-left: 4px solid var(--acento); border-radius: 8px; }
+.respondiendo.corrigiendo { border-left-color: #B45309; }
+.respondiendo-cuerpo { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; }
+.respondiendo-cuerpo strong { color: var(--acento); font-size: 12px; }
+.respondiendo.corrigiendo strong { color: #B45309; }
+.respondiendo-cuerpo span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--texto-suave); }
+.respondiendo .boton-icono { width: 30px; height: 30px; font-size: 18px; }
+.selector-emojis { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 2px; max-width: 420px; }
+.selector-emojis button { border: 0; background: transparent; font-size: 22px; height: 40px; border-radius: 8px; cursor: pointer; }
+.selector-emojis button:hover { background: #F0F7F5; }
+.mensaje-fila { display: flex; flex-direction: column; }
+.pp-explicacion { margin: 0; font-size: 12px; color: var(--texto-suave); line-height: 1.45; }

@@ -117,6 +117,11 @@ export default function ProximoPaso({ conversacionId, contactoId, inicial, tempe
               </label>
             ))}
           </div>
+          <p className="pp-explicacion">
+            {borrador.responsable === 'ia'
+              ? 'Ese día la IA le escribe sola según el motivo. Si ya pasaron 24 h desde su último mensaje, le manda la plantilla aprobada que mejor encaje. Solo de lunes a viernes de 8 a 20.'
+              : 'Ese día te aparece en Mis chats (filtro "Para hoy") para que le escribas vos. No sale nada automático.'}
+          </p>
           <div className="acciones">
             <button type="button" className="boton-primario" disabled={!borrador.cuando}
               onClick={() => {

@@ -7,6 +7,7 @@ import { SELECT_MENSAJE } from '@/lib/consultas';
 import Redactor from './Redactor';
 import Simulador from './Simulador';
 import Burbuja from '../../componentes/Burbuja';
+import { reaccionar } from './acciones';
 import { colorAvatar, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo, ultimoDelCliente, ventana } from '@/lib/formato';
 
 const ORIGENES = { swiss_medical: 'asignado por Swiss Medical', web: 'vía formulario', whatsapp: 'escribió por WhatsApp', manual: 'cargado a mano' };
@@ -20,6 +21,9 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
   const [modo, setModo] = useState(conversacion.modo);
   const [expira, setExpira] = useState(conversacion.ventana_expira_at);
   const [pensando, setPensando] = useState(conversacion.ia_pensando_desde);
+  const [respondiendo, setRespondiendo] = useState(null);
+  const [corrigiendo, setCorrigiendo] = useState(null);
+  const [avisoAccion, setAvisoAccion] = useState('');
   const [, refrescarReloj] = useState(0);
   const fondo = useRef(null);
 
@@ -61,6 +65,15 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
   }
 
   const v = ventana(expira);
+  const porId = Object.fromEntries(mensajes.map((x) => [x.id, x]));
+  const acciones = {
+    onResponder: (m) => { setCorrigiendo(null); setRespondiendo(m); },
+    onCorregir: (m) => { setRespondiendo(null); setCorrigiendo(m); },
+    onReaccionar: async (m, emoji) => {
+      const r = await reaccionar(m.id, emoji);
+      setAvisoAccion(r.error ?? '');
+    }
+  };
   const cliente = ultimoDelCliente(mensajes);
 
   return (
@@ -93,7 +106,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
         {mensajes.map((m, i) => (
           <div key={m.id} className="mensaje-fila">
             {(i === 0 || !mismoDia(mensajes[i - 1].creado_at, m.creado_at)) && <div className="dia">{separadorDia(m.creado_at)}</div>}
-            <Burbuja m={m} />
+            <Burbuja m={m} citado={m.responde_a ? porId[m.responde_a] : null} acciones={v.abierta ? acciones : null} />
           </div>
         ))}
         {iaEscribiendo(pensando) && <div className="escribiendo"><span /><span /><span />Asesor IA está escribiendo…</div>}
@@ -111,7 +124,9 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
       </div>
 
       {contacto.telefono.startsWith('54900000000') && <Simulador conversacionId={conversacion.id} />}
-      <Redactor conversacion={conversacion} ventanaAbierta={v.abierta} audios={audios} plantillas={plantillas} modoPrueba={modoPrueba} />
+      {avisoAccion && <p className="aviso-error" role="alert">{avisoAccion}</p>}
+      <Redactor conversacion={conversacion} ventanaAbierta={v.abierta} audios={audios} plantillas={plantillas} modoPrueba={modoPrueba}
+        respondiendo={respondiendo} corrigiendo={corrigiendo} onLimpiar={() => { setRespondiendo(null); setCorrigiendo(null); }} />
     </main>
   );
 }
