@@ -572,7 +572,7 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .cita span { color: #3E4A47; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .burbuja.eliminada .burbuja-texto { color: var(--texto-suave); font-style: italic; }
 .aviso-eliminado { font-size: 12px; font-weight: 600; color: #8B1E1E; }
-.marca { font-style: italic; }
+.marca-msg { font-style: italic; }
 .tildes { display: inline-flex; vertical-align: middle; margin-left: 4px; color: #8A9592; }
 .tildes.leido { color: #2B8FD6; }
 .tildes.fallo { color: #B91C1C; font-weight: 700; }
@@ -591,3 +591,13 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .selector-emojis button:hover { background: #F0F7F5; }
 .mensaje-fila { display: flex; flex-direction: column; }
 .pp-explicacion { margin: 0; font-size: 12px; color: var(--texto-suave); line-height: 1.45; }
+
+/* Fondo de la conversación con dibujos (como WhatsApp, diseño propio) */
+.conversacion, .en-vivo-panel, .vacio {
+  --chat-fondo: #E4E0D9;
+  background-color: var(--chat-fondo);
+  background-image: url('/fondo-chat.svg');
+  background-size: 260px 260px;
+}
+.conversacion .mensajes { background: transparent; }
+.dia, .evento { background: #FFFFFFE6; box-shadow: 0 1px 1px #0000000f; }

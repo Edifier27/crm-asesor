@@ -107,8 +107,8 @@ export default function Burbuja({ m, citado, acciones }) {
         {m.tipo === 'audio' && !m.texto && !m.media_path && <span className="transcripcion">Transcripción pendiente</span>}
         {m.estado === 'fallido' && m.error && <span className="burbuja-error">{m.error}</span>}
         <span className="burbuja-hora">
-          {m.editado_at && <span className="marca" title={m.texto_original ? `Antes decía: ${m.texto_original}` : ''}>editado · </span>}
-          {m.corregido_por && <span className="marca">corregido · </span>}
+          {m.editado_at && <span className="marca-msg" title={m.texto_original ? `Antes decía: ${m.texto_original}` : ''}>editado · </span>}
+          {m.corregido_por && <span className="marca-msg">corregido · </span>}
           {hora(m.creado_at)}
           {saliente && m.estado && <Tildes estado={m.estado} />}
         </span>
