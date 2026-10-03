@@ -347,3 +347,11 @@
 .campo-aumento input { width: 70px; font: inherit; padding: 6px 8px; border: 1px solid var(--borde); border-radius: 8px; }
 .tabla-precios td, .tabla-precios th { text-align: right; font-variant-numeric: tabular-nums; }
 .tabla-precios td:first-child, .tabla-precios th:first-child { text-align: left; }
+
+/* Simulador de mensajes del lead (solo demo) */
+.simulador-abrir { align-self: center; margin: 0 0 6px; border: 1px dashed #B9A06A; background: #FFF9EA; color: #6B4E00; font: inherit; font-size: 12px; padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+.simulador { display: flex; flex-direction: column; gap: 6px; margin: 0 12px 8px; padding: 10px; border: 1px dashed #B9A06A; background: #FFF9EA; border-radius: 12px; }
+.simulador-titulo { font-size: 12px; font-weight: 700; color: #6B4E00; }
+.simulador-fila { display: flex; gap: 6px; align-items: center; }
+.simulador-fila input { flex: 1; min-width: 0; font: inherit; padding: 8px 10px; border: 1px solid var(--borde); border-radius: 8px; }
+.simulador-fila .boton-icono { width: 32px; height: 32px; font-size: 18px; }

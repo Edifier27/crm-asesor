@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { SELECT_MENSAJE } from '@/lib/consultas';
 import Redactor from './Redactor';
+import Simulador from './Simulador';
 import { colorAvatar, hora, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo, ventana } from '@/lib/formato';
 
 const ORIGENES = { swiss_medical: 'asignado por Swiss Medical', web: 'vía formulario', whatsapp: 'escribió por WhatsApp', manual: 'cargado a mano' };
@@ -145,6 +146,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
         <div ref={fondo} />
       </div>
 
+      {contacto.telefono.startsWith('54900000000') && <Simulador conversacionId={conversacion.id} />}
       <Redactor conversacion={conversacion} ventanaAbierta={v.abierta} audios={audios} plantillas={plantillas} modoPrueba={modoPrueba} />
     </main>
   );
