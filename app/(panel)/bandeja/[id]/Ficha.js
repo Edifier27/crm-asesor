@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { MOTIVOS_PERDIDA, colorEtiqueta, nombreVisible } from '@/lib/formato';
+import { COLORES_ETIQUETA, MOTIVOS_PERDIDA, colorEtiqueta, nombreVisible } from '@/lib/formato';
 import Cotizacion from './Cotizacion';
 import ProximoPaso from './ProximoPaso';
 
@@ -15,6 +15,7 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, abi
   const [catalogo, setCatalogo] = useState(todasEtiquetas);
   const [aviso, setAviso] = useState('');
   const [creando, setCreando] = useState(false);
+  const [colorNueva, setColorNueva] = useState(COLORES_ETIQUETA[0]);
   const [perdiendo, setPerdiendo] = useState(null); // etapa Perdido pendiente de motivo
 
   const avisar = (texto) => { setAviso(texto); setTimeout(() => setAviso(''), 2000); };
@@ -30,7 +31,7 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, abi
     // valor: id de una etiqueta existente, o el nombre de una nueva (si ya existe con ese nombre, se reutiliza)
     let etiqueta = catalogo.find((e) => String(e.id) === valor || e.nombre.toLowerCase() === valor.toLowerCase());
     if (!etiqueta) {
-      const { data, error } = await supabase.from('etiquetas').insert({ nombre: valor.trim(), color: '#3E4A47' }).select().single();
+      const { data, error } = await supabase.from('etiquetas').insert({ nombre: valor.trim(), color: colorNueva }).select().single();
       if (error) return avisar('No se pudo crear la etiqueta');
       etiqueta = data;
       setCatalogo((c) => [...c, data].sort((a, b) => a.nombre.localeCompare(b.nombre)));
@@ -62,7 +63,10 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, abi
       </div>
 
       <ProximoPaso conversacionId={conversacion.id} contactoId={contacto.id} temperaturaInicial={contacto.temperatura}
-        inicial={{ seguimiento_at: conversacion.seguimiento_at, seguimiento_motivo: conversacion.seguimiento_motivo, seguimiento_responsable: conversacion.seguimiento_responsable }} />
+        inicial={{
+          seguimiento_at: conversacion.seguimiento_at, seguimiento_motivo: conversacion.seguimiento_motivo, seguimiento_responsable: conversacion.seguimiento_responsable,
+          seguimiento_cadencia: conversacion.seguimiento_cadencia, seguimientos_sin_respuesta: conversacion.seguimientos_sin_respuesta
+        }} />
 
       <label className="campo">
         <span>Nombre</span>
@@ -131,6 +135,12 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, abi
             if (nombre) agregarEtiqueta(nombre);
             setCreando(false);
           }}>
+            <span className="etq-colores" role="radiogroup" aria-label="Color de la etiqueta">
+              {COLORES_ETIQUETA.slice(0, 8).map((c) => (
+                <button key={c} type="button" role="radio" aria-checked={colorNueva === c} aria-label={`Color ${c}`}
+                  className={`etq-color${colorNueva === c ? ' activo' : ''}`} style={{ background: c }} onClick={() => setColorNueva(c)} />
+              ))}
+            </span>
             <input name="etiqueta" autoFocus placeholder="Nombre de la etiqueta" aria-label="Nombre de la etiqueta nueva"
               onKeyDown={(ev) => ev.key === 'Escape' && setCreando(false)} />
             <button type="submit" className="boton-secundario">Crear</button>

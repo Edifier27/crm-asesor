@@ -612,3 +612,24 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .campo-pesos:focus-within { border-color: var(--acento); }
 .campo-pesos span { color: var(--texto-suave); font-weight: 600; }
 .campo-pesos input { border: 0 !important; padding: 8px 0 !important; outline: none; font-variant-numeric: tabular-nums; min-width: 0; width: 100%; }
+.pp-secuencia { font-size: 12px; color: var(--ia); font-weight: 600; padding: 0 2px; }
+.pp-secuencias { display: flex; flex-direction: column; gap: 6px; }
+.pp-decision { display: flex; flex-wrap: wrap; gap: 6px; } .pp-decision .boton-secundario { min-height: 32px; font-size: 12px; }
+
+/* Administrador de etiquetas */
+.chip-etiquetas { display: inline-flex; align-items: center; gap: 5px; border: 1px dashed #B8C4C0 !important; background: #fff !important; }
+.etq-nueva { align-self: flex-start; margin: 4px 0 8px; }
+.etq-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 55vh; overflow-y: auto; }
+.etq-lista li { display: flex; align-items: center; gap: 4px; }
+.etq-lista .boton-icono { width: 34px; height: 34px; font-size: 14px; }
+.etq-item { flex: 1; display: flex; align-items: center; gap: 10px; border: 0; background: transparent; font: inherit; color: inherit; padding: 10px 8px; border-radius: 8px; cursor: pointer; text-align: left; }
+.etq-item:hover { background: #F0F7F5; }
+.etq-punto { width: 14px; height: 14px; border-radius: 50%; flex: 0 0 auto; }
+.etq-nombre { flex: 1; font-weight: 600; }
+.etq-cantidad { font-size: 12px; color: var(--texto-suave); }
+.etq-form { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 8px; border: 1px solid var(--linea); border-radius: 10px; margin-bottom: 8px; }
+.etq-form input { font: inherit; padding: 8px 10px; border: 1px solid var(--borde); border-radius: 8px; }
+.etq-colores { display: flex; flex-wrap: wrap; gap: 6px; }
+.etq-color { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--borde); cursor: pointer; }
+.etq-color.activo { box-shadow: 0 0 0 2px var(--texto); }
+.agregar-etiqueta { flex-wrap: wrap; } .agregar-etiqueta .etq-colores { flex-basis: 100%; }

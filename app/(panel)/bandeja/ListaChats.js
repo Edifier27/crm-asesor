@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import NuevoLead from './NuevoLead';
+import GestorEtiquetas from './GestorEtiquetas';
 import { SELECT_LISTA } from '@/lib/consultas';
 import { TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible } from '@/lib/formato';
 
@@ -102,6 +103,7 @@ export default function ListaChats({ inicial, iaInicial }) {
           <Filtro valor="hoy">Para hoy{conteos.hoy ? ` ${conteos.hoy}` : ''}</Filtro>
           <Filtro valor="no_leidos">No leídos{conteos.noLeidos ? ` ${conteos.noLeidos}` : ''}</Filtro>
           {etiquetas.map((e) => <Filtro key={e.id} valor={`et:${e.id}`}>{e.nombre}</Filtro>)}
+          <GestorEtiquetas onFiltrar={(id) => setFiltro(`et:${id}`)} />
         </div>
       </div>
 
