@@ -5,8 +5,12 @@ import { usePathname } from 'next/navigation';
 
 const SECCIONES = [
   {
-    href: '/bandeja', nombre: 'Chats',
+    href: '/bandeja', nombre: 'Mis chats',
     icono: <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
+  },
+  {
+    href: '/embudo', nombre: 'Embudo',
+    icono: <><rect x="3" y="4" width="5" height="16" rx="1" /><rect x="10" y="4" width="5" height="11" rx="1" /><rect x="17" y="4" width="4" height="7" rx="1" /></>
   },
   {
     href: '/audios', nombre: 'Biblioteca de audios',

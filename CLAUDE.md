@@ -39,7 +39,9 @@ Nunca commitear secretos.
   `Conversacion` (realtime de mensajes, modo IA/humano, ventana 24 h) y `Ficha` (edición del contacto y etiquetas).
   Selects compartidos en `lib/consultas.js` (no exportar constantes desde archivos `use client`).
 - Demo: `npm run demo -- cargar | limpiar | simular <tel> "texto"` (teléfonos 54900000000xx). Borrar antes de producción.
-- Rutas del panel en `app/(panel)/` (riel compartido en el layout; en celular es barra inferior):
+- Rutas del panel en `app/(panel)/` (riel compartido en el layout; en celular es barra inferior).
+  `bandeja` = SOLO chats en modo humano/pausada ("Mis chats"); `embudo` = kanban de todos los leads por etapa
+  (drag & drop, realtime, panel en vivo `EnVivo` con indicador `conversaciones.ia_pensando_desde`).
   `bandeja` (chats), `audios` (biblioteca, bucket privado `audios`), `asesor` (config IA, conocimiento, costos).
 - Envío (`lib/whatsapp/enviar.js` + `meta.js`): texto, audio de biblioteca (link firmado) y plantillas (tabla
   `plantillas`, nombre/idioma = los aprobados en Meta). Sin WHATSAPP_TOKEN/PHONE_NUMBER_ID = MODO PRUEBA (no sale nada).

@@ -14,18 +14,24 @@ const resumenUltimo = (t) => (t ? SIN_TEXTO[t.match(/^\[(\w+)\]$/)?.[1]] ?? t : 
 
 const etiquetasDe =(c) => (c.contacto?.etiquetas ?? []).map((e) => e.etiqueta).filter(Boolean);
 
-export default function ListaChats({ inicial }) {
+// Bandeja = solo lo que tiene que atender el asesor (modo humano o pausada). Lo que atiende la IA vive en el Embudo.
+export default function ListaChats({ inicial, iaInicial }) {
   const supabase = createClient();
   const { id: activo } = useParams();
   const [conversaciones, setConversaciones] = useState(inicial);
+  const [enIA, setEnIA] = useState(iaInicial);
   const [filtro, setFiltro] = useState('todos');
   const [busqueda, setBusqueda] = useState('');
   const temporizador = useRef();
 
   const recargar = useCallback(async () => {
-    const { data } = await supabase.from('conversaciones').select(SELECT_LISTA)
-      .order('ultimo_mensaje_at', { ascending: false, nullsFirst: false }).limit(300);
+    const [{ data }, { count }] = await Promise.all([
+      supabase.from('conversaciones').select(SELECT_LISTA).neq('modo', 'ia')
+        .order('ultimo_mensaje_at', { ascending: false, nullsFirst: false }).limit(300),
+      supabase.from('conversaciones').select('id', { count: 'exact', head: true }).eq('modo', 'ia')
+    ]);
     if (data) setConversaciones(data);
+    if (count != null) setEnIA(count);
   }, [supabase]);
 
   // Tiempo real: varios cambios seguidos (mensaje + conversación) se agrupan en una sola recarga
@@ -43,9 +49,7 @@ export default function ListaChats({ inicial }) {
   }, [supabase, recargar]);
 
   const conteos = useMemo(() => ({
-    noLeidos: conversaciones.filter((c) => c.no_leidos > 0).length,
-    humano: conversaciones.filter((c) => c.modo === 'humano').length,
-    ia: conversaciones.filter((c) => c.modo === 'ia').length
+    noLeidos: conversaciones.filter((c) => c.no_leidos > 0).length
   }), [conversaciones]);
 
   // Etiquetas presentes en la lista, para filtrar
@@ -59,7 +63,6 @@ export default function ListaChats({ inicial }) {
     const q = busqueda.trim().toLowerCase();
     return conversaciones.filter((c) => {
       if (filtro === 'no_leidos' && !(c.no_leidos > 0)) return false;
-      if (filtro === 'humano' && c.modo !== 'humano') return false;
       if (filtro.startsWith('et:') && !etiquetasDe(c).some((e) => `et:${e.id}` === filtro)) return false;
       if (!q) return true;
       return [c.contacto?.nombre, c.contacto?.telefono, ...etiquetasDe(c).map((e) => e.nombre)]
@@ -78,9 +81,9 @@ export default function ListaChats({ inicial }) {
     <section className={`lista${activo ? ' con-chat' : ''}`} aria-label="Lista de chats">
       <div className="lista-cabecera">
         <div className="lista-titulo">
-          <h1>Chats</h1>
+          <h1>Mis chats</h1>
           <span className="lista-titulo-acciones">
-            <span className="pastilla-ia">IA atendiendo {conteos.ia}</span>
+            <Link href="/embudo" className="pastilla-ia" title="Ver en el Embudo">IA atendiendo {enIA}</Link>
             <NuevoLead />
           </span>
         </div>
@@ -92,7 +95,6 @@ export default function ListaChats({ inicial }) {
         <div className="filtros">
           <Filtro valor="todos">Todos</Filtro>
           <Filtro valor="no_leidos">No leídos{conteos.noLeidos ? ` ${conteos.noLeidos}` : ''}</Filtro>
-          <Filtro valor="humano">Me necesitan{conteos.humano ? ` ${conteos.humano}` : ''}</Filtro>
           {etiquetas.map((e) => <Filtro key={e.id} valor={`et:${e.id}`}>{e.nombre}</Filtro>)}
         </div>
       </div>
@@ -114,14 +116,13 @@ export default function ListaChats({ inicial }) {
                 <span className="chat-etiquetas">
                   {etiquetasDe(c).map((e) => <span key={e.id} className="etiqueta" style={colorEtiqueta(e.color)}>{e.nombre}</span>)}
                   {c.modo === 'ia' && <span className="etiqueta etiqueta-ia">IA</span>}
-                  {c.modo === 'humano' && <span className="etiqueta etiqueta-humano">Atendés vos</span>}
-                </span>
+                        </span>
               </span>
             </Link>
           </li>
         ))}
         {visibles.length === 0 && (
-          <li className="lista-vacia">{conversaciones.length ? 'Ningún chat coincide con el filtro.' : 'Todavía no hay conversaciones.'}</li>
+          <li className="lista-vacia">{conversaciones.length ? 'Ningún chat coincide con el filtro.' : <>No tenés chats para atender. La IA está atendiendo {enIA} en el <Link href="/embudo">Embudo</Link>.</>}</li>
         )}
       </ul>
     </section>

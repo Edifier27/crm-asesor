@@ -6,12 +6,15 @@ export const metadata = { title: 'Chats · CRM Asesor' };
 
 export default async function BandejaLayout({ children }) {
   const supabase = await createClient();
-  const { data: conversaciones } = await supabase.from('conversaciones').select(SELECT_LISTA)
-    .order('ultimo_mensaje_at', { ascending: false, nullsFirst: false }).limit(300);
+  const [{ data: conversaciones }, { count: enIA }] = await Promise.all([
+    supabase.from('conversaciones').select(SELECT_LISTA).neq('modo', 'ia')
+      .order('ultimo_mensaje_at', { ascending: false, nullsFirst: false }).limit(300),
+    supabase.from('conversaciones').select('id', { count: 'exact', head: true }).eq('modo', 'ia')
+  ]);
 
   return (
     <>
-      <ListaChats inicial={conversaciones ?? []} />
+      <ListaChats inicial={conversaciones ?? []} iaInicial={enIA ?? 0} />
       {children}
     </>
   );
