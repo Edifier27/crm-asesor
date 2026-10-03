@@ -14,7 +14,8 @@ export default function Tablero({ etapas, inicial }) {
   const supabase = createClient();
   const [conversaciones, setConversaciones] = useState(inicial);
   const [abierta, setAbierta] = useState(null);       // id de la conversación en el panel en vivo
-  const [modo, setModo] = useState('todos');          // todos | ia | humano
+  const [modo, setModo] = useState('todos');
+  const [temperaturaFiltro, setTemperaturaFiltro] = useState(null); // caliente | tibio | frio | null          // todos | ia | humano
   const [busqueda, setBusqueda] = useState('');
   const [actividad, setActividad] = useState({});     // conversacion_id → 'ia' | 'lead' (destello por mensaje nuevo)
   const [arrastrando, setArrastrando] = useState(null);
@@ -84,15 +85,19 @@ export default function Tablero({ etapas, inicial }) {
       if (modo === 'humano' && c.modo === 'ia') return false;
       if (modo === 'vencidos' && !cuandoSeguimiento(c.seguimiento_at)?.vencido) return false;
       if (modo === 'sin_paso' && (c.seguimiento_at || cerrada(c))) return false;
+      if (temperaturaFiltro && c.contacto?.temperatura !== temperaturaFiltro) return false;
       if (!q) return true;
       return [c.contacto?.nombre, c.contacto?.telefono, ...(c.contacto?.etiquetas ?? []).map((e) => e.etiqueta?.nombre)]
         .some((v) => v?.toLowerCase().includes(q));
     });
-  }, [conversaciones, modo, busqueda]);
+  }, [conversaciones, modo, busqueda, temperaturaFiltro]);
 
   const porEtapa = useMemo(() => {
     const mapa = Object.fromEntries(etapas.map((e) => [e.id, []]));
     for (const c of visibles) (mapa[c.contacto?.etapa_id] ?? mapa[etapas[0]?.id])?.push(c);
+    // Dentro de cada columna: calientes primero, después tibios, fríos y sin clasificar (orden estable)
+    const peso = { caliente: 0, tibio: 1, frio: 2 };
+    for (const lista of Object.values(mapa)) lista.sort((a, b) => (peso[a.contacto?.temperatura] ?? 3) - (peso[b.contacto?.temperatura] ?? 3));
     return mapa;
   }, [visibles, etapas]);
 
@@ -120,6 +125,14 @@ export default function Tablero({ etapas, inicial }) {
           {[['todos', 'Todos'], ['ia', 'Atiende la IA'], ['humano', 'Atendés vos'], ['vencidos', `Vencidos${vencidos ? ` ${vencidos}` : ''}`], ['sin_paso', 'Sin próximo paso']].map(([v, r]) => (
             <button key={v} type="button" className={`chip-filtro${modo === v ? ' activo' : ''}`} aria-pressed={modo === v} onClick={() => setModo(v)}>{r}</button>
           ))}
+          <span className="separador-filtros" aria-hidden="true" />
+          {Object.entries(TEMPERATURAS).map(([k, t]) => (
+            <button key={k} type="button" aria-pressed={temperaturaFiltro === k}
+              className={`chip-filtro chip-temp${temperaturaFiltro === k ? ' activo' : ''}`} style={{ '--temp': t.color }}
+              onClick={() => setTemperaturaFiltro(temperaturaFiltro === k ? null : k)}>
+              <span className="punto-temp" style={{ background: t.color }} />{t.rotulo}
+            </button>
+          ))}
         </div>
       </header>
 
@@ -140,6 +153,12 @@ export default function Tablero({ etapas, inicial }) {
               <span className="columna-datos">
                 {(porEtapa[etapa.id] ?? []).some((c) => c.contacto?.valor) && (
                   <span className="columna-valor" title="Suma de cuotas cotizadas">{pesosCorto((porEtapa[etapa.id] ?? []).reduce((s, c) => s + Number(c.contacto?.valor ?? 0), 0))}</span>
+                )}
+                {(porEtapa[etapa.id] ?? []).some((c) => c.contacto?.temperatura === 'caliente') && (
+                  <span className="columna-calientes" title="Calientes en esta etapa">
+                    <span className="punto-temp" style={{ background: TEMPERATURAS.caliente.color }} />
+                    {(porEtapa[etapa.id] ?? []).filter((c) => c.contacto?.temperatura === 'caliente').length}
+                  </span>
                 )}
                 <span className="columna-cantidad">{porEtapa[etapa.id]?.length ?? 0}</span>
               </span>

@@ -633,3 +633,9 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .etq-color { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--borde); cursor: pointer; }
 .etq-color.activo { box-shadow: 0 0 0 2px var(--texto); }
 .agregar-etiqueta { flex-wrap: wrap; } .agregar-etiqueta .etq-colores { flex-basis: 100%; }
+.separador-filtros { width: 1px; align-self: stretch; background: var(--linea); margin: 0 4px; }
+.chip-temp { display: inline-flex; align-items: center; }
+.chip-temp.activo { background: var(--temp) !important; }
+.chip-temp.activo .punto-temp { background: #fff !important; }
+.columna-calientes { display: inline-flex; align-items: center; font-size: 12px; font-weight: 700; color: #C2410C; }
+.columna-calientes .punto-temp { margin-right: 3px; }
