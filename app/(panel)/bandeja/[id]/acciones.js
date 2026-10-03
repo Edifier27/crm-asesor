@@ -6,6 +6,20 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { enviarMensaje } from '@/lib/whatsapp/enviar';
 import { responderComoAsesor } from '@/lib/ia/asesor';
+import { BUCKET_DOCUMENTOS, CARTILLAS_ARCHIVOS, PLANES_PDF } from '@/lib/documentos';
+
+// Solo se pueden ver/enviar los PDF del catálogo (planes y cartillas)
+const DOCUMENTOS_VALIDOS = new Set([...Object.values(PLANES_PDF).map((p) => p.path), ...CARTILLAS_ARCHIVOS.map((c) => c.path)]);
+
+// Link temporal (10 min) para abrir un plan o una cartilla desde la ficha
+export async function verDocumento(path) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  if (!DOCUMENTOS_VALIDOS.has(path)) return { error: 'Documento inválido.' };
+  const { data, error } = await createAdminClient().storage.from(BUCKET_DOCUMENTOS).createSignedUrl(path, 600);
+  return error ? { error: error.message } : { url: data.signedUrl };
+}
 
 const TELEFONO_DEMO = '54900000000';
 
@@ -39,7 +53,7 @@ export async function simularEntrante(conversacionId, texto) {
 
 // El asesor envía un mensaje desde la bandeja. Primero se valida con su sesión (RLS)
 // que pueda ver la conversación; el envío en sí usa la service role.
-export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId, plantillaId }) {
+export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId, plantillaId, documento }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
@@ -47,8 +61,10 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
   const { data: conv } = await supabase.from('conversaciones').select('id').eq('id', conversacionId).maybeSingle();
   if (!conv) return { error: 'No tenés acceso a esta conversación.' };
 
+  if (tipo === 'documento' && !DOCUMENTOS_VALIDOS.has(documento?.path)) return { error: 'Documento inválido.' };
+
   try {
-    const r = await enviarMensaje({ conversacionId, tipo, texto, audioId, plantillaId, autor: 'asesor', perfilId: user.id });
+    const r = await enviarMensaje({ conversacionId, tipo, texto, audioId, plantillaId, documento, autor: 'asesor', perfilId: user.id });
     return { ok: true, simulado: r.simulado };
   } catch (e) {
     return { error: e.message };

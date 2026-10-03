@@ -487,3 +487,40 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .minutero.urgente { background: #FBE3E3; color: #8B1E1E; }
 .en-vivo-minutero { display: flex; margin: 10px 14px 0; border-radius: 10px; }
 @media (max-width: 760px) { .conv-cabecera .minutero { order: 11; flex-basis: 100%; justify-content: center; } }
+
+/* ───── Carrusel compacto, desglose, plan y cartilla, historial ───── */
+.plan { flex-basis: 132px; gap: 6px; }
+.plan-nombre { font-size: 16px; }
+.plan-enviado { font-size: 11px; font-weight: 700; color: #0B5A4E; background: #D5EEEA; border-radius: 6px; padding: 2px 6px; align-self: flex-start; }
+.plan-botones { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+.plan-docs { font: inherit; font-size: 12px; font-weight: 600; color: var(--acento); background: #F0F7F5; border: 1px solid #CFE6E0; border-radius: 8px; padding: 5px 6px; cursor: pointer; }
+.plan-docs:hover, .plan-docs.activo { background: var(--acento); color: #fff; border-color: var(--acento); }
+.plan.con-detalle { border-color: var(--acento); }
+.docs-plan { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--acento); border-radius: 12px; padding: 12px; background: #FAFCFB; }
+.docs-cabecera { display: flex; justify-content: space-between; align-items: center; }
+.docs-cabecera .boton-icono { width: 30px; height: 30px; font-size: 18px; }
+.docs-pestanias { display: flex; gap: 6px; }
+.docs-pestanias .chip-filtro { font-size: 12px; padding: 5px 10px; }
+.desglose { display: flex; flex-direction: column; gap: 8px; }
+.desglose table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.desglose td { padding: 4px 2px; border-bottom: 1px solid var(--linea-suave); }
+.desglose td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.desglose td.desc { color: #B45309; font-weight: 600; }
+.desglose dl { margin: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.desglose dl div { display: flex; justify-content: space-between; gap: 8px; }
+.desglose dt { color: var(--texto-suave); }
+.desglose dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 600; }
+.desglose dl .total { border-top: 1px solid var(--borde); padding-top: 6px; margin-top: 2px; }
+.desglose dl .total dt, .desglose dl .total dd { color: var(--acento); font-weight: 700; font-size: 15px; }
+.desglose > .boton-secundario { align-self: flex-start; }
+.doc-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.doc-nombre { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+.doc-nombre select { font: inherit; font-size: 12px; font-weight: 400; padding: 4px 6px; border: 1px solid var(--borde); border-radius: 6px; background: #fff; }
+.doc-fila .boton-secundario, .doc-fila .boton-primario { min-height: 32px; font-size: 12px; }
+.historial-envios { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--linea); padding-top: 10px; }
+.historial-envios ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.historial-envios li { display: flex; flex-direction: column; gap: 1px; font-size: 13px; line-height: 1.35; }
+.historial-cuando { font-size: 11px; font-weight: 700; color: var(--texto-suave); }
+.doc-enviado { display: flex; align-items: center; gap: 8px; background: #FFFFFF99; border-radius: 8px; padding: 8px; }
+.doc-enviado-texto { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; }
+.doc-enviado .boton-secundario { min-height: 30px; font-size: 12px; }

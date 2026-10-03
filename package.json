@@ -5,7 +5,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "demo": "node scripts/demo.mjs"
+    "demo": "node scripts/demo.mjs",
+    "documentos": "node scripts/subir-documentos.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.131.0",

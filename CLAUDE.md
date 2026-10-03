@@ -63,6 +63,10 @@ Nunca commitear secretos.
 - Leads web/PrepagaYa: `/api/leads` acepta provincia (confiable), zona_detectada (IP, aproximada → la IA la confirma),
   edades/personas en texto (`integrantesDesdeTexto`), situacion_laboral, prepaga_interes. Con grupo+zona entra "Relevado"
   y la cotización aparece armada en la ficha ("Cotización lista" en el embudo). El envío lo hace el asesor.
+- Documentos: PDF de planes y cartillas en el bucket privado `documentos` (`lib/documentos.js` = reglas del index.html:
+  tier por plan, región por provincia). `npm run documentos -- "<carpeta del cotizador>"` los sube/actualiza. En la ficha:
+  "Ver cotización" (desglose por integrante, `detalleCotizacion`) y "Plan y cartilla" (ver/enviar PDF por WhatsApp).
+  Todo lo enviado queda en `contactos.cotizacion.enviadas` (historial en la ficha y "Enviado" en cada plan).
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.
