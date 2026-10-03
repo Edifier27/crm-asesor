@@ -220,8 +220,17 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
         <div className="campos-dobles">
           {[0, 1].map((i) => (
             <label key={i} className="campo"><span>Sueldo bruto {i + 1}</span>
-              <input type="number" inputMode="numeric" min="0" value={sueldos[i] ?? ''} placeholder="$"
-                onChange={(e) => { const s = [...sueldos]; s[i] = e.target.value; setSueldos(s); persistir({ sueldos: s }); }} />
+              {/* Con separador de miles mientras se escribe ($ 1.000.000) para no confundir un millón con cien mil */}
+              <span className="campo-pesos">
+                <span aria-hidden="true">$</span>
+                <input type="text" inputMode="numeric" placeholder="0"
+                  value={sueldos[i] ? Number(sueldos[i]).toLocaleString('es-AR') : ''}
+                  onChange={(e) => {
+                    const s = [...sueldos];
+                    s[i] = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setSueldos(s); persistir({ sueldos: s });
+                  }} />
+              </span>
             </label>
           ))}
         </div>

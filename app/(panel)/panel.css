@@ -608,3 +608,7 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .columnas.paneando * { user-select: none; }
 .columna-cabecera { user-select: none; }
 @media (hover: none) { .columnas { cursor: auto; } }
+.campo-pesos { display: flex; align-items: center; gap: 6px; border: 1px solid var(--borde); border-radius: 8px; padding: 0 10px; background: #fff; }
+.campo-pesos:focus-within { border-color: var(--acento); }
+.campo-pesos span { color: var(--texto-suave); font-weight: 600; }
+.campo-pesos input { border: 0 !important; padding: 8px 0 !important; outline: none; font-variant-numeric: tabular-nums; min-width: 0; width: 100%; }
