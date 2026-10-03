@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react';
 import { enviarDesdeBandeja } from './acciones';
+import Grabador from './Grabador';
 
 export default function Redactor({ conversacion, ventanaAbierta, audios, plantillas, modoPrueba }) {
   const [texto, setTexto] = useState('');
@@ -79,9 +80,15 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarTexto(); } }} />
         </label>
-        <button type="button" className="boton-enviar" disabled={!ventanaAbierta || enviando || !texto.trim()} onClick={enviarTexto} aria-label="Enviar">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4z" /></svg>
-        </button>
+        {/* Como en WhatsApp: con texto, enviar; sin texto, grabar audio */}
+        {texto.trim() ? (
+          <button type="button" className="boton-enviar" disabled={!ventanaAbierta || enviando} onClick={enviarTexto} aria-label="Enviar">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4z" /></svg>
+          </button>
+        ) : (
+          <Grabador deshabilitado={!ventanaAbierta || enviando} onError={setError}
+            onListo={(grabacion) => enviar({ tipo: 'grabacion', grabacion })} />
+        )}
       </div>
     </footer>
   );

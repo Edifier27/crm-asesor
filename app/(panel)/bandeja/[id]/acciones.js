@@ -53,7 +53,7 @@ export async function simularEntrante(conversacionId, texto) {
 
 // El asesor envía un mensaje desde la bandeja. Primero se valida con su sesión (RLS)
 // que pueda ver la conversación; el envío en sí usa la service role.
-export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId, plantillaId, documento }) {
+export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId, plantillaId, documento, grabacion }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
@@ -62,9 +62,14 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
   if (!conv) return { error: 'No tenés acceso a esta conversación.' };
 
   if (tipo === 'documento' && !DOCUMENTOS_VALIDOS.has(documento?.path)) return { error: 'Documento inválido.' };
+  // Audio grabado desde la bandeja: tiene que estar en la carpeta de grabaciones del bucket "audios"
+  if (tipo === 'grabacion' && !/^grabaciones\/[0-9a-f-]{36}\.(ogg|m4a)$/.test(grabacion?.path ?? '')) return { error: 'Audio inválido.' };
 
   try {
-    const r = await enviarMensaje({ conversacionId, tipo, texto, audioId, plantillaId, documento, autor: 'asesor', perfilId: user.id });
+    const r = await enviarMensaje({
+      conversacionId, tipo: tipo === 'grabacion' ? 'audio' : tipo, texto, audioId, plantillaId, documento, grabacion,
+      autor: 'asesor', perfilId: user.id
+    });
     return { ok: true, simulado: r.simulado };
   } catch (e) {
     return { error: e.message };

@@ -530,3 +530,10 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .plan-cartilla { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--linea); border-radius: 12px; padding: 12px; background: #fff; }
 .plan-cartilla .bloque-titulo strong { color: var(--acento); }
 .pc-ayuda { font-weight: 400; }
+
+/* Grabación de audio en el redactor */
+.grabando { display: flex; align-items: center; gap: 8px; }
+.grabando-tiempo { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-variant-numeric: tabular-nums; color: #B91C1C; min-width: 64px; }
+.punto-rec { width: 10px; height: 10px; border-radius: 50%; background: #DC2626; animation: latido 1s infinite; }
+.girando { width: 18px; height: 18px; border: 2px solid #ffffff66; border-top-color: #fff; border-radius: 50%; animation: girar 0.8s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
