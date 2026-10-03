@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { COLORES_ETIQUETA, MOTIVOS_PERDIDA, colorEtiqueta, nombreVisible } from '@/lib/formato';
 import Cotizacion from './Cotizacion';
 import ProximoPaso from './ProximoPaso';
+import Venta from './Venta';
 
 const ORIGENES = { swiss_medical: 'Swiss Medical', web: 'Web', whatsapp: 'WhatsApp', manual: 'Manual' };
 
@@ -67,6 +68,9 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, abi
           seguimiento_at: conversacion.seguimiento_at, seguimiento_motivo: conversacion.seguimiento_motivo, seguimiento_responsable: conversacion.seguimiento_responsable,
           seguimiento_cadencia: conversacion.seguimiento_cadencia, seguimientos_sin_respuesta: conversacion.seguimientos_sin_respuesta
         }} />
+
+      <Venta conversacionId={conversacion.id} contacto={contacto} etapas={etapas}
+        onCambio={(campos) => setContacto((c) => ({ ...c, ...campos }))} />
 
       <label className="campo">
         <span>Nombre</span>

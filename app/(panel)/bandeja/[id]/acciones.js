@@ -8,6 +8,9 @@ import { enviarMensaje } from '@/lib/whatsapp/enviar';
 import { enviarReaccion } from '@/lib/whatsapp/meta';
 import { responderComoAsesor } from '@/lib/ia/asesor';
 import { BUCKET_DOCUMENTOS, CARTILLAS_ARCHIVOS, PLANES_PDF } from '@/lib/documentos';
+import { linkBienvenida, mensajeCobro } from '@/lib/venta';
+import { enHorasHabiles } from '@/lib/horario';
+import { ventana } from '@/lib/formato';
 
 // Solo se pueden ver/enviar los PDF del catálogo (planes y cartillas)
 const DOCUMENTOS_VALIDOS = new Set([...Object.values(PLANES_PDF).map((p) => p.path), ...CARTILLAS_ARCHIVOS.map((c) => c.path)]);
@@ -47,6 +50,7 @@ export async function simularEntrante(conversacionId, texto) {
     p_payload: { simulado: true }
   });
   if (error) return { error: error.message };
+  await admin.from('conversaciones').update({ modo: 'humano' }).eq('id', conversacionId).eq('modo', 'pausada');
 
   after(() => responderComoAsesor(conversacionId, mensajeId).catch((e) => console.error('asesor_ia_sim', e)));
   return { ok: true };
@@ -126,4 +130,96 @@ export async function corregirMensaje(mensajeId, textoNuevo) {
   } catch (e) {
     return { error: e.message };
   }
+}
+
+// ───────────── Venta y cobro ─────────────
+async function contextoVenta(conversacionId) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  const { data: conv } = await supabase.from('conversaciones')
+    .select('id, ventana_expira_at, contacto:contactos(id, nombre, venta)').eq('id', conversacionId).maybeSingle();
+  if (!conv) return { error: 'No tenés acceso a esta conversación.' };
+  const { data: etapas } = await supabase.from('etapas').select('id, nombre');
+  const etapa = (n) => etapas?.find((e) => e.nombre === n)?.id;
+  return { user, conv, etapa, admin: createAdminClient() };
+}
+
+// Venta hecha: desregulado → Ganado; directo → Falta de cobro con el link de pago programado a las 48 h
+export async function registrarVenta(conversacionId, { tipo, plan, monto, dni, precarga }) {
+  const ctx = await contextoVenta(conversacionId);
+  if (ctx.error) return ctx;
+  const { conv, etapa, admin } = ctx;
+  // DNI y precarga son opcionales al vender: se cargan cuando se manda el link
+  const link = tipo === 'directo' ? linkBienvenida(dni, precarga) : null;
+
+  const venta = {
+    tipo, plan: plan || null, monto: Number(monto) || null, fecha: new Date().toISOString(),
+    ...(tipo === 'directo' && link ? { dni: String(dni).replace(/\D/g, ''), precarga: String(precarga).replace(/\D/g, ''), link_pago: link } : {})
+  };
+  const etapaId = etapa(tipo === 'directo' ? 'Falta de cobro' : 'Ganado');
+  await admin.from('contactos').update({ venta, etapa_id: etapaId, ...(venta.monto ? { valor: venta.monto } : {}), ...(plan ? { plan_cotizado: plan } : {}) }).eq('id', conv.contacto.id);
+  await admin.from('conversaciones').update(tipo === 'directo'
+    ? { modo: 'ia', seguimiento_responsable: 'ia', seguimiento_at: enHorasHabiles(48).toISOString(),
+        seguimiento_motivo: 'Cobro: a las 48 h hábiles pasa a tu bandeja para mandar el link', seguimiento_cadencia: null, seguimientos_sin_respuesta: 0 }
+    : { modo: 'pausada', seguimiento_at: null, seguimiento_motivo: null, seguimiento_cadencia: null }).eq('id', conv.id);
+  await admin.from('mensajes').insert({
+    conversacion_id: conv.id, direccion: 'saliente', autor: 'sistema', tipo: 'texto', estado: 'enviado',
+    texto: tipo === 'directo' ? `Venta directa${plan ? ` (${plan})` : ''}: pasa a Falta de cobro. A las 48 h hábiles te aparece en Mis chats para mandarle el link de pago.` : `Venta desregulada${plan ? ` (${plan})` : ''}: ganada.`
+  });
+  return { ok: true, etapaId, venta };
+}
+
+// "Enviar link" ahora (sin esperar las 48 h). Después siguen los recordatorios.
+export async function enviarLinkPago(conversacionId, { dni, precarga } = {}) {
+  const ctx = await contextoVenta(conversacionId);
+  if (ctx.error) return ctx;
+  const { conv, admin, user } = ctx;
+  const link = linkBienvenida(dni ?? conv.contacto.venta?.dni, precarga ?? conv.contacto.venta?.precarga);
+  if (!link) return { error: 'Revisá el DNI y el N° de precarga.' };
+  conv.contacto.venta = { ...conv.contacto.venta, dni: String(dni ?? conv.contacto.venta?.dni).replace(/\D/g, ''), precarga: String(precarga ?? conv.contacto.venta?.precarga).replace(/\D/g, ''), link_pago: link };
+  const nombre = conv.contacto.nombre?.trim().split(/\s+/)[0] ?? null;
+  try {
+    if (ventana(conv.ventana_expira_at).abierta) {
+      await enviarMensaje({ conversacionId, tipo: 'texto', texto: mensajeCobro(nombre, link, 1), autor: 'asesor', perfilId: user.id });
+    } else {
+      const { data: plantilla } = await admin.from('plantillas').select('id').eq('nombre', 'link_pago').eq('activa', true).maybeSingle();
+      if (!plantilla) return { error: 'La ventana de 24 h está cerrada y no hay plantilla "link_pago" activa.' };
+      await enviarMensaje({ conversacionId, tipo: 'plantilla', plantillaId: plantilla.id, parametrosExtra: [link], autor: 'asesor', perfilId: user.id });
+    }
+  } catch (e) {
+    return { error: e.message };
+  }
+  // Sale de la bandeja; si en 48 h hábiles no se marcó "Pagó ✓", vuelve para recordarle el pago (a mano)
+  await admin.from('conversaciones').update({
+    modo: 'ia', seguimiento_responsable: 'ia', seguimiento_cadencia: null,
+    seguimiento_at: enHorasHabiles(48).toISOString(), seguimiento_motivo: 'Cobro: si no pagó, vuelve a tu bandeja para recordarle'
+  }).eq('id', conversacionId);
+  const venta = { ...conv.contacto.venta, link_enviado_at: new Date().toISOString() };
+  await admin.from('contactos').update({ venta }).eq('id', conv.contacto.id);
+  return { ok: true, venta };
+}
+
+// Corregir DNI / N° de precarga después de la venta
+export async function actualizarDatosCobro(conversacionId, { dni, precarga }) {
+  const ctx = await contextoVenta(conversacionId);
+  if (ctx.error) return ctx;
+  const link = linkBienvenida(dni, precarga);
+  if (!link) return { error: 'Revisá el DNI y el N° de precarga.' };
+  const venta = { ...ctx.conv.contacto.venta, dni: String(dni).replace(/\D/g, ''), precarga: String(precarga).replace(/\D/g, ''), link_pago: link };
+  await ctx.admin.from('contactos').update({ venta }).eq('id', ctx.conv.contacto.id);
+  return { ok: true, venta };
+}
+
+// Cierre del cobro: pagó → Ganado; no pagó → Perdido (motivo "No abonó")
+export async function cerrarCobro(conversacionId, pago) {
+  const ctx = await contextoVenta(conversacionId);
+  if (ctx.error) return ctx;
+  const { conv, etapa, admin } = ctx;
+  const venta = { ...conv.contacto.venta, ...(pago ? { pagado_at: new Date().toISOString() } : { baja_at: new Date().toISOString() }) };
+  const etapaId = etapa(pago ? 'Ganado' : 'Perdido');
+  await admin.from('contactos').update({ venta, etapa_id: etapaId, ...(pago ? {} : { motivo_perdida: 'no_abono' }) }).eq('id', conv.contacto.id);
+  await admin.from('conversaciones').update({ modo: 'pausada', seguimiento_at: null, seguimiento_motivo: null, seguimiento_cadencia: null, seguimiento_responsable: 'ia' }).eq('id', conv.id);
+  await admin.from('mensajes').insert({ conversacion_id: conv.id, direccion: 'saliente', autor: 'sistema', tipo: 'texto', estado: 'enviado', texto: pago ? 'Pagó la primera cuota: venta ganada.' : 'No abonó: venta perdida.' });
+  return { ok: true, etapaId, venta };
 }

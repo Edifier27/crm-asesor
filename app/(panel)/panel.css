@@ -639,3 +639,14 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .chip-temp.activo .punto-temp { background: #fff !important; }
 .columna-calientes { display: inline-flex; align-items: center; font-size: 12px; font-weight: 700; color: #C2410C; }
 .columna-calientes .punto-temp { margin-right: 3px; }
+
+/* Venta y cobro */
+.venta { border: 1px solid var(--linea); border-radius: 12px; padding: 12px; background: #fff; }
+.venta.cobro { background: #FFF6EE; border-color: #F3C9A3; }
+.venta.ganada { background: #EEF8F1; border-color: #BFE3CB; }
+.boton-venta { width: 100%; min-height: 40px; }
+.venta-form { display: flex; flex-direction: column; gap: 10px; }
+.link-pago { font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.link-pago a { color: var(--acento); font-weight: 700; }
+.boton-link-texto { border: 0; background: transparent; color: var(--acento); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; padding: 0; }
+.boton-secundario.exito { color: #15803D; border-color: #BFE3CB; }

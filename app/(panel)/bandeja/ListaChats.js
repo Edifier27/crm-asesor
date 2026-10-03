@@ -18,7 +18,7 @@ const urgencia = (c) => (pasoMio(c)?.hoy ? 0 : c.no_leidos > 0 ? 1 : 2);
 
 const etiquetasDe = (c) => (c.contacto?.etiquetas ?? []).map((e) => e.etiqueta).filter(Boolean);
 
-// Bandeja = solo lo que tiene que atender el asesor (modo humano o pausada). Lo que atiende la IA vive en el Embudo.
+// Bandeja = solo lo que tiene que atender el asesor (modo humano). "pausada" = archivada (venta cerrada). Lo que atiende la IA vive en el Embudo.
 export default function ListaChats({ inicial, iaInicial }) {
   const supabase = createClient();
   const { id: activo } = useParams();
@@ -30,7 +30,7 @@ export default function ListaChats({ inicial, iaInicial }) {
 
   const recargar = useCallback(async () => {
     const [{ data }, { count }] = await Promise.all([
-      supabase.from('conversaciones').select(SELECT_LISTA).neq('modo', 'ia')
+      supabase.from('conversaciones').select(SELECT_LISTA).eq('modo', 'humano')
         .order('ultimo_mensaje_at', { ascending: false, nullsFirst: false }).limit(300),
       supabase.from('conversaciones').select('id', { count: 'exact', head: true }).eq('modo', 'ia')
     ]);

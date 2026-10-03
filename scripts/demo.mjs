@@ -33,7 +33,7 @@ const haceMin = (min) => new Date(Date.now() - min * 60_000).toISOString();
 // [autor, minutos atrás, texto, extra]
 const DEMO = [
   {
-    nombre: 'Lucía Fernández', provincia: 'CABA', temperatura: 'caliente', seguimiento: [-1, 'Pasarle la cotización del SMG20', 'asesor'], origen: 'web', origen_detalle: 'Formulario familias', etapa: 'Para cotizar', modo: 'humano',
+    nombre: 'Lucía Fernández', provincia: 'CABA', temperatura: 'caliente', seguimiento: [-1, 'Pasarle la cotización del SMG20', 'asesor'], origen: 'web', origen_detalle: 'Formulario familias', etapa: 'Datos completos', modo: 'humano',
     etiquetas: ['Familia', 'Monotributista', 'Caliente'], zona: 'AMBA',
     relevamiento: { integrantes: [{ parentesco: 'Titular', edad: 34 }, { parentesco: 'Pareja', edad: 36 }, { parentesco: 'Hijo', edad: 3 }], situacion: 'Monotributo + relación de dependencia' },
     resumen: 'Familia en CABA (pareja + hijo de 3). Ella monotributista, él en relación de dependencia: pueden sumar aportes. Pregunta por la cobertura del hijo. Lista para cotizar.',
@@ -56,7 +56,7 @@ const DEMO = [
     ]
   },
   {
-    nombre: 'Carla Ruiz', provincia: 'GBA (zona AMBA)', temperatura: 'tibio', seguimiento: [26, 'Preguntar si lo habló con la pareja', 'ia'], origen: 'web', origen_detalle: 'Landing individual', etapa: 'Relevado', modo: 'ia',
+    nombre: 'Carla Ruiz', provincia: 'GBA (zona AMBA)', temperatura: 'tibio', seguimiento: [26, 'Preguntar si lo habló con la pareja', 'ia'], origen: 'web', origen_detalle: 'Landing individual', etapa: 'Datos completos', modo: 'ia',
     etiquetas: ['Seguimiento'], zona: 'AMBA',
     relevamiento: { integrantes: [{ parentesco: 'Titular', edad: 29 }, { parentesco: 'Pareja', edad: 31 }] },
     mensajes: [

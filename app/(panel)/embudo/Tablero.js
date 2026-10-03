@@ -82,7 +82,7 @@ export default function Tablero({ etapas, inicial }) {
     const q = busqueda.trim().toLowerCase();
     return conversaciones.filter((c) => {
       if (modo === 'ia' && c.modo !== 'ia') return false;
-      if (modo === 'humano' && c.modo === 'ia') return false;
+      if (modo === 'humano' && c.modo !== 'humano') return false;
       if (modo === 'vencidos' && !cuandoSeguimiento(c.seguimiento_at)?.vencido) return false;
       if (modo === 'sin_paso' && (c.seguimiento_at || cerrada(c))) return false;
       if (temperaturaFiltro && c.contacto?.temperatura !== temperaturaFiltro) return false;
@@ -171,7 +171,7 @@ export default function Tablero({ etapas, inicial }) {
                 // Con grupo (edades) y zona el cotizador ya tiene precio: el asesor solo tiene que enviarlo
                 const etapaNombre = etapas.find((e) => e.id === c.contacto?.etapa_id)?.nombre;
                 const cotizable = Boolean(c.contacto?.zona) && (c.contacto?.relevamiento?.integrantes ?? []).some((i) => Number.isFinite(Number(i.edad)) && i.edad !== null)
-                  && !['Cotizado', 'Ganado', 'Perdido'].includes(etapaNombre);
+                  && !['Cotizado', 'Por cerrar', 'Falta de cobro', 'Ganado', 'Perdido'].includes(etapaNombre);
                 return (
                   <button key={c.id} type="button" draggable
                     className={`tarjeta-lead${abierta === c.id ? ' abierta' : ''}${actividad[c.id] ? ` destello-${actividad[c.id]}` : ''}${arrastrando === c.id ? ' arrastrada' : ''}`}
@@ -201,9 +201,9 @@ export default function Tablero({ etapas, inicial }) {
                     )}
                     {c.contacto?.valor > 0 && <span className="tarjeta-valor">{pesosCorto(c.contacto.valor)}/mes{c.contacto.plan_cotizado ? ` · ${c.contacto.plan_cotizado}` : ''}</span>}
                     <span className="chat-etiquetas">
-                      {c.modo === 'ia'
-                        ? <span className="etiqueta etiqueta-ia">IA</span>
-                        : <span className="etiqueta etiqueta-humano">Atendés vos</span>}
+                      {c.modo === 'ia' && <span className="etiqueta etiqueta-ia">IA</span>}
+                      {c.modo === 'humano' && <span className="etiqueta etiqueta-humano">Atendés vos</span>}
+                      {c.modo === 'pausada' && <span className="etiqueta">Cerrado</span>}
                       {(c.contacto?.etiquetas ?? []).map((e) => e.etiqueta).filter(Boolean).slice(0, 3)
                         .map((e) => <span key={e.id} className="etiqueta" style={colorEtiqueta(e.color)}>{e.nombre}</span>)}
                       {c.no_leidos > 0 && <span className="contador">{c.no_leidos}</span>}
