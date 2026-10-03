@@ -29,3 +29,7 @@ insert into public.plantillas (nombre, categoria, cuerpo, uso) values
    'Hola {{1}}, ya está dada de alta tu cobertura de Swiss Medical. Para activarla te falta abonar la primera cuota en este link: {{2}}',
    'Cobro: enviar o recordar el link de pago de la primera cuota')
 on conflict (nombre) do nothing;
+
+-- 4) Referidos: si el primer mensaje nombra a un asesor o dice que le pasaron el número, la IA no responde
+alter table public.asesor_config add column nombres_asesores text[] not null default '{Darío,Dario,Gabriela,Gaby}';
+insert into public.etiquetas (nombre, color) values ('Referido', '#15803D') on conflict (nombre) do nothing;
