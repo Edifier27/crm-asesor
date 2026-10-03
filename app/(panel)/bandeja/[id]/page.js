@@ -8,13 +8,15 @@ export default async function ChatPage({ params }) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: conversacion } = await supabase
+  const { data: conversacion, error } = await supabase
     .from('conversaciones')
     .select(`id, modo, ventana_expira_at, resumen_ia,
       contacto:contactos(id, nombre, telefono, email, zona, origen, origen_detalle, etapa_id, relevamiento, notas, cotizacion,
         etiquetas:contacto_etiquetas(etiqueta:etiquetas(id, nombre, color)))`)
     .eq('id', id)
     .maybeSingle();
+  // Un error de base (ej.: falta aplicar una migración) no es "chat inexistente": que se vea
+  if (error) throw new Error(`No se pudo cargar la conversación: ${error.message}`);
   if (!conversacion) notFound();
 
   const [{ data: mensajes }, { data: etapas }, { data: etiquetas }, { data: audios }, { data: plantillas }, { data: lista }] = await Promise.all([
