@@ -10,8 +10,8 @@ export default async function ChatPage({ params }) {
 
   const { data: conversacion, error } = await supabase
     .from('conversaciones')
-    .select(`id, modo, ventana_expira_at, resumen_ia, ia_pensando_desde,
-      contacto:contactos(id, nombre, telefono, email, zona, origen, origen_detalle, etapa_id, relevamiento, notas, cotizacion,
+    .select(`id, modo, ventana_expira_at, resumen_ia, ia_pensando_desde, seguimiento_at, seguimiento_motivo, seguimiento_responsable,
+      contacto:contactos(id, nombre, telefono, email, zona, origen, origen_detalle, etapa_id, relevamiento, notas, cotizacion, temperatura, valor, plan_cotizado, motivo_perdida,
         etiquetas:contacto_etiquetas(etiqueta:etiquetas(id, nombre, color)))`)
     .eq('id', id)
     .maybeSingle();

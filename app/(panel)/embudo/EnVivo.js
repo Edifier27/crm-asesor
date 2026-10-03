@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { SELECT_MENSAJE } from '@/lib/consultas';
-import { colorAvatar, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo } from '@/lib/formato';
+import { colorAvatar, cuandoSeguimiento, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo } from '@/lib/formato';
 import Burbuja from '../componentes/Burbuja';
 import Simulador from '../bandeja/[id]/Simulador';
 
@@ -84,6 +84,12 @@ export default function EnVivo({ conversacion, etapas, onEtapa, onCerrar }) {
           </select>
         </div>
 
+        {conversacion.seguimiento_at && (
+          <div className={`en-vivo-paso${cuandoSeguimiento(conversacion.seguimiento_at).vencido ? ' vencido' : ''}`}>
+            <strong>Próximo paso · {conversacion.seguimiento_responsable === 'asesor' ? 'vos' : 'IA'}:</strong> {cuandoSeguimiento(conversacion.seguimiento_at).texto}
+            {conversacion.seguimiento_motivo ? ` — ${conversacion.seguimiento_motivo}` : ''}
+          </div>
+        )}
         {conversacion.resumen_ia && conversacion.modo !== 'ia' && (
           <div className="resumen en-vivo-resumen"><span className="bloque-titulo">Resumen de la IA</span><p>{conversacion.resumen_ia}</p></div>
         )}

@@ -1,0 +1,142 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { TEMPERATURAS, cuandoSeguimiento } from '@/lib/formato';
+import { ajustarAHorarioHabil } from '@/lib/horario';
+
+// Atajos de un toque (hora local del navegador)
+function enHoras(h) { return new Date(Date.now() + h * 3_600_000); }
+function aLas10(diasMas) { const d = new Date(); d.setDate(d.getDate() + diasMas); d.setHours(10, 0, 0, 0); return d; }
+function proximoLunes() { const d = new Date(); d.setDate(d.getDate() + (((8 - d.getDay()) % 7) || 7)); d.setHours(10, 0, 0, 0); return d; }
+const ATAJOS = [['En 2 h', () => enHoras(2)], ['Mañana', () => aLas10(1)], ['En 3 días', () => aLas10(3)], ['Lunes', proximoLunes]];
+
+const aInputLocal = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+
+/**
+ * Próximo paso del lead: cuándo, qué y quién (IA o el asesor) + temperatura.
+ * Lo completa la IA sola; acá el asesor lo ve y lo pisa con un toque.
+ */
+export default function ProximoPaso({ conversacionId, contactoId, inicial, temperaturaInicial }) {
+  const supabase = createClient();
+  const [paso, setPaso] = useState(inicial);              // { seguimiento_at, seguimiento_motivo, seguimiento_responsable }
+  const [temperatura, setTemperatura] = useState(temperaturaInicial);
+  const [editando, setEditando] = useState(false);
+  const [borrador, setBorrador] = useState(null);
+  const [, refrescar] = useState(0);
+  const [aviso, setAviso] = useState('');
+
+  // En vivo: la IA puede reprogramar mientras la ficha está abierta
+  useEffect(() => {
+    const canal = supabase.channel(`paso-${conversacionId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversaciones', filter: `id=eq.${conversacionId}` },
+        ({ new: f }) => setPaso({ seguimiento_at: f.seguimiento_at, seguimiento_motivo: f.seguimiento_motivo, seguimiento_responsable: f.seguimiento_responsable }))
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'contactos', filter: `id=eq.${contactoId}` },
+        ({ new: f }) => setTemperatura(f.temperatura))
+      .subscribe();
+    const reloj = setInterval(() => refrescar((n) => n + 1), 60_000);
+    return () => { supabase.removeChannel(canal); clearInterval(reloj); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversacionId, contactoId]);
+
+  function abrirEditor() {
+    setBorrador({
+      cuando: paso.seguimiento_at ? aInputLocal(new Date(paso.seguimiento_at)) : aInputLocal(aLas10(1)),
+      motivo: paso.seguimiento_motivo ?? '',
+      responsable: paso.seguimiento_responsable ?? 'ia'
+    });
+    setEditando(true);
+  }
+
+  // Quién lo hace define también quién atiende: "la IA" → modo IA; "yo" → entra a Mis chats
+  async function guardar(cambios) {
+    const nuevo = { ...paso, ...cambios };
+    setPaso(nuevo); setEditando(false);
+    await supabase.from('conversaciones').update({
+      ...cambios,
+      ...(cambios.seguimiento_responsable ? { modo: cambios.seguimiento_responsable === 'ia' ? 'ia' : 'humano' } : {}),
+      ...(cambios.seguimiento_at ? { seguimientos_sin_respuesta: 0 } : {})
+    }).eq('id', conversacionId);
+  }
+
+  async function cambiarTemperatura(t) {
+    const valor = temperatura === t ? null : t;
+    setTemperatura(valor);
+    await supabase.from('contactos').update({ temperatura: valor }).eq('id', contactoId);
+  }
+
+  const cuando = cuandoSeguimiento(paso.seguimiento_at);
+  const esIA = paso.seguimiento_responsable !== 'asesor';
+
+  return (
+    <div className={`proximo-paso${cuando?.vencido ? ' vencido' : ''}`}>
+      <div className="pp-cabecera">
+        <span className="bloque-titulo">Próximo paso</span>
+        <div className="pp-temperaturas" role="group" aria-label="Temperatura del lead">
+          {Object.entries(TEMPERATURAS).map(([k, t]) => (
+            <button key={k} type="button" aria-pressed={temperatura === k} title={t.rotulo}
+              className={`pp-temp${temperatura === k ? ' activa' : ''}`} style={{ '--temp': t.color }} onClick={() => cambiarTemperatura(k)}>
+              <span className="punto" />{t.rotulo}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!editando && (
+        cuando ? (
+          <button type="button" className="pp-resumen" onClick={abrirEditor}>
+            <span className={`pp-quien ${esIA ? 'ia' : 'yo'}`}>{esIA ? 'IA' : 'Vos'}</span>
+            <span className="pp-texto">
+              <strong>{cuando.texto}</strong>
+              <span>{paso.seguimiento_motivo ?? 'Seguimiento'}</span>
+            </span>
+            <span className="pp-editar">Cambiar</span>
+          </button>
+        ) : (
+          <button type="button" className="pp-vacio" onClick={abrirEditor}>Sin próximo paso · <strong>Programar</strong></button>
+        )
+      )}
+
+      {aviso && !editando && <span className="pp-aviso">{aviso}</span>}
+
+      {editando && borrador && (
+        <div className="pp-editor">
+          <div className="pp-atajos">
+            {ATAJOS.map(([r, f]) => (
+              <button key={r} type="button" className="chip-filtro" onClick={() => setBorrador({ ...borrador, cuando: aInputLocal(f()) })}>{r}</button>
+            ))}
+          </div>
+          <input type="datetime-local" value={borrador.cuando} onChange={(e) => setBorrador({ ...borrador, cuando: e.target.value })} aria-label="Fecha y hora" />
+          <input value={borrador.motivo} maxLength={200} placeholder="¿Qué hay que hacer? Ej.: preguntar si lo habló con la pareja"
+            onChange={(e) => setBorrador({ ...borrador, motivo: e.target.value })} aria-label="Motivo" />
+          <div className="pp-responsable" role="radiogroup" aria-label="Quién lo hace">
+            {[['ia', 'Lo hace la IA'], ['asesor', 'Lo hago yo']].map(([v, r]) => (
+              <label key={v} className={`chip-filtro${borrador.responsable === v ? ' activo' : ''}`}>
+                <input type="radio" name="responsable" value={v} checked={borrador.responsable === v} className="oculto"
+                  onChange={() => setBorrador({ ...borrador, responsable: v })} />{r}
+              </label>
+            ))}
+          </div>
+          <div className="acciones">
+            <button type="button" className="boton-primario" disabled={!borrador.cuando}
+              onClick={() => {
+                // Lun-vie 8-20: lo que cae fuera de horario se corre solo (ej.: sábado → lunes)
+                const { fecha, movida } = ajustarAHorarioHabil(new Date(borrador.cuando));
+                setAviso(movida ? `Fuera de horario: se programó para ${cuandoSeguimiento(fecha.toISOString())?.texto}.` : '');
+                guardar({
+                seguimiento_at: fecha.toISOString(),
+                seguimiento_motivo: borrador.motivo.trim() || null,
+                seguimiento_responsable: borrador.responsable
+              });
+              }}>Guardar</button>
+            <button type="button" className="boton-secundario" onClick={() => setEditando(false)}>Cancelar</button>
+            {paso.seguimiento_at && (
+              <button type="button" className="boton-secundario peligro"
+                onClick={() => guardar({ seguimiento_at: null, seguimiento_motivo: null })}>Quitar</button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

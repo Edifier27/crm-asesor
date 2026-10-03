@@ -45,7 +45,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
       }));
       const campos = {
         zona: sig.zona,
-        relevamiento: { ...(contacto.relevamiento ?? {}), integrantes },
+        relevamiento: { ...(contacto.relevamiento ?? {}), integrantes, ...(cambios.zona ? { zona_confirmada: true } : {}) },
         cotizacion: { modalidad: sig.modalidad, campania: sig.campania, sueldos: sig.sueldos }
       };
       const { error } = await supabase.from('contactos').update(campos).eq('id', contacto.id);
@@ -78,7 +78,16 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
     iniciar(async () => {
       const r = await enviarDesdeBandeja(conversacionId, { tipo: 'texto', texto });
       setAviso(r.error ?? 'Cotización enviada');
-      if (!r.error) setElegidos([]);
+      if (r.error) return;
+      setElegidos([]);
+      // El plan más económico enviado queda como valor del lead y el lead avanza a "Cotizado" (nunca retrocede)
+      const { data: etapas } = await supabase.from('etapas').select('id, nombre, orden');
+      const cotizado = etapas?.find((e) => e.nombre === 'Cotizado');
+      const actual = etapas?.find((e) => e.id === contacto.etapa_id);
+      const campos = { valor: planes[0].final, plan_cotizado: planes[0].plan };
+      if (cotizado && (!actual || (actual.orden < cotizado.orden && actual.nombre !== 'Perdido'))) campos.etapa_id = cotizado.id;
+      const { error } = await supabase.from('contactos').update(campos).eq('id', contacto.id);
+      if (!error) onContacto(campos);
     });
   }
 
@@ -97,6 +106,12 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
         <span className="bloque-titulo">Cotización automática</span>
         <span className="cot-vigencia">Precios {lista.vigencia}</span>
       </div>
+
+      {contacto.relevamiento?.zona_confirmada === false && (
+        <p className="aviso-zona">
+          Zona aproximada por la web{contacto.relevamiento.localidad ? ` (${contacto.relevamiento.localidad})` : ''}. Confirmala antes de enviar: si la cambiás acá, queda confirmada.
+        </p>
+      )}
 
       <div className="cot-miembros">
         {miembros.map((m, i) => (

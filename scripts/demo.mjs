@@ -33,7 +33,7 @@ const haceMin = (min) => new Date(Date.now() - min * 60_000).toISOString();
 // [autor, minutos atrás, texto, extra]
 const DEMO = [
   {
-    nombre: 'Lucía Fernández', origen: 'web', origen_detalle: 'Formulario familias', etapa: 'Para cotizar', modo: 'humano',
+    nombre: 'Lucía Fernández', temperatura: 'caliente', seguimiento: [-1, 'Pasarle la cotización del SMG20', 'asesor'], origen: 'web', origen_detalle: 'Formulario familias', etapa: 'Para cotizar', modo: 'humano',
     etiquetas: ['Familia', 'Monotributista', 'Caliente'], zona: 'AMBA',
     relevamiento: { integrantes: [{ parentesco: 'Titular', edad: 34 }, { parentesco: 'Pareja', edad: 36 }, { parentesco: 'Hijo', edad: 3 }], situacion: 'Monotributo + relación de dependencia' },
     resumen: 'Familia en CABA (pareja + hijo de 3). Ella monotributista, él en relación de dependencia: pueden sumar aportes. Pregunta por la cobertura del hijo. Lista para cotizar.',
@@ -48,7 +48,7 @@ const DEMO = [
     ]
   },
   {
-    nombre: 'Martín Gómez', origen: 'swiss_medical', origen_detalle: 'Asignación SMG', etapa: 'En conversación', modo: 'ia',
+    nombre: 'Martín Gómez', temperatura: 'tibio', seguimiento: [3, 'Pedirle que escriba lo que dijo en el audio', 'ia'], origen: 'swiss_medical', origen_detalle: 'Asignación SMG', etapa: 'En conversación', modo: 'ia',
     etiquetas: ['Monotributista', 'Individual'], zona: 'AMBA',
     mensajes: [
       ['ia', 60, 'Hola Martín, soy tu asesor de Swiss Medical. ¿Buscás un plan individual o para tu grupo familiar?', { tipo: 'plantilla', plantilla: 'bienvenida_smg', estado: 'leido' }],
@@ -56,7 +56,7 @@ const DEMO = [
     ]
   },
   {
-    nombre: 'Carla Ruiz', origen: 'web', origen_detalle: 'Landing individual', etapa: 'Relevado', modo: 'ia',
+    nombre: 'Carla Ruiz', temperatura: 'tibio', seguimiento: [26, 'Preguntar si lo habló con la pareja', 'ia'], origen: 'web', origen_detalle: 'Landing individual', etapa: 'Relevado', modo: 'ia',
     etiquetas: ['Seguimiento'], zona: 'AMBA',
     relevamiento: { integrantes: [{ parentesco: 'Titular', edad: 29 }, { parentesco: 'Pareja', edad: 31 }] },
     mensajes: [
@@ -68,7 +68,7 @@ const DEMO = [
     ]
   },
   {
-    nombre: 'Valeria Méndez', origen: 'whatsapp', etapa: 'Cotizado', modo: 'humano',
+    nombre: 'Valeria Méndez', temperatura: 'caliente', valor: 520000, plan: 'SMG20', seguimiento: [20, 'Confirmar si avanza con el SMG20', 'asesor'], origen: 'whatsapp', etapa: 'Cotizado', modo: 'humano',
     etiquetas: ['Individual'], zona: 'CORDOBA',
     mensajes: [
       ['contacto', 1600, 'Hola, ¿cuánto sale un plan para mí sola? Tengo 41'],
@@ -83,7 +83,7 @@ const DEMO = [
     ]
   },
   {
-    nombre: 'Jorge Paz', origen: 'web', origen_detalle: 'Formulario interior', etapa: 'En conversación', modo: 'ia',
+    nombre: 'Jorge Paz', temperatura: 'frio', seguimiento: [50, 'Reactivar con plantilla', 'ia'], origen: 'web', origen_detalle: 'Formulario interior', etapa: 'En conversación', modo: 'ia',
     etiquetas: ['Interior', 'Frío'], zona: 'INTERIOR', ventanaCerrada: true,
     mensajes: [
       ['contacto', 4400, '¿Tienen cobertura en Córdoba?'],
@@ -102,7 +102,7 @@ async function cargar() {
     const telefono = `${PREFIJO}${String(i + 1).padStart(2, '0')}`;
     const [contacto] = await rest('contactos', {
       method: 'POST',
-      body: { telefono, nombre: d.nombre, origen: d.origen, origen_detalle: d.origen_detalle ?? null, etapa_id: idEtapa[d.etapa], zona: d.zona, relevamiento: d.relevamiento ?? {} }
+      body: { telefono, nombre: d.nombre, temperatura: d.temperatura ?? null, valor: d.valor ?? null, plan_cotizado: d.plan ?? null, origen: d.origen, origen_detalle: d.origen_detalle ?? null, etapa_id: idEtapa[d.etapa], zona: d.zona, relevamiento: d.relevamiento ?? {} }
     });
     const ids = d.etiquetas.map((n) => idEtiqueta[n]).filter(Boolean);
     if (ids.length) await rest('contacto_etiquetas', { method: 'POST', body: ids.map((etiqueta_id) => ({ contacto_id: contacto.id, etiqueta_id })) });
@@ -114,6 +114,7 @@ async function cargar() {
       method: 'POST',
       body: {
         contacto_id: contacto.id, modo: d.modo, resumen_ia: d.resumen ?? null, no_leidos: noLeidos,
+        ...(d.seguimiento ? { seguimiento_at: new Date(Date.now() + d.seguimiento[0] * 3_600_000).toISOString(), seguimiento_motivo: d.seguimiento[1], seguimiento_responsable: d.seguimiento[2] } : {}),
         ultimo_mensaje_at: haceMin(ultimo[1]),
         ultimo_mensaje_texto: ultimo[2] ?? `[${ultimo[3]?.tipo ?? 'texto'}]`,
         ventana_expira_at: ultimoEntrante && !d.ventanaCerrada ? new Date(Date.now() - ultimoEntrante[1] * 60_000 + 86_400_000).toISOString() : null

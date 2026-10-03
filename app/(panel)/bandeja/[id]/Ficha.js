@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { colorEtiqueta, nombreVisible } from '@/lib/formato';
+import { MOTIVOS_PERDIDA, colorEtiqueta, nombreVisible } from '@/lib/formato';
 import Cotizacion from './Cotizacion';
+import ProximoPaso from './ProximoPaso';
 
 const ORIGENES = { swiss_medical: 'Swiss Medical', web: 'Web', whatsapp: 'WhatsApp', manual: 'Manual' };
 
@@ -14,6 +15,7 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, abi
   const [catalogo, setCatalogo] = useState(todasEtiquetas);
   const [aviso, setAviso] = useState('');
   const [creando, setCreando] = useState(false);
+  const [perdiendo, setPerdiendo] = useState(null); // etapa Perdido pendiente de motivo
 
   const avisar = (texto) => { setAviso(texto); setTimeout(() => setAviso(''), 2000); };
 
@@ -59,6 +61,9 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, abi
         </button>
       </div>
 
+      <ProximoPaso conversacionId={conversacion.id} contactoId={contacto.id} temperaturaInicial={contacto.temperatura}
+        inicial={{ seguimiento_at: conversacion.seguimiento_at, seguimiento_motivo: conversacion.seguimiento_motivo, seguimiento_responsable: conversacion.seguimiento_responsable }} />
+
       <label className="campo">
         <span>Nombre</span>
         <input defaultValue={contacto.nombre ?? ''} placeholder={nombreVisible(contacto)}
@@ -73,9 +78,33 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, abi
               style={{ background: etapaActual && etapaActual.nombre !== 'Perdido' && e.orden <= etapaActual.orden ? etapaActual.color : '#DDE2E0' }} />
           ))}
         </div>
-        <select value={contacto.etapa_id ?? ''} onChange={(e) => guardar({ etapa_id: Number(e.target.value) })} aria-label="Etapa del embudo">
+        <select value={perdiendo ?? contacto.etapa_id ?? ''} aria-label="Etapa del embudo"
+          onChange={(e) => {
+            const id = Number(e.target.value);
+            // Pasar a Perdido pide el motivo (sirve para el reporte de pérdidas)
+            if (etapas.find((x) => x.id === id)?.nombre === 'Perdido') setPerdiendo(id);
+            else { setPerdiendo(null); guardar({ etapa_id: id }); }
+          }}>
           {etapas.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
         </select>
+        {perdiendo && (
+          <div className="motivo-perdida">
+            <span className="bloque-titulo">¿Por qué se perdió?</span>
+            <div className="pp-atajos">
+              {Object.entries(MOTIVOS_PERDIDA).map(([k, r]) => (
+                <button key={k} type="button" className="chip-filtro" onClick={async () => {
+                  await guardar({ etapa_id: perdiendo, motivo_perdida: k });
+                  await supabase.from('conversaciones').update({ seguimiento_at: null, seguimiento_motivo: null }).eq('id', conversacion.id);
+                  setPerdiendo(null);
+                }}>{r}</button>
+              ))}
+              <button type="button" className="chip-filtro" onClick={() => setPerdiendo(null)}>Cancelar</button>
+            </div>
+          </div>
+        )}
+        {!perdiendo && etapaActual?.nombre === 'Perdido' && contacto.motivo_perdida && (
+          <span className="selector-detalle">Motivo: {MOTIVOS_PERDIDA[contacto.motivo_perdida] ?? contacto.motivo_perdida}</span>
+        )}
       </div>
 
       {conversacion.resumen_ia && (

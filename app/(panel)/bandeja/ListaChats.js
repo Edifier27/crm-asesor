@@ -6,13 +6,16 @@ import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import NuevoLead from './NuevoLead';
 import { SELECT_LISTA } from '@/lib/consultas';
-import { colorAvatar, colorEtiqueta, fechaCorta, iniciales, nombreVisible } from '@/lib/formato';
+import { TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible } from '@/lib/formato';
 
 // Los mensajes sin texto llegan como "[audio]", "[imagen]", etc.
 const SIN_TEXTO = { audio: 'Audio de voz', imagen: 'Imagen', documento: 'Documento', ubicacion: 'Ubicación', plantilla: 'Plantilla', otro: 'Mensaje' };
 const resumenUltimo = (t) => (t ? SIN_TEXTO[t.match(/^\[(\w+)\]$/)?.[1]] ?? t : 'Sin mensajes');
 
-const etiquetasDe =(c) => (c.contacto?.etiquetas ?? []).map((e) => e.etiqueta).filter(Boolean);
+const pasoMio = (c) => (c.seguimiento_responsable === 'asesor' ? cuandoSeguimiento(c.seguimiento_at) : null);
+const urgencia = (c) => (pasoMio(c)?.hoy ? 0 : c.no_leidos > 0 ? 1 : 2);
+
+const etiquetasDe = (c) => (c.contacto?.etiquetas ?? []).map((e) => e.etiqueta).filter(Boolean);
 
 // Bandeja = solo lo que tiene que atender el asesor (modo humano o pausada). Lo que atiende la IA vive en el Embudo.
 export default function ListaChats({ inicial, iaInicial }) {
@@ -49,7 +52,8 @@ export default function ListaChats({ inicial, iaInicial }) {
   }, [supabase, recargar]);
 
   const conteos = useMemo(() => ({
-    noLeidos: conversaciones.filter((c) => c.no_leidos > 0).length
+    noLeidos: conversaciones.filter((c) => c.no_leidos > 0).length,
+    hoy: conversaciones.filter((c) => pasoMio(c)?.hoy).length
   }), [conversaciones]);
 
   // Etiquetas presentes en la lista, para filtrar
@@ -63,11 +67,12 @@ export default function ListaChats({ inicial, iaInicial }) {
     const q = busqueda.trim().toLowerCase();
     return conversaciones.filter((c) => {
       if (filtro === 'no_leidos' && !(c.no_leidos > 0)) return false;
+      if (filtro === 'hoy' && !pasoMio(c)?.hoy) return false;
       if (filtro.startsWith('et:') && !etiquetasDe(c).some((e) => `et:${e.id}` === filtro)) return false;
       if (!q) return true;
       return [c.contacto?.nombre, c.contacto?.telefono, ...etiquetasDe(c).map((e) => e.nombre)]
         .some((v) => v?.toLowerCase().includes(q));
-    });
+    }).sort((a, b) => urgencia(a) - urgencia(b));
   }, [conversaciones, filtro, busqueda]);
 
   const Filtro = ({ valor, children }) => (
@@ -94,6 +99,7 @@ export default function ListaChats({ inicial, iaInicial }) {
         </label>
         <div className="filtros">
           <Filtro valor="todos">Todos</Filtro>
+          <Filtro valor="hoy">Para hoy{conteos.hoy ? ` ${conteos.hoy}` : ''}</Filtro>
           <Filtro valor="no_leidos">No leídos{conteos.noLeidos ? ` ${conteos.noLeidos}` : ''}</Filtro>
           {etiquetas.map((e) => <Filtro key={e.id} valor={`et:${e.id}`}>{e.nombre}</Filtro>)}
         </div>
@@ -106,13 +112,22 @@ export default function ListaChats({ inicial, iaInicial }) {
               <span className="avatar" style={colorAvatar(c.contacto?.telefono)}>{iniciales(c.contacto)}</span>
               <span className="chat-cuerpo">
                 <span className="chat-fila">
-                  <span className="chat-nombre">{nombreVisible(c.contacto)}</span>
+                  <span className="chat-nombre">
+                    {TEMPERATURAS[c.contacto?.temperatura] && <span className="punto-temp" style={{ background: TEMPERATURAS[c.contacto.temperatura].color }} title={TEMPERATURAS[c.contacto.temperatura].rotulo} />}
+                    {nombreVisible(c.contacto)}
+                  </span>
                   <span className={`chat-hora${c.no_leidos > 0 ? ' nueva' : ''}`}>{fechaCorta(c.ultimo_mensaje_at)}</span>
                 </span>
                 <span className="chat-fila">
                   <span className="chat-ultimo">{resumenUltimo(c.ultimo_mensaje_texto)}</span>
                   {c.no_leidos > 0 && <span className="contador" aria-label={`${c.no_leidos} sin leer`}>{c.no_leidos}</span>}
                 </span>
+                {pasoMio(c) && (
+                  <span className={`tarjeta-paso${pasoMio(c).vencido ? ' vencido' : ''}`}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+                    {pasoMio(c).texto}{c.seguimiento_motivo ? ` — ${c.seguimiento_motivo}` : ''}
+                  </span>
+                )}
                 <span className="chat-etiquetas">
                   {etiquetasDe(c).map((e) => <span key={e.id} className="etiqueta" style={colorEtiqueta(e.color)}>{e.nombre}</span>)}
                   {c.modo === 'ia' && <span className="etiqueta etiqueta-ia">IA</span>}

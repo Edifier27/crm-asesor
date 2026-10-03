@@ -55,6 +55,14 @@ Nunca commitear secretos.
   cambiar_etapa/pasar_a_humano. Registra tokens y costo en `ia_ejecuciones`. Sin ANTHROPIC_API_KEY no responde.
 - Cotizador: `lib/cotizador.js` replica EXACTA la fórmula del index.html (verificado 44/44). Listas en `listas_precios`
   (una activa; página Precios importa el index.html sin ejecutarlo). Cotización en la ficha guarda `contactos.cotizacion`.
+- Seguimiento (`lib/seguimiento.js` + cron `/api/cron/seguimientos` cada 10 min, CRON_SECRET): próximo paso por
+  conversación (seguimiento_at/motivo/responsable ia|asesor). La IA lo fija con `gestionar_seguimiento` (y temperatura);
+  si no, default 20 h. Vencido + ventana abierta → la IA escribe; cerrada → plantilla `reactivacion`; 3 intentos → al asesor.
+  Responsable "asesor" ⇒ modo humano (Mis chats). HORARIO HÁBIL (`lib/horario.js`): lun-vie 8-20 AR; todo lo programado
+  se corre al próximo horario hábil (sáb/dom → lunes misma hora). Las respuestas a mensajes entrantes NO se limitan.
+- Leads web/PrepagaYa: `/api/leads` acepta provincia (confiable), zona_detectada (IP, aproximada → la IA la confirma),
+  edades/personas en texto (`integrantesDesdeTexto`), situacion_laboral, prepaga_interes. Con grupo+zona entra "Relevado"
+  y la cotización aparece armada en la ficha ("Cotización lista" en el embudo). El envío lo hace el asesor.
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.
