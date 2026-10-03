@@ -601,3 +601,10 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 }
 .conversacion .mensajes { background: transparent; }
 .dia, .evento { background: #FFFFFFE6; box-shadow: 0 1px 1px #0000000f; }
+
+/* Embudo: mover el tablero arrastrando el fondo */
+.columnas { cursor: grab; }
+.columnas.paneando { cursor: grabbing; user-select: none; }
+.columnas.paneando * { user-select: none; }
+.columna-cabecera { user-select: none; }
+@media (hover: none) { .columnas { cursor: auto; } }

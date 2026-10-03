@@ -21,6 +21,26 @@ export default function Tablero({ etapas, inicial }) {
   const [sobre, setSobre] = useState(null);
   const [perdiendo, setPerdiendo] = useState(null); // { conv, etapaId } esperando motivo de pérdida
   const temporizador = useRef();
+  // Arrastrar el fondo del tablero para moverlo de costado (como Kommo/Trello). Las tarjetas se siguen arrastrando aparte.
+  const tablero = useRef(null);
+  const paneo = useRef(null);
+  const [paneando, setPaneando] = useState(false);
+  function empezarPaneo(e) {
+    if (e.pointerType !== 'mouse' || e.button !== 0 || e.target.closest('.tarjeta-lead, button, input, select, a')) return;
+    paneo.current = { x: e.clientX, scroll: tablero.current.scrollLeft, id: e.pointerId };
+    tablero.current.setPointerCapture(e.pointerId);
+    setPaneando(true);
+  }
+  function moverPaneo(e) {
+    if (!paneo.current) return;
+    tablero.current.scrollLeft = paneo.current.scroll - (e.clientX - paneo.current.x);
+  }
+  function terminarPaneo() {
+    if (!paneo.current) return;
+    try { tablero.current.releasePointerCapture(paneo.current.id); } catch {}
+    paneo.current = null;
+    setPaneando(false);
+  }
   const cerrada = (c) => ['Ganado', 'Perdido'].includes(etapas.find((e) => e.id === c.contacto?.etapa_id)?.nombre);
 
   const recargar = useCallback(async () => {
@@ -103,7 +123,8 @@ export default function Tablero({ etapas, inicial }) {
         </div>
       </header>
 
-      <div className="columnas">
+      <div className={`columnas${paneando ? ' paneando' : ''}`} ref={tablero}
+        onPointerDown={empezarPaneo} onPointerMove={moverPaneo} onPointerUp={terminarPaneo} onPointerCancel={terminarPaneo}>
         {etapas.map((etapa) => (
           <section key={etapa.id} className={`columna${sobre === etapa.id ? ' sobre' : ''}`} aria-label={etapa.nombre}
             onDragOver={(e) => { if (arrastrando) { e.preventDefault(); setSobre(etapa.id); } }}
