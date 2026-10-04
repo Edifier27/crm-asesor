@@ -66,7 +66,8 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, abi
       <ProximoPaso conversacionId={conversacion.id} contactoId={contacto.id} temperaturaInicial={contacto.temperatura}
         inicial={{
           seguimiento_at: conversacion.seguimiento_at, seguimiento_motivo: conversacion.seguimiento_motivo, seguimiento_responsable: conversacion.seguimiento_responsable,
-          seguimiento_cadencia: conversacion.seguimiento_cadencia, seguimientos_sin_respuesta: conversacion.seguimientos_sin_respuesta
+          seguimiento_cadencia: conversacion.seguimiento_cadencia, seguimientos_sin_respuesta: conversacion.seguimientos_sin_respuesta,
+          seguimiento_plantillas: conversacion.seguimiento_plantillas, consejo_ia: conversacion.consejo_ia
         }} />
 
       <Venta conversacionId={conversacion.id} contacto={contacto} etapas={etapas}

@@ -85,6 +85,19 @@ export default function PanelAsesor({ config: configInicial, conocimientoInicial
           <input type="checkbox" checked={config.activo} onChange={(e) => guardarConfig({ activo: e.target.checked })} />
           IA activa (si la apagás, ningún chat recibe respuestas automáticas)
         </label>
+        <div className="campo"><span>Qué hace la IA</span>
+          <div className="pp-atajos" role="radiogroup" aria-label="Modo de la IA">
+            {[['copiloto', 'Copiloto', 'Ordena los datos, te deja tareas y consejos, y solo manda plantillas aprobadas a quien no responde. Cuando el cliente contesta, lo atendés vos.'],
+              ['automatico', 'Automático', 'La IA asesora y conversa con los leads por WhatsApp.']].map(([v, r, t]) => (
+              <button key={v} type="button" role="radio" aria-checked={(config.modo_ia ?? 'copiloto') === v} title={t}
+                className={`chip-filtro${(config.modo_ia ?? 'copiloto') === v ? ' activo' : ''}`}
+                onClick={() => (v !== 'automatico' || confirm('¿Pasar a modo automático? La IA va a empezar a conversar con los leads.')) && guardarConfig({ modo_ia: v })}>{r}</button>
+            ))}
+          </div>
+          <span className="selector-detalle">{(config.modo_ia ?? 'copiloto') === 'copiloto'
+            ? 'Copiloto: la IA no conversa. Ordena la ficha, te deja la tarea con un consejo y manda solo plantillas aprobadas a quien no responde.'
+            : 'Automático: la IA asesora y conversa con los leads.'}</span>
+        </div>
         <label className="campo"><span>Cómo se presenta</span>
           <input defaultValue={config.firma ?? ''} placeholder="tu asesor de Swiss Medical"
             onBlur={(e) => e.target.value !== (config.firma ?? '') && guardarConfig({ firma: e.target.value })} /></label>

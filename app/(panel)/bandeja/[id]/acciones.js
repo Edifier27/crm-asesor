@@ -11,6 +11,8 @@ import { BUCKET_DOCUMENTOS, CARTILLAS_ARCHIVOS, PLANES_PDF } from '@/lib/documen
 import { linkBienvenida, mensajeCobro } from '@/lib/venta';
 import { enHorasHabiles } from '@/lib/horario';
 import { ventana } from '@/lib/formato';
+import { alVolverDeLaBase } from '@/lib/bases';
+import { alEntrarMensaje, modoIa, programarSecuencia } from '@/lib/secuencias';
 
 // Solo se pueden ver/enviar los PDF del catálogo (planes y cartillas)
 const DOCUMENTOS_VALIDOS = new Set([...Object.values(PLANES_PDF).map((p) => p.path), ...CARTILLAS_ARCHIVOS.map((c) => c.path)]);
@@ -50,7 +52,10 @@ export async function simularEntrante(conversacionId, texto) {
     p_payload: { simulado: true }
   });
   if (error) return { error: error.message };
+  const sigueEnBase = await alVolverDeLaBase(admin, conversacionId, texto);
+  if (sigueEnBase) return { ok: true };
   await admin.from('conversaciones').update({ modo: 'humano' }).eq('id', conversacionId).eq('modo', 'pausada');
+  await alEntrarMensaje(admin, conversacionId);
 
   after(() => responderComoAsesor(conversacionId, mensajeId).catch((e) => console.error('asesor_ia_sim', e)));
   return { ok: true };
@@ -75,6 +80,8 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
       conversacionId, tipo: tipo === 'grabacion' ? 'audio' : tipo, texto, audioId, plantillaId, documento, grabacion, respondeA,
       autor: 'asesor', perfilId: user.id
     });
+    const admin = createAdminClient();
+    if ((await modoIa(admin)) === 'copiloto') await programarSecuencia(admin, conversacionId);
     return { ok: true, simulado: r.simulado };
   } catch (e) {
     return { error: e.message };

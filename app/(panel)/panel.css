@@ -682,3 +682,6 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 @media (max-width: 640px) {
   .base-fila { grid-template-columns: 1fr; }
 }
+
+/* Consejo del copiloto en el próximo paso */
+.pp-consejo { margin: 0; padding: 8px 10px; border-radius: 8px; background: #FFF8E1; color: #5C4400; font-size: 13px; line-height: 1.45; }

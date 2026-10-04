@@ -120,7 +120,13 @@ export default function ProximoPaso({ conversacionId, contactoId, inicial, tempe
             </span>
             <span className="pp-editar">Cambiar</span>
           </button>
-          {esIA && paso.seguimiento_cadencia?.length > 0 && (
+          {esIA && paso.seguimiento_plantillas?.length > 0 && (
+            <span className="pp-secuencia">
+              Plantillas aprobadas si no responde: {paso.seguimiento_cadencia?.map(textoHoras).join(' → ')}
+              {' · '}va {Math.min(paso.seguimientos_sin_respuesta ?? 0, paso.seguimiento_plantillas.length)} de {paso.seguimiento_plantillas.length} · si contesta, vuelve a tu bandeja
+            </span>
+          )}
+          {esIA && !paso.seguimiento_plantillas?.length && paso.seguimiento_cadencia?.length > 0 && (
             <span className="pp-secuencia">
               Si no responde: {paso.seguimiento_cadencia.map(textoHoras).join(' → ')}
               {' · '}intento {Math.min((paso.seguimientos_sin_respuesta ?? 0) + 1, paso.seguimiento_cadencia.length)} de {paso.seguimiento_cadencia.length}
@@ -130,6 +136,10 @@ export default function ProximoPaso({ conversacionId, contactoId, inicial, tempe
         ) : (
           <button type="button" className="pp-vacio" onClick={abrirEditor}>Sin próximo paso · <strong>Programar</strong></button>
         )
+      )}
+
+      {!editando && paso.consejo_ia && !esIA && (
+        <p className="pp-consejo"><span aria-hidden="true">💡</span> {paso.consejo_ia}</p>
       )}
 
       {aviso && !editando && <span className="pp-aviso">{aviso}</span>}

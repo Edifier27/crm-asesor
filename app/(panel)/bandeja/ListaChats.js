@@ -14,7 +14,8 @@ const SIN_TEXTO = { audio: 'Audio de voz', imagen: 'Imagen', documento: 'Documen
 const resumenUltimo = (t) => (t ? SIN_TEXTO[t.match(/^\[(\w+)\]$/)?.[1]] ?? t : 'Sin mensajes');
 
 const pasoMio = (c) => (c.seguimiento_responsable === 'asesor' ? cuandoSeguimiento(c.seguimiento_at) : null);
-const urgencia = (c) => (pasoMio(c)?.hoy ? 0 : c.no_leidos > 0 ? 1 : 2);
+const RANGO_TEMP = { caliente: 0, tibio: 1, frio: 2 };
+const urgencia = (c) => (pasoMio(c)?.hoy ? 0 : c.no_leidos > 0 ? 10 : 20) + (RANGO_TEMP[c.contacto?.temperatura] ?? 1.5);
 
 const etiquetasDe = (c) => (c.contacto?.etiquetas ?? []).map((e) => e.etiqueta).filter(Boolean);
 
