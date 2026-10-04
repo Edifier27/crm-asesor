@@ -77,7 +77,7 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
   const { data: conv } = await supabase.from('conversaciones').select('id, contacto_id, ventana_expira_at').eq('id', conversacionId).maybeSingle();
   if (!conv) return { error: 'No tenés acceso a esta conversación.' };
   if (tipo === 'archivo') {
-    const valido = archivo?.path?.startsWith(`${conv.contacto_id}/enviados/`) && /^[0-9a-f-]{36}.w{2,5}$/.test(archivo.path.split('/').pop());
+    const valido = archivo?.path?.startsWith(`${conv.contacto_id}/enviados/`) && /^[0-9a-f-]{36}\.[a-z0-9]{2,5}$/.test(archivo.path.split('/').pop());
     if (!valido) return { error: 'Archivo inválido.' };
     if (!ventana(conv.ventana_expira_at).abierta) return { error: 'Pasaron más de 24 h desde el último mensaje del cliente: WhatsApp solo deja mandar plantillas.' };
   }
