@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { hora } from '@/lib/formato';
 import { verDocumento } from '../bandeja/[id]/acciones';
+import VisorArchivo from './VisorArchivo';
 
 const ESTADOS = { pendiente: 'enviando…', enviado: 'enviado', entregado: 'entregado', leido: 'leído', fallido: 'no se pudo enviar' };
 const AUTORES = { ia: 'Asesor IA', asesor: 'Vos' };
@@ -40,20 +41,27 @@ function DocumentoEnviado({ path, texto }) {
     if (tipo !== 'otro') verDocumento(path).then((r) => vivo && r.url && setUrl(r.url));
     return () => { vivo = false; };
   }, [path, tipo]);
+  // "Ver": ventana emergente dentro del CRM, con un link nuevo por si el de la vista previa venció
+  const [abierto, setAbierto] = useState(null);
   async function ver() {
-    const ventana = window.open('', '_blank');
+    setAbierto({ url: null });
     const r = await verDocumento(path);
-    if (r.url && ventana) ventana.location.href = r.url; else ventana?.close();
+    setAbierto(r.url ? { url: r.url } : null);
   }
+  const visor = abierto && <VisorArchivo url={abierto.url} nombre={texto} tipo={tipo} onCerrar={() => setAbierto(null)} />;
   if (tipo === 'imagen') {
     return (
-      <button type="button" className="adjunto-imagen" onClick={ver} aria-label={`Abrir ${texto}`}>
-        {url ? <img src={url} alt={texto} loading="lazy" /> : <span className="adjunto-cargando">Cargando imagen…</span>}
-      </button>
+      <>
+        <button type="button" className="adjunto-imagen" onClick={ver} aria-label={`Abrir ${texto}`}>
+          {url ? <img src={url} alt={texto} loading="lazy" /> : <span className="adjunto-cargando">Cargando imagen…</span>}
+        </button>
+        {visor}
+      </>
     );
   }
   return (
     <span className="doc-enviado-caja">
+      {visor}
       {tipo === 'pdf' && (
         <button type="button" className="adjunto-pdf" onClick={ver} aria-label={`Abrir ${texto}`}>
           {url ? <iframe src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} title={texto} loading="lazy" tabIndex={-1} /> : <span className="adjunto-cargando">Cargando PDF…</span>}

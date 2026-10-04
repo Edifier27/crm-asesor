@@ -1,5 +1,6 @@
 'use client';
 
+import VisorArchivo from '../../componentes/VisorArchivo';
 import { useMemo, useRef, useState, useTransition } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { CAMPANIAS, ZONA_ROTULO, cotizar, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
@@ -130,11 +131,14 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
     });
   }
 
+  // Plan o cartilla en ventana emergente dentro del CRM
+  const [visor, setVisor] = useState(null);
   async function ver(path) {
-    const ventana = window.open('', '_blank'); // se abre ya para que el navegador no la bloquee
+    const nombre = path.split('/').pop().replace(/\.pdf$/i, '').replace(/[-_]/g, ' ');
+    setVisor({ url: null, nombre, tipo: 'pdf' });
     const r = await verDocumento(path);
-    if (r.url && ventana) ventana.location.href = r.url;
-    else { ventana?.close(); setAviso(r.error ?? 'No se pudo abrir el documento'); }
+    if (r.url) setVisor({ url: r.url, nombre, tipo: 'pdf' });
+    else { setVisor(null); setAviso(r.error ?? 'No se pudo abrir el documento'); }
   }
 
   function enviarDocumento(doc, caption, entrada) {
@@ -318,6 +322,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
             <div className="doc-fila">
               <span className="doc-nombre">Folleto del plan {planDocsActivo}</span>
               <button type="button" className="boton-secundario" onClick={() => ver(pdf.path)}>Ver</button>
+              {visor && <VisorArchivo {...visor} onCerrar={() => setVisor(null)} />}
               <button type="button" className="boton-primario" disabled={enviando}
                 onClick={() => enviarDocumento(pdf, `Te paso el detalle del plan ${planDocsActivo} de Swiss Medical.`, { tipo: 'plan', plan: planDocsActivo })}>
                 Enviar plan

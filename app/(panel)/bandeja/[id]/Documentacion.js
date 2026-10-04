@@ -6,6 +6,7 @@ import { pesos } from '@/lib/cotizador';
 import { DOCUMENTOS_REQUERIDOS, TIPOS_DOCUMENTO } from '@/lib/formato';
 import { tipoDeModalidad } from '@/lib/venta';
 import { borrarDocumento, clasificarDocumento, registrarDocumento, releerDocumento, renombrarDocumento, verDocumentoCliente } from './acciones';
+import VisorArchivo, { tipoArchivo } from '../../componentes/VisorArchivo';
 
 const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'application/pdf': 'pdf' };
 const cubre = { dni_frente: ['dni_frente', 'dni_completo'], dni_dorso: ['dni_dorso', 'dni_completo'], recibo: ['recibo'], opcion_cambio: ['opcion_cambio'] };
@@ -18,6 +19,24 @@ function resumen(d) {
   return [d.nombre_archivo];
 }
 
+// Miniatura del documento (foto en chico; PDF con ícono). El link firmado vale 10 min.
+function Miniatura({ doc, onAbrir }) {
+  const [url, setUrl] = useState(null);
+  const tipo = tipoArchivo(doc.nombre_archivo ?? '', doc.mime ?? '');
+  useEffect(() => {
+    let vivo = true;
+    verDocumentoCliente(doc.id).then((r) => vivo && r.url && setUrl(r.url));
+    return () => { vivo = false; };
+  }, [doc.id]);
+  return (
+    <button type="button" className="doc-mini" aria-label="Ver documento" onClick={() => onAbrir({ url, tipo, nombre: doc.etiqueta ?? doc.nombre_archivo ?? 'Documento' })}>
+      {tipo === 'imagen' && url ? <img src={url} alt="" />
+        : <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>}
+      {tipo === 'pdf' && <span className="doc-mini-pdf">PDF</span>}
+    </button>
+  );
+}
+
 /**
  * Documentación del cliente. Para no llenar la ficha, aparece recién cuando llega el primer documento
  * (o en "Por cerrar" / "Falta de cobro", que es cuando se piden).
@@ -28,6 +47,7 @@ export default function Documentacion({ contacto, etapa, inicial, onContacto }) 
   const [subiendo, setSubiendo] = useState(false);
   const [aviso, setAviso] = useState('');
   const [renombrando, setRenombrando] = useState(null);
+  const [visor, setVisor] = useState(null);
   const archivoRef = useRef(null);
 
   async function guardarNombre(d, valor) {
@@ -75,10 +95,13 @@ export default function Documentacion({ contacto, etapa, inicial, onContacto }) 
     }
   }
 
-  async function ver(id) {
-    const ventana = window.open('', '_blank');
-    const r = await verDocumentoCliente(id);
-    if (r.url && ventana) ventana.location.href = r.url; else { ventana?.close(); setAviso(r.error ?? 'No se pudo abrir'); }
+  // "Ver": ventana emergente dentro del CRM (link nuevo, por si el de la miniatura venció)
+  async function ver(d) {
+    const nombre = d.etiqueta ?? d.nombre_archivo ?? 'Documento';
+    const tipo = tipoArchivo(d.nombre_archivo ?? '', d.mime ?? '');
+    setVisor({ url: null, nombre, tipo });
+    const r = await verDocumentoCliente(d.id);
+    if (r.url) setVisor({ url: r.url, nombre, tipo }); else { setVisor(null); setAviso(r.error ?? 'No se pudo abrir'); }
   }
 
   async function usarSueldo(d, i) {
@@ -110,6 +133,8 @@ export default function Documentacion({ contacto, etapa, inicial, onContacto }) 
 
       {docs.map((d) => (
         <div key={d.id} className={`doc-fila${d.estado === 'ilegible' || d.estado === 'error' ? ' alerta' : ''}`}>
+          <Miniatura doc={d} onAbrir={() => ver(d)} />
+          <div className="doc-info">
           {renombrando === d.id ? (
             <input className="doc-nombre-input" autoFocus defaultValue={d.etiqueta ?? ''} maxLength={80} list="doc-nombres"
               onBlur={(e) => guardarNombre(d, e.target.value)}
@@ -128,7 +153,7 @@ export default function Documentacion({ contacto, etapa, inicial, onContacto }) 
             }}>
               {Object.entries(TIPOS_DOCUMENTO).map(([v, r]) => <option key={v} value={v}>{r}</option>)}
             </select>
-            <button type="button" className="boton-link-texto" onClick={() => ver(d.id)}>Ver</button>
+            <button type="button" className="boton-link-texto" onClick={() => ver(d)}>Ver</button>
             <button type="button" className="boton-link-texto peligro" aria-label="Borrar documento"
               onClick={async () => confirm('¿Borrar este documento?') && (await borrarDocumento(d.id)).ok && setDocs((l) => l.filter((x) => x.id !== d.id))}>✕</button>
           </div>
@@ -147,8 +172,10 @@ export default function Documentacion({ contacto, etapa, inicial, onContacto }) 
               <button type="button" className="boton-link-texto" onClick={() => usarSueldo(d, 1)}>pareja</button>
             </span>
           )}
+          </div>
         </div>
       ))}
+      {visor && <VisorArchivo {...visor} onCerrar={() => setVisor(null)} />}
       <datalist id="doc-nombres">
         {['DNI TITULAR', 'DNI CÓNYUGE', 'DNI HIJO', `RECIBO DE SUELDO (${contacto.nombre ?? ''})`, `OPCIÓN DE CAMBIO (${contacto.nombre ?? ''})`].map((n) => <option key={n} value={n} />)}
       </datalist>
