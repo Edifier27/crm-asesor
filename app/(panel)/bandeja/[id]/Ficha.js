@@ -6,6 +6,7 @@ import { COLORES_ETIQUETA, MOTIVOS_PERDIDA, colorEtiqueta, nombreVisible } from 
 import Cotizacion from './Cotizacion';
 import ProximoPaso from './ProximoPaso';
 import Venta from './Venta';
+import Documentacion from './Documentacion';
 
 const ORIGENES = { swiss_medical: 'Swiss Medical', web: 'Web', whatsapp: 'WhatsApp', manual: 'Manual' };
 
@@ -20,6 +21,8 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, abi
   const [perdiendo, setPerdiendo] = useState(null); // etapa Perdido pendiente de motivo
 
   const avisar = (texto) => { setAviso(texto); setTimeout(() => setAviso(''), 2000); };
+  // DNI leído por la IA en la documentación: precarga el link de pago
+  const dniLeido = (conversacion.contacto.documentos ?? []).find((d) => d.tipo?.startsWith('dni') && d.datos?.dni)?.datos.dni ?? null;
 
   async function guardar(campos) {
     const previo = contacto;
@@ -70,8 +73,12 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, abi
           seguimiento_plantillas: conversacion.seguimiento_plantillas, consejo_ia: conversacion.consejo_ia
         }} />
 
-      <Venta conversacionId={conversacion.id} contacto={contacto} etapas={etapas}
+      <Venta key={dniLeido ?? 'sin-dni'} conversacionId={conversacion.id} contacto={contacto} etapas={etapas} dniLeido={dniLeido}
         onCambio={(campos) => setContacto((c) => ({ ...c, ...campos }))} />
+
+      <Documentacion contacto={contacto} etapa={etapas.find((e) => e.id === contacto.etapa_id)?.nombre}
+        inicial={(conversacion.contacto.documentos ?? []).sort((a, b) => a.creado_at.localeCompare(b.creado_at))}
+        onContacto={(campos) => setContacto((c) => ({ ...c, ...campos }))} />
 
       <label className="campo">
         <span>Nombre</span>
@@ -179,7 +186,7 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, abi
           onBlur={(e) => e.target.value !== (contacto.notas ?? '') && guardar({ notas: e.target.value || null })} />
       </label>
 
-      <Cotizacion conversacionId={conversacion.id} contacto={contacto} lista={lista}
+      <Cotizacion key={JSON.stringify(contacto.cotizacion?.sueldos ?? [])} conversacionId={conversacion.id} contacto={contacto} lista={lista}
         onContacto={(campos) => setContacto((c) => ({ ...c, ...campos }))} />
     </aside>
   );

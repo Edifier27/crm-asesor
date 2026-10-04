@@ -13,6 +13,7 @@ import { enHorasHabiles } from '@/lib/horario';
 import { ventana } from '@/lib/formato';
 import { alVolverDeLaBase } from '@/lib/bases';
 import { alEntrarMensaje, modoIa, programarSecuencia } from '@/lib/secuencias';
+import { BUCKET_CLIENTES, leerDocumento } from '@/lib/documentos-cliente';
 
 // Solo se pueden ver/enviar los PDF del catálogo (planes y cartillas)
 const DOCUMENTOS_VALIDOS = new Set([...Object.values(PLANES_PDF).map((p) => p.path), ...CARTILLAS_ARCHIVOS.map((c) => c.path)]);
@@ -229,4 +230,61 @@ export async function cerrarCobro(conversacionId, pago) {
   await admin.from('conversaciones').update({ modo: 'pausada', seguimiento_at: null, seguimiento_motivo: null, seguimiento_cadencia: null, seguimiento_responsable: 'ia' }).eq('id', conv.id);
   await admin.from('mensajes').insert({ conversacion_id: conv.id, direccion: 'saliente', autor: 'sistema', tipo: 'texto', estado: 'enviado', texto: pago ? 'Pagó la primera cuota: venta ganada.' : 'No abonó: venta perdida.' });
   return { ok: true, etapaId, venta };
+}
+
+// ───────────── Documentación del cliente ─────────────
+async function documentoPropio(id) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  const { data: doc } = await supabase.from('documentos_cliente').select('id, path, contacto_id').eq('id', id).maybeSingle();
+  if (!doc) return { error: 'Documento inexistente.' };
+  return { doc, user };
+}
+
+// El asesor subió un archivo (ya está en el bucket, subido con su sesión): se registra y la IA lo lee
+export async function registrarDocumento(contactoId, { path, mime, nombre }) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  if (!path?.startsWith(`${contactoId}/`)) return { error: 'Archivo inválido.' };
+  const { data, error } = await supabase.from('documentos_cliente')
+    .insert({ contacto_id: contactoId, path, mime, nombre_archivo: nombre?.slice(0, 200) ?? null, subido_por: user.id }).select('id').single();
+  if (error) return { error: error.message };
+  await leerDocumento(data.id);
+  const { data: doc } = await supabase.from('documentos_cliente').select('*').eq('id', data.id).single();
+  return { ok: true, doc };
+}
+
+export async function verDocumentoCliente(id) {
+  const r = await documentoPropio(id);
+  if (r.error) return r;
+  const { data, error } = await createAdminClient().storage.from(BUCKET_CLIENTES).createSignedUrl(r.doc.path, 600);
+  return error ? { error: error.message } : { url: data.signedUrl };
+}
+
+export async function clasificarDocumento(id, tipo) {
+  const r = await documentoPropio(id);
+  if (r.error) return r;
+  const supabase = await createClient();
+  const { error } = await supabase.from('documentos_cliente').update({ tipo, estado: 'leido' }).eq('id', id);
+  return error ? { error: error.message } : { ok: true };
+}
+
+export async function borrarDocumento(id) {
+  const r = await documentoPropio(id);
+  if (r.error) return r;
+  const admin = createAdminClient();
+  await admin.storage.from(BUCKET_CLIENTES).remove([r.doc.path]);
+  await admin.from('documentos_cliente').delete().eq('id', id);
+  return { ok: true };
+}
+
+export async function releerDocumento(id) {
+  const r = await documentoPropio(id);
+  if (r.error) return r;
+  await createAdminClient().from('documentos_cliente').update({ estado: 'leyendo', observacion: null }).eq('id', id);
+  await leerDocumento(id);
+  const { data: doc } = await createAdminClient().from('documentos_cliente').select('*').eq('id', id).single();
+  return { ok: true, doc };
 }

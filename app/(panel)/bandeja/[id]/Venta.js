@@ -11,7 +11,7 @@ import { cerrarCobro, enviarLinkPago, registrarVenta } from './acciones';
  * · "Venta hecha": desregulado → Ganado; directo → Falta de cobro (pide DNI y N° de precarga para el link de pago).
  * · En Falta de cobro: Enviar link ahora, Pagó ✓ o No pagó.
  */
-export default function Venta({ conversacionId, contacto, etapas, onCambio }) {
+export default function Venta({ conversacionId, contacto, etapas, onCambio, dniLeido }) {
   const etapa = etapas.find((e) => e.id === contacto.etapa_id)?.nombre;
   const venta = contacto.venta;
   const [abierto, setAbierto] = useState(false);
@@ -25,7 +25,7 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio }) {
     tipo: tipoDeModalidad(ultima?.modalidad ?? contacto.cotizacion?.modalidad),
     plan: contacto.plan_cotizado ?? ultima?.planes?.[0]?.plan ?? '',
     monto: contacto.valor ?? ultima?.planes?.[0]?.final ?? '',
-    dni: venta?.dni ?? '', precarga: venta?.precarga ?? ''
+    dni: venta?.dni ?? dniLeido ?? '', precarga: venta?.precarga ?? ''
   });
   const link = linkBienvenida(borrador.dni, borrador.precarga);
 

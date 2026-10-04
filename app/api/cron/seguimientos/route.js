@@ -2,6 +2,7 @@
 // Vercel manda "Authorization: Bearer <CRON_SECRET>".
 import { procesarSeguimientos } from '@/lib/seguimiento';
 import { archivarVencidos, procesarDifusiones } from '@/lib/bases';
+import { purgarDocumentos } from '@/lib/documentos-cliente';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -17,6 +18,8 @@ export async function GET(request) {
     // Leads con 30 días → a su base del mes; difusiones pendientes → próxima tanda
     const archivados = await archivarVencidos();
     const difusiones = await procesarDifusiones();
+    const documentosBorrados = await purgarDocumentos();
+    if (documentosBorrados) console.log('documentos_borrados', documentosBorrados);
     if (archivados || difusiones.enviados) console.log('bases', JSON.stringify({ archivados, difusiones }));
     return Response.json({ ...r, archivados, difusiones });
   } catch (e) {
