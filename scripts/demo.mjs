@@ -1,5 +1,5 @@
 // Datos de demo y simulador de WhatsApp para desarrollar sin Meta.
-//   npm run demo -- cargar                       → crea 6 chats de ejemplo (teléfonos 54900000000xx)
+//   npm run demo -- cargar                       → crea 8 chats de ejemplo (teléfonos 54900000000xx)
 //   npm run demo -- limpiar                      → borra todo lo de demo
 //   npm run demo -- simular 5490000000001 "Hola" → manda un mensaje firmado al webhook local
 //      (opcional: --url https://…/api/whatsapp)
@@ -89,6 +89,24 @@ const DEMO = [
       ['contacto', 4400, '¿Tienen cobertura en Córdoba?'],
       ['ia', 4399, '¡Sí, Jorge! Swiss Medical tiene cobertura en Córdoba. ¿Para cuántas personas sería?', { estado: 'leido' }]
     ]
+  },
+  {
+    nombre: 'Romina Castro', provincia: 'CABA', temperatura: 'caliente', valor: 310000, plan: 'SMG20', seguimiento: [-1, 'Falta de cobro: cargá DNI y N° de precarga y mandale el link de pago', 'asesor'], origen: 'whatsapp', etapa: 'Falta de cobro', modo: 'humano',
+    etiquetas: ['Individual'], zona: 'AMBA',
+    venta: { tipo: 'directo', fecha: new Date(Date.now() - 2 * 86_400_000).toISOString(), plan: 'SMG20', monto: 310000 },
+    mensajes: [
+      ['contacto', 2900, 'Dale, avancemos con el SMG20. Soy monotributista'],
+      ['asesor', 2890, 'Genial Romina, ya te cargo el alta y te paso el link de pago', { estado: 'leido' }],
+      ['sistema', 2880, 'Venta directa (SMG20): pasa a Falta de cobro. A las 48 h hábiles te aparece en Mis chats para mandarle el link de pago.']
+    ]
+  },
+  {
+    nombre: 'Pablo Ríos', origen: 'whatsapp', etapa: 'Nuevo', modo: 'humano', seguimiento: [-0.1, 'Referido: contestale vos', 'asesor'],
+    etiquetas: ['Referido'], zona: null,
+    mensajes: [
+      ['contacto', 12, 'Hola Darío, ¿cómo estás? Me pasó tu celular mi primo Nico, quería consultarte por un plan'],
+      ['sistema', 11, 'Posible referido (te nombra): la IA no respondió, contestale vos.']
+    ]
   }
 ];
 
@@ -102,7 +120,7 @@ async function cargar() {
     const telefono = `${PREFIJO}${String(i + 1).padStart(2, '0')}`;
     const [contacto] = await rest('contactos', {
       method: 'POST',
-      body: { telefono, nombre: d.nombre, temperatura: d.temperatura ?? null, valor: d.valor ?? null, plan_cotizado: d.plan ?? null, origen: d.origen, origen_detalle: d.origen_detalle ?? null, etapa_id: idEtapa[d.etapa], zona: d.zona, relevamiento: { ...(d.relevamiento ?? {}), ...(d.provincia ? { provincia: d.provincia } : {}) } }
+      body: { telefono, nombre: d.nombre, temperatura: d.temperatura ?? null, valor: d.valor ?? null, plan_cotizado: d.plan ?? null, origen: d.origen, origen_detalle: d.origen_detalle ?? null, etapa_id: idEtapa[d.etapa], zona: d.zona, venta: d.venta ?? null, relevamiento: { ...(d.relevamiento ?? {}), ...(d.provincia ? { provincia: d.provincia } : {}) } }
     });
     const ids = d.etiquetas.map((n) => idEtiqueta[n]).filter(Boolean);
     if (ids.length) await rest('contacto_etiquetas', { method: 'POST', body: ids.map((etiqueta_id) => ({ contacto_id: contacto.id, etiqueta_id })) });
