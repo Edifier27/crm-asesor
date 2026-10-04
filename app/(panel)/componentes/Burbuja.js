@@ -1,7 +1,7 @@
 'use client';
 
 // Burbuja de mensaje: la usan la conversación de la bandeja y el panel en vivo del embudo
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { hora } from '@/lib/formato';
 import { verDocumento } from '../bandeja/[id]/acciones';
@@ -29,18 +29,41 @@ function AudioBiblioteca({ path, titulo }) {
   );
 }
 
-// PDF enviado (plan o cartilla): link temporal al tocar "Ver"
+// Foto o PDF (enviado o recibido): vista previa dentro de la burbuja, como en WhatsApp.
+// El link es temporal (10 min) y se pide al mostrar la burbuja; el PDF se carga recién al acercarse en pantalla.
+const ES_IMAGEN = /\.(jpe?g|png|webp|gif)$/i;
 function DocumentoEnviado({ path, texto }) {
+  const [url, setUrl] = useState(null);
+  const tipo = ES_IMAGEN.test(path) ? 'imagen' : /\.pdf$/i.test(path) ? 'pdf' : 'otro';
+  useEffect(() => {
+    let vivo = true;
+    if (tipo !== 'otro') verDocumento(path).then((r) => vivo && r.url && setUrl(r.url));
+    return () => { vivo = false; };
+  }, [path, tipo]);
   async function ver() {
     const ventana = window.open('', '_blank');
     const r = await verDocumento(path);
     if (r.url && ventana) ventana.location.href = r.url; else ventana?.close();
   }
+  if (tipo === 'imagen') {
+    return (
+      <button type="button" className="adjunto-imagen" onClick={ver} aria-label={`Abrir ${texto}`}>
+        {url ? <img src={url} alt={texto} loading="lazy" /> : <span className="adjunto-cargando">Cargando imagen…</span>}
+      </button>
+    );
+  }
   return (
-    <span className="doc-enviado">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
-      <span className="doc-enviado-texto">{texto}</span>
-      <button type="button" className="boton-secundario" onClick={ver}>Ver</button>
+    <span className="doc-enviado-caja">
+      {tipo === 'pdf' && (
+        <button type="button" className="adjunto-pdf" onClick={ver} aria-label={`Abrir ${texto}`}>
+          {url ? <iframe src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} title={texto} loading="lazy" tabIndex={-1} /> : <span className="adjunto-cargando">Cargando PDF…</span>}
+        </button>
+      )}
+      <span className="doc-enviado">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
+        <span className="doc-enviado-texto">{texto}</span>
+        <button type="button" className="boton-secundario" onClick={ver}>Ver</button>
+      </span>
     </span>
   );
 }
