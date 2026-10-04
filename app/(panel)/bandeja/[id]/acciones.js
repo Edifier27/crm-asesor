@@ -13,7 +13,8 @@ import { enHorasHabiles } from '@/lib/horario';
 import { ventana } from '@/lib/formato';
 import { alVolverDeLaBase } from '@/lib/bases';
 import { alEntrarMensaje, modoIa, programarSecuencia } from '@/lib/secuencias';
-import { BUCKET_CLIENTES, leerDocumento } from '@/lib/documentos-cliente';
+import { BUCKET_CLIENTES, leerDocumento, renombrarMensaje } from '@/lib/documentos-cliente';
+import { etiquetaDocumento } from '@/lib/formato';
 
 // Solo se pueden ver/enviar los PDF del catálogo (planes y cartillas)
 const DOCUMENTOS_VALIDOS = new Set([...Object.values(PLANES_PDF).map((p) => p.path), ...CARTILLAS_ARCHIVOS.map((c) => c.path)]);
@@ -247,7 +248,7 @@ async function documentoPropio(id) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
-  const { data: doc } = await supabase.from('documentos_cliente').select('id, path, contacto_id').eq('id', id).maybeSingle();
+  const { data: doc } = await supabase.from('documentos_cliente').select('id, path, contacto_id, mensaje_id, persona, datos').eq('id', id).maybeSingle();
   if (!doc) return { error: 'Documento inexistente.' };
   return { doc, user };
 }
@@ -277,7 +278,21 @@ export async function clasificarDocumento(id, tipo) {
   const r = await documentoPropio(id);
   if (r.error) return r;
   const supabase = await createClient();
-  const { error } = await supabase.from('documentos_cliente').update({ tipo, estado: 'leido' }).eq('id', id);
+  const etiqueta = etiquetaDocumento(tipo, r.doc.persona, r.doc.datos?.nombre_completo);
+  const { error } = await supabase.from('documentos_cliente').update({ tipo, estado: 'leido', etiqueta }).eq('id', id);
+  if (!error && etiqueta && r.doc.mensaje_id) await renombrarMensaje(createAdminClient(), r.doc.mensaje_id, etiqueta);
+  return error ? { error: error.message } : { ok: true, etiqueta };
+}
+
+// Nombre corto elegido por el asesor (también cambia la descripción del archivo en el chat)
+export async function renombrarDocumento(id, etiqueta) {
+  const r = await documentoPropio(id);
+  if (r.error) return r;
+  const limpia = String(etiqueta ?? '').trim().slice(0, 80);
+  if (!limpia) return { error: 'Escribí un nombre.' };
+  const supabase = await createClient();
+  const { error } = await supabase.from('documentos_cliente').update({ etiqueta: limpia }).eq('id', id);
+  if (!error && r.doc.mensaje_id) await renombrarMensaje(createAdminClient(), r.doc.mensaje_id, limpia);
   return error ? { error: error.message } : { ok: true };
 }
 

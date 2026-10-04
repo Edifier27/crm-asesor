@@ -718,3 +718,7 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .adjunto-pdf { position: relative; display: block; width: 100%; height: 170px; padding: 0; border: 0; border-radius: 8px; overflow: hidden; background: #fff; cursor: pointer; }
 .adjunto-pdf iframe { width: 100%; height: 100%; border: 0; pointer-events: none; }
 .adjunto-cargando { display: flex; align-items: center; justify-content: center; min-height: 120px; padding: 0 16px; font-size: 12px; color: var(--texto-suave); background: #FFFFFF99; border-radius: 8px; }
+
+.doc-nombre { align-self: flex-start; border: 0; background: none; padding: 0; font: inherit; font-size: 13px; font-weight: 700; color: var(--texto); cursor: pointer; text-align: left; }
+.doc-nombre span { font-weight: 400; color: var(--texto-suave); font-size: 12px; }
+.doc-nombre-input { font: inherit; font-size: 13px; font-weight: 700; padding: 4px 8px; border: 1px solid var(--acento); border-radius: 6px; }

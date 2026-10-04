@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { pesos } from '@/lib/cotizador';
 import { DOCUMENTOS_REQUERIDOS, TIPOS_DOCUMENTO } from '@/lib/formato';
 import { tipoDeModalidad } from '@/lib/venta';
-import { borrarDocumento, clasificarDocumento, registrarDocumento, releerDocumento, verDocumentoCliente } from './acciones';
+import { borrarDocumento, clasificarDocumento, registrarDocumento, releerDocumento, renombrarDocumento, verDocumentoCliente } from './acciones';
 
 const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'application/pdf': 'pdf' };
 const cubre = { dni_frente: ['dni_frente', 'dni_completo'], dni_dorso: ['dni_dorso', 'dni_completo'], recibo: ['recibo'], opcion_cambio: ['opcion_cambio'] };
@@ -27,7 +27,16 @@ export default function Documentacion({ contacto, etapa, inicial, onContacto }) 
   const [docs, setDocs] = useState(inicial);
   const [subiendo, setSubiendo] = useState(false);
   const [aviso, setAviso] = useState('');
+  const [renombrando, setRenombrando] = useState(null);
   const archivoRef = useRef(null);
+
+  async function guardarNombre(d, valor) {
+    setRenombrando(null);
+    if (!valor.trim() || valor.trim() === d.etiqueta) return;
+    setDocs((l) => l.map((x) => (x.id === d.id ? { ...x, etiqueta: valor.trim() } : x)));
+    const r = await renombrarDocumento(d.id, valor);
+    if (r.error) setAviso(r.error);
+  }
 
   // En vivo: cuando llega un documento por WhatsApp o la IA termina de leerlo
   useEffect(() => {
@@ -101,11 +110,21 @@ export default function Documentacion({ contacto, etapa, inicial, onContacto }) 
 
       {docs.map((d) => (
         <div key={d.id} className={`doc-fila${d.estado === 'ilegible' || d.estado === 'error' ? ' alerta' : ''}`}>
+          {renombrando === d.id ? (
+            <input className="doc-nombre-input" autoFocus defaultValue={d.etiqueta ?? ''} maxLength={80} list="doc-nombres"
+              onBlur={(e) => guardarNombre(d, e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setRenombrando(null); }} />
+          ) : (
+            <button type="button" className="doc-nombre" title="Cambiar el nombre" onClick={() => setRenombrando(d.id)}>
+              {d.etiqueta ?? d.nombre_archivo ?? TIPOS_DOCUMENTO[d.tipo]} <span aria-hidden="true">✎</span>
+            </button>
+          )}
           <div className="doc-linea">
             <select value={d.tipo} aria-label="Tipo de documento" onChange={async (e) => {
               const tipo = e.target.value;
               setDocs((l) => l.map((x) => (x.id === d.id ? { ...x, tipo } : x)));
-              await clasificarDocumento(d.id, tipo);
+              const r = await clasificarDocumento(d.id, tipo);
+              if (r.etiqueta) setDocs((l) => l.map((x) => (x.id === d.id ? { ...x, etiqueta: r.etiqueta } : x)));
             }}>
               {Object.entries(TIPOS_DOCUMENTO).map(([v, r]) => <option key={v} value={v}>{r}</option>)}
             </select>
@@ -130,6 +149,9 @@ export default function Documentacion({ contacto, etapa, inicial, onContacto }) 
           )}
         </div>
       ))}
+      <datalist id="doc-nombres">
+        {['DNI TITULAR', 'DNI CÓNYUGE', 'DNI HIJO', `RECIBO DE SUELDO (${contacto.nombre ?? ''})`, `OPCIÓN DE CAMBIO (${contacto.nombre ?? ''})`].map((n) => <option key={n} value={n} />)}
+      </datalist>
       {aviso && <span className="pp-aviso">{aviso}</span>}
     </div>
   );
