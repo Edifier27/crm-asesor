@@ -1,5 +1,5 @@
 // Datos de demo y simulador de WhatsApp para desarrollar sin Meta.
-//   npm run demo -- cargar                       → crea 8 chats de ejemplo (teléfonos 54900000000xx)
+//   npm run demo -- cargar                       → crea 15 chats (7 ya en Bases) de ejemplo (teléfonos 54900000000xx)
 //   npm run demo -- limpiar                      → borra todo lo de demo
 //   npm run demo -- simular 5490000000001 "Hola" → manda un mensaje firmado al webhook local
 //      (opcional: --url https://…/api/whatsapp)
@@ -107,7 +107,25 @@ const DEMO = [
       ['contacto', 12, 'Hola Darío, ¿cómo estás? Me pasó tu celular mi primo Nico, quería consultarte por un plan'],
       ['sistema', 11, 'Posible referido (te nombra): la IA no respondió, contestale vos.']
     ]
-  }
+  },
+  // Bases: leads de meses anteriores que ya cumplieron 30 días
+  ...[
+    ['Sofía Herrera', 'CABA', 40, true, 'Perdido', 'precio', 'SMG20'],
+    ['Lucas Benítez', 'GBA (zona AMBA)', 45, true, 'Cotizado', null, 'S2'],
+    ['Andrea Molina', 'Córdoba', 50, false, 'Nuevo', null, null],
+    ['Ramiro Ortiz', 'CABA', 55, false, 'Nuevo', null, null],
+    ['Paula Vega', 'Santa Fe', 70, true, 'Perdido', 'no_responde', 'SMG20'],
+    ['Hernán Díaz', 'GBA (zona AMBA)', 75, false, 'Nuevo', null, null],
+    ['Marina López', 'CABA', 72, true, 'Ganado', null, 'SMG20']
+  ].map(([nombre, provincia, dias, contesto, etapa, motivo, plan]) => ({
+    nombre, provincia, etapa, motivo, plan, diasAtras: dias, archivada: true, modo: 'pausada', origen: 'web', origen_detalle: 'Formulario',
+    temperatura: contesto ? 'frio' : null, valor: plan ? 350000 : null, etiquetas: [], zona: null, ventanaCerrada: true,
+    mensajes: [
+      ['ia', dias * 1440, `Hola ${nombre.split(' ')[0]}, mi nombre es Darío, te contacto por la consulta que hiciste en la web. el plan sería para vos o para tu grupo familiar?`, { estado: contesto ? 'leido' : 'entregado' }],
+      ...(contesto ? [['contacto', dias * 1440 - 30, 'para mí y mi pareja, gracias'], ['asesor', dias * 1440 - 20, 'Genial, ahora te paso los valores', { estado: 'leido' }]] : []),
+      ['sistema', (dias - 30) * 1440, `Cumplió 30 días${etapa === 'Ganado' ? ': pasó a Clientes.' : ' sin cerrar: pasó a su base del mes.'}`]
+    ]
+  }))
 ];
 
 async function cargar() {
@@ -120,7 +138,7 @@ async function cargar() {
     const telefono = `${PREFIJO}${String(i + 1).padStart(2, '0')}`;
     const [contacto] = await rest('contactos', {
       method: 'POST',
-      body: { telefono, nombre: d.nombre, temperatura: d.temperatura ?? null, valor: d.valor ?? null, plan_cotizado: d.plan ?? null, origen: d.origen, origen_detalle: d.origen_detalle ?? null, etapa_id: idEtapa[d.etapa], zona: d.zona, venta: d.venta ?? null, relevamiento: { ...(d.relevamiento ?? {}), ...(d.provincia ? { provincia: d.provincia } : {}) } }
+      body: { telefono, nombre: d.nombre, motivo_perdida: d.motivo ?? null, ...(d.diasAtras ? { creado_at: haceMin(d.diasAtras * 1440) } : {}), temperatura: d.temperatura ?? null, valor: d.valor ?? null, plan_cotizado: d.plan ?? null, origen: d.origen, origen_detalle: d.origen_detalle ?? null, etapa_id: idEtapa[d.etapa], zona: d.zona, venta: d.venta ?? null, relevamiento: { ...(d.relevamiento ?? {}), ...(d.provincia ? { provincia: d.provincia } : {}) } }
     });
     const ids = d.etiquetas.map((n) => idEtiqueta[n]).filter(Boolean);
     if (ids.length) await rest('contacto_etiquetas', { method: 'POST', body: ids.map((etiqueta_id) => ({ contacto_id: contacto.id, etiqueta_id })) });
@@ -131,7 +149,7 @@ async function cargar() {
     const [conv] = await rest('conversaciones', {
       method: 'POST',
       body: {
-        contacto_id: contacto.id, modo: d.modo, resumen_ia: d.resumen ?? null, no_leidos: noLeidos,
+        contacto_id: contacto.id, modo: d.modo, archivada_at: d.archivada ? haceMin((d.diasAtras - 30) * 1440) : null, resumen_ia: d.resumen ?? null, no_leidos: noLeidos,
         ...(d.seguimiento ? { seguimiento_at: new Date(Date.now() + d.seguimiento[0] * 3_600_000).toISOString(), seguimiento_motivo: d.seguimiento[1], seguimiento_responsable: d.seguimiento[2] } : {}),
         ultimo_mensaje_at: haceMin(ultimo[1]),
         ultimo_mensaje_texto: ultimo[2] ?? `[${ultimo[3]?.tipo ?? 'texto'}]`,

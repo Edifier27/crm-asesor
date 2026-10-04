@@ -45,7 +45,7 @@ export default function Tablero({ etapas, inicial }) {
   const cerrada = (c) => ['Ganado', 'Perdido'].includes(etapas.find((e) => e.id === c.contacto?.etapa_id)?.nombre);
 
   const recargar = useCallback(async () => {
-    const { data } = await supabase.from('conversaciones').select(SELECT_EMBUDO)
+    const { data } = await supabase.from('conversaciones').select(SELECT_EMBUDO).is('archivada_at', null)
       .order('ultimo_mensaje_at', { ascending: false, nullsFirst: false }).limit(1000);
     if (data) setConversaciones(data);
   }, [supabase]);

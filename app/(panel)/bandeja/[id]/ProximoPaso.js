@@ -12,10 +12,14 @@ function proximoLunes() { const d = new Date(); d.setDate(d.getDate() + (((8 - d
 const ATAJOS = [['En 2 h', () => enHoras(2)], ['Mañana', () => aLas10(1)], ['En 3 días', () => aLas10(3)], ['Lunes', proximoLunes]];
 
 // Secuencias de insistencia si el lead no responde (horas). La temperatura propone una; el asesor la cambia.
+import { SECUENCIA_MES } from '@/lib/formato';
+
 export const SECUENCIAS = [
   { id: 'rapida', rotulo: 'Rápida', horas: [24, 48, 72], temperatura: 'caliente' },
   { id: 'normal', rotulo: 'Normal', horas: [48, 72, 120], temperatura: 'tibio' },
   { id: 'espaciada', rotulo: 'Espaciada', horas: [120, 240, 480], temperatura: 'frio' },
+  // Mes completo: días 1, 3, 7, 14, 21 y 30, cada intento con un enfoque distinto (ANGULOS_MES)
+  { id: 'mes', rotulo: 'Mes completo', horas: SECUENCIA_MES },
   { id: 'ninguna', rotulo: 'No insistir', horas: [] }
 ];
 export const textoHoras = (h) => (h <= 72 ? `${h} h` : `${Math.round(h / 24)} d`);

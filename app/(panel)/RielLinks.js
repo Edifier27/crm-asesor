@@ -13,6 +13,10 @@ const SECCIONES = [
     icono: <><rect x="3" y="4" width="5" height="16" rx="1" /><rect x="10" y="4" width="5" height="11" rx="1" /><rect x="17" y="4" width="4" height="7" rx="1" /></>
   },
   {
+    href: '/bases', nombre: 'Bases (más de 30 días)',
+    icono: <><rect x="3" y="4" width="18" height="5" rx="1" /><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9" /><path d="M10 13h4" /></>
+  },
+  {
     href: '/audios', nombre: 'Biblioteca de audios',
     icono: <><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3" /></>
   },
