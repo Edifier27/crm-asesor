@@ -97,8 +97,8 @@ export default function Burbuja({ m, citado, acciones }) {
             Audio de voz
           </span>
         )}
-        {m.tipo === 'documento' && m.media_path && <DocumentoEnviado path={m.media_path} texto={m.texto} />}
-        {['imagen', 'documento', 'ubicacion', 'otro'].includes(m.tipo) && !(m.tipo === 'documento' && m.media_path) && (
+        {['documento', 'imagen'].includes(m.tipo) && m.media_path && <DocumentoEnviado path={m.media_path} texto={m.texto ?? (m.tipo === 'imagen' ? 'Imagen' : 'Documento')} />}
+        {['imagen', 'documento', 'ubicacion', 'otro'].includes(m.tipo) && !(['documento', 'imagen'].includes(m.tipo) && m.media_path) && (
           <span className="burbuja-adjunto">{{ imagen: 'Imagen', documento: 'Documento', ubicacion: 'Ubicación', otro: 'Mensaje no soportado' }[m.tipo]}</span>
         )}
         {m.texto && !m.media_path && (m.tipo === 'audio'

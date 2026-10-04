@@ -23,6 +23,11 @@ export async function verDocumento(path) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  // Archivos de clientes (los que mandó o le mandaron): bucket privado documentos-clientes
+  if (path?.startsWith('clientes/')) {
+    const { data, error } = await createAdminClient().storage.from(BUCKET_CLIENTES).createSignedUrl(path.slice('clientes/'.length), 600);
+    return error ? { error: error.message } : { url: data.signedUrl };
+  }
   if (!DOCUMENTOS_VALIDOS.has(path)) return { error: 'Documento inválido.' };
   const { data, error } = await createAdminClient().storage.from(BUCKET_DOCUMENTOS).createSignedUrl(path, 600);
   return error ? { error: error.message } : { url: data.signedUrl };
@@ -64,13 +69,18 @@ export async function simularEntrante(conversacionId, texto) {
 
 // El asesor envía un mensaje desde la bandeja. Primero se valida con su sesión (RLS)
 // que pueda ver la conversación; el envío en sí usa la service role.
-export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId, plantillaId, documento, grabacion, respondeA }) {
+export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId, plantillaId, documento, grabacion, archivo, respondeA }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
 
-  const { data: conv } = await supabase.from('conversaciones').select('id').eq('id', conversacionId).maybeSingle();
+  const { data: conv } = await supabase.from('conversaciones').select('id, contacto_id, ventana_expira_at').eq('id', conversacionId).maybeSingle();
   if (!conv) return { error: 'No tenés acceso a esta conversación.' };
+  if (tipo === 'archivo') {
+    const valido = archivo?.path?.startsWith(`${conv.contacto_id}/enviados/`) && /^[0-9a-f-]{36}.w{2,5}$/.test(archivo.path.split('/').pop());
+    if (!valido) return { error: 'Archivo inválido.' };
+    if (!ventana(conv.ventana_expira_at).abierta) return { error: 'Pasaron más de 24 h desde el último mensaje del cliente: WhatsApp solo deja mandar plantillas.' };
+  }
 
   if (tipo === 'documento' && !DOCUMENTOS_VALIDOS.has(documento?.path)) return { error: 'Documento inválido.' };
   // Audio grabado desde la bandeja: tiene que estar en la carpeta de grabaciones del bucket "audios"
@@ -78,7 +88,7 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
 
   try {
     const r = await enviarMensaje({
-      conversacionId, tipo: tipo === 'grabacion' ? 'audio' : tipo, texto, audioId, plantillaId, documento, grabacion, respondeA,
+      conversacionId, tipo: tipo === 'grabacion' ? 'audio' : tipo, texto, audioId, plantillaId, documento, grabacion, archivo, respondeA,
       autor: 'asesor', perfilId: user.id
     });
     const admin = createAdminClient();

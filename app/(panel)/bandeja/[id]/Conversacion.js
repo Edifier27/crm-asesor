@@ -7,7 +7,7 @@ import { SELECT_MENSAJE } from '@/lib/consultas';
 import Redactor from './Redactor';
 import Simulador from './Simulador';
 import Burbuja from '../../componentes/Burbuja';
-import { reaccionar } from './acciones';
+import { enviarDesdeBandeja, reaccionar, registrarDocumento } from './acciones';
 import { colorAvatar, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo, ultimoDelCliente, ventana } from '@/lib/formato';
 
 const ORIGENES = { swiss_medical: 'asignado por Swiss Medical', web: 'vía formulario', whatsapp: 'escribió por WhatsApp', manual: 'cargado a mano' };
@@ -25,6 +25,37 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
   const [corrigiendo, setCorrigiendo] = useState(null);
   const [avisoAccion, setAvisoAccion] = useState('');
   const [, refrescarReloj] = useState(0);
+  const [arrastrando, setArrastrando] = useState(false);
+  const [subiendoArchivo, setSubiendoArchivo] = useState(false);
+
+  const conArchivos = (e) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
+  // Soltar un archivo: "enviar" (WhatsApp al cliente) o "guardar" (documentación del cliente; la IA lo lee)
+  async function soltar(e, destino) {
+    e.preventDefault(); e.stopPropagation();
+    setArrastrando(false);
+    const archivo = e.dataTransfer.files?.[0];
+    if (!archivo) return;
+    const ext = (archivo.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'bin';
+    if (destino === 'enviar' && archivo.size > (archivo.type.startsWith('image/') ? 5 : 100) * 1024 * 1024) {
+      return setAvisoAccion('El archivo es demasiado pesado para WhatsApp.');
+    }
+    setSubiendoArchivo(true); setAvisoAccion('');
+    try {
+      const path = `${contacto.id}/${destino === 'enviar' ? 'enviados/' : ''}${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from('documentos-clientes').upload(path, archivo, { contentType: archivo.type || undefined });
+      if (error) throw error;
+      const r = destino === 'enviar'
+        ? await enviarDesdeBandeja(conversacion.id, { tipo: 'archivo', archivo: { path, nombre: archivo.name.slice(0, 200), mime: archivo.type } })
+        : await registrarDocumento(contacto.id, { path, mime: archivo.type, nombre: archivo.name });
+      if (r.error) throw new Error(r.error);
+      setAvisoAccion(destino === 'enviar' ? 'Archivo enviado' : 'Guardado en la documentación del cliente');
+    } catch (err) {
+      setAvisoAccion(`No se pudo: ${err.message}`);
+    } finally {
+      setSubiendoArchivo(false);
+      setTimeout(() => setAvisoAccion(''), 4000);
+    }
+  }
   const fondo = useRef(null);
 
   // Las consultas de supabase-js recién se ejecutan al hacer await/then
@@ -77,7 +108,24 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
   const cliente = ultimoDelCliente(mensajes);
 
   return (
-    <main className="conversacion">
+    <main className="conversacion"
+      onDragEnter={(e) => { if (conArchivos(e)) { e.preventDefault(); setArrastrando(true); } }}
+      onDragOver={(e) => { if (conArchivos(e)) e.preventDefault(); }}
+      onDrop={(e) => { e.preventDefault(); setArrastrando(false); }}>
+      {(arrastrando || subiendoArchivo) && (
+        <div className="soltar-capa" onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setArrastrando(false); }}>
+          {subiendoArchivo ? <div className="soltar-zona">Subiendo…</div> : (
+            <>
+              <div className="soltar-zona" onDragOver={(e) => e.preventDefault()} onDrop={(e) => soltar(e, 'enviar')}>
+                <strong>Enviar al cliente</strong><span>por WhatsApp</span>
+              </div>
+              <div className="soltar-zona" onDragOver={(e) => e.preventDefault()} onDrop={(e) => soltar(e, 'guardar')}>
+                <strong>Guardar en documentación</strong><span>DNI, recibo, opción de cambio · la IA lo lee</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
       <header className="conv-cabecera">
         <Link href="/bandeja" className="boton-icono solo-movil" aria-label="Volver a chats">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
