@@ -15,7 +15,7 @@ const ORIGENES = { swiss_medical: 'asignado por Swiss Medical', web: 'vía formu
 export const iaEscribiendo = (desde) => Boolean(desde) && Date.now() - new Date(desde) < 120_000;
 const porFecha = (a, b) => new Date(a.creado_at) - new Date(b.creado_at);
 
-export default function Conversacion({ conversacion, mensajesIniciales, onFicha, audios, plantillas, modoPrueba }) {
+export default function Conversacion({ conversacion, mensajesIniciales, onFicha, audios, plantillas, modoPrueba, equipo }) {
   const supabase = createClient();
   const { contacto } = conversacion;
   const [mensajes, setMensajes] = useState(mensajesIniciales);
@@ -254,7 +254,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
         {lista.map((m, i) => (
           <div key={m.id} className="mensaje-fila">
             {(i === 0 || !mismoDia(lista[i - 1].creado_at, m.creado_at)) && <div className="dia">{separadorDia(m.creado_at)}</div>}
-            <Burbuja m={m} citado={m.responde_a ? porId[m.responde_a] : null} acciones={v.abierta && !m.local ? acciones : null} />
+            <Burbuja m={m} citado={m.responde_a ? porId[m.responde_a] : null} acciones={v.abierta && !m.local ? acciones : null} equipo={equipo} />
           </div>
         ))}
         {iaEscribiendo(pensando) && <div className="escribiendo"><span /><span /><span />Asesor IA está escribiendo…</div>}

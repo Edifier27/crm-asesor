@@ -30,9 +30,14 @@ const SECCIONES = [
   }
 ];
 
-export default function RielLinks() {
+const EQUIPO = {
+  href: '/equipo', nombre: 'Equipo',
+  icono: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><circle cx="17" cy="9" r="2.5" /><path d="M16 14.5a5 5 0 0 1 5.5 5" /></>
+};
+
+export default function RielLinks({ esAdmin }) {
   const ruta = usePathname();
-  return SECCIONES.map((s) => {
+  return (esAdmin ? [...SECCIONES, EQUIPO] : SECCIONES).map((s) => {
     const activo = ruta.startsWith(s.href);
     return (
       <Link key={s.href} href={s.href} className={`riel-boton${activo ? ' activo' : ''}`} aria-label={s.nombre} title={s.nombre}

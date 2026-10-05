@@ -102,7 +102,7 @@ const resumen = (m) => m.texto || { audio: 'Audio', documento: 'Documento', imag
  * @param {object} [p.citado]  mensaje al que responde (si lo tiene)
  * @param {object} [p.acciones] { onResponder(m), onReaccionar(m, emoji), onCorregir(m) } — sin acciones, solo lectura
  */
-export default function Burbuja({ m, citado, acciones }) {
+export default function Burbuja({ m, citado, acciones, equipo }) {
   const [menu, setMenu] = useState(false);
   if (m.autor === 'sistema') return <div className="evento">{m.texto}</div>;
   const saliente = m.direccion === 'saliente';
@@ -113,7 +113,7 @@ export default function Burbuja({ m, citado, acciones }) {
   return (
     <div className={`burbuja-envoltura ${saliente ? 'saliente' : 'entrante'}`} onMouseLeave={() => setMenu(false)}>
       <div className={`burbuja ${saliente ? 'saliente' : 'entrante'}${m.estado === 'fallido' ? ' fallida' : ''}${m.eliminado_at ? ' eliminada' : ''}`}>
-        {saliente && <span className={`burbuja-autor autor-${m.autor}`}>{m.tipo === 'plantilla' ? `Plantilla${m.plantilla ? ` · ${m.plantilla}` : ''}` : AUTORES[m.autor]}</span>}
+        {saliente && <span className={`burbuja-autor autor-${m.autor}`}>{m.tipo === 'plantilla' ? `Plantilla${m.plantilla ? ` · ${m.plantilla}` : ''}` : m.autor === 'asesor' && m.autor_perfil_id && equipo && m.autor_perfil_id !== equipo.yo ? (equipo.nombres[m.autor_perfil_id] ?? 'Compañero') : AUTORES[m.autor]}</span>}
         {citado && (
           <span className="cita">
             <strong>{autorCorto(citado)}</strong>

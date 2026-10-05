@@ -20,19 +20,22 @@ export default async function ChatPage({ params }) {
   if (error) throw new Error(`No se pudo cargar la conversación: ${error.message}`);
   if (!conversacion) notFound();
 
-  const [{ data: mensajes }, { data: etapas }, { data: etiquetas }, { data: audios }, { data: plantillas }, { data: lista }] = await Promise.all([
+  const [{ data: mensajes }, { data: etapas }, { data: etiquetas }, { data: audios }, { data: plantillas }, { data: lista }, { data: perfiles }, { data: { user } }] = await Promise.all([
     supabase.from('mensajes').select(SELECT_MENSAJE).eq('conversacion_id', id).order('creado_at').limit(500),
     supabase.from('etapas').select('id, nombre, orden, color').order('orden'),
     supabase.from('etiquetas').select('id, nombre, color').order('nombre'),
     supabase.from('audios').select('id, titulo, descripcion, duracion_seg').eq('activo', true).order('titulo'),
     supabase.from('plantillas').select('id, nombre, cuerpo, uso').eq('activa', true).order('nombre'),
-    supabase.from('listas_precios').select('vigencia, precios, tope_aportes, aumento').eq('activa', true).maybeSingle()
+    supabase.from('listas_precios').select('vigencia, precios, tope_aportes, aumento').eq('activa', true).maybeSingle(),
+    supabase.from('perfiles').select('id, nombre'),
+    supabase.auth.getUser()
   ]);
+  const equipo = { yo: user?.id, nombres: Object.fromEntries((perfiles ?? []).map((p) => [p.id, p.nombre])) };
 
   // key: al cambiar de chat se reinicia el estado de los componentes de cliente
   return (
     <ChatVista key={id} conversacion={conversacion} mensajesIniciales={mensajes ?? []}
       etapas={etapas ?? []} etiquetas={etiquetas ?? []} audios={audios ?? []} plantillas={plantillas ?? []}
-      modoPrueba={modoPrueba()} lista={lista} />
+      modoPrueba={modoPrueba()} lista={lista} equipo={equipo} />
   );
 }
