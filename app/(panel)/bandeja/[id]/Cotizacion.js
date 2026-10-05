@@ -9,13 +9,6 @@ import { REGIONES, TIERS, cartillaDe, planPdf, regionSugerida, tierDePlan } from
 import { fechaCorta, hora } from '@/lib/formato';
 import { enviarDesdeBandeja, verDocumento } from './acciones';
 
-const grupoTexto = (miembros) => {
-  const adultos = miembros.filter((m) => !m.esHijo).map((m) => m.edad);
-  const hijos = miembros.filter((m) => m.esHijo).map((m) => m.edad);
-  return [adultos.length ? `${adultos.length === 1 ? 'adulto' : 'adultos'} de ${adultos.join(' y ')}` : '', hijos.length ? `${hijos.length === 1 ? 'hijo' : 'hijos'} de ${hijos.join(', ')}` : '']
-    .filter(Boolean).join(' + ');
-};
-
 const cuando = (iso) => `${fechaCorta(iso) === hora(iso) ? 'Hoy' : fechaCorta(iso)} ${hora(iso)}`;
 const rotuloCampania = (id) => CAMPANIAS.find((c) => c.id === id)?.rotulo ?? id;
 
@@ -106,13 +99,11 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
   function enviarCotizacion() {
     const planes = resultados.filter((r) => elegidos.includes(r.plan));
     if (!planes.length) return;
-    // Solo el primer nombre (nunca nombre y apellido), con mayúscula inicial
-    const primero = contacto.nombre?.trim().split(/\s+/)[0];
-    const nombre = primero ? primero.charAt(0).toUpperCase() + primero.slice(1).toLowerCase() : null;
-    // Formato pedido por Darío: encabezado + una línea por plan, sin cierre ni "por mes"
+    // Formato pedido por Darío: solo los precios. Derivando aportes, también el sueldo bruto usado. Sin saludo ni cierre.
+    const conSueldo = modalidad === 'derivacion' ? sueldos.map(Number).map((v, i) => [i, v]).filter(([, v]) => v > 0) : [];
     const texto = [
-      `${nombre ? `${nombre}, te` : 'Te'} paso la cotización de Swiss Medical (${lista.vigencia}) para ${grupoTexto(validos)} en ${provincia ?? ZONA_ROTULO[zona]}:`,
-      '',
+      ...conSueldo.map(([i, v]) => `Sueldo bruto${conSueldo.length > 1 ? (i ? ' pareja' : ' titular') : ''}: ${pesos(v)}`),
+      ...(conSueldo.length ? [''] : []),
       ...planes.map((r) => `• Plan ${r.plan}: ${pesos(r.final)}`)
     ].join('\n');
     setAviso('');
@@ -324,7 +315,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
               <button type="button" className="boton-secundario" onClick={() => ver(pdf.path)}>Ver</button>
               {visor && <VisorArchivo {...visor} onCerrar={() => setVisor(null)} />}
               <button type="button" className="boton-primario" disabled={enviando}
-                onClick={() => enviarDocumento(pdf, `Te paso el detalle del plan ${planDocsActivo} de Swiss Medical.`, { tipo: 'plan', plan: planDocsActivo })}>
+                onClick={() => enviarDocumento(pdf, null, { tipo: 'plan', plan: planDocsActivo })}>
                 Enviar plan
               </button>
             </div>
@@ -335,7 +326,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
               <>
                 <button type="button" className="boton-secundario" onClick={() => ver(cartilla.path)}>Ver</button>
                 <button type="button" className="boton-primario" disabled={enviando}
-                  onClick={() => enviarDocumento(cartilla, `Cartilla de ${REGIONES[region]} para el plan ${planDocsActivo}.`, { tipo: 'cartilla', plan: planDocsActivo, region, tier: cartilla.tier })}>
+                  onClick={() => enviarDocumento(cartilla, null, { tipo: 'cartilla', plan: planDocsActivo, region, tier: cartilla.tier })}>
                   Enviar cartilla
                 </button>
               </>
