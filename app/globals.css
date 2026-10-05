@@ -86,3 +86,10 @@ body {
 .login-card button.secundario { background: transparent; color: var(--texto-suave); border: 1px solid var(--borde); width: 100%; }
 
 .login-card .error { color: var(--error); font-size: 14px; }
+
+/* Páginas legales (públicas) */
+.legal { max-width: 720px; margin: 0 auto; padding: 40px 20px 60px; line-height: 1.6; color: #1f2933; }
+.legal h1 { font-size: 28px; margin: 0 0 4px; }
+.legal h2 { font-size: 18px; margin: 28px 0 8px; }
+.legal-fecha { color: #667; font-size: 14px; margin: 0 0 20px; }
+.legal ul { padding-left: 20px; }
