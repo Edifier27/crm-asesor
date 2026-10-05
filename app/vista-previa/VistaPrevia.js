@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import ListaChats from '../(panel)/bandeja/ListaChats';
 import Conversacion from '../(panel)/bandeja/[id]/Conversacion';
+import RielPlegable from '../(panel)/RielPlegable';
+import RielLinks from '../(panel)/RielLinks';
 
 // Tono de prueba (WAV) para escuchar la nota de voz sin servidor
 function tono(segundos = 6) {
@@ -45,6 +47,7 @@ export default function VistaPrevia() {
 
   return (
     <div className="app">
+      <RielPlegable><div className="riel-marca">AC</div><RielLinks esAdmin /></RielPlegable>
       <ListaChats inicial={lista} iaInicial={3} />
       <Conversacion conversacion={conversacion} mensajesIniciales={mensajes} onFicha={() => {}} audios={[]} plantillas={[]} modoPrueba={false}
         equipo={{ yo: 'yo', nombres: { yo: 'Darío' } }} respuestasIniciales={[]} sinConexion />

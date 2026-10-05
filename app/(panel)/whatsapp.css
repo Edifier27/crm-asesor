@@ -183,3 +183,21 @@
 .icono-adjunto.rapida { background: #FFF4D6; }
 .icono-adjunto.audio { background: #FFE7EF; }
 .grabando-tiempo { color: #EA0038; }
+
+/* Barra de secciones plegable (compu): orejita en el borde y menú que se despliega por encima */
+.orejita { display: none; }
+@media (min-width: 761px) {
+  .riel.plegable {
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 60; width: 72px;
+    transform: translateX(-100%); transition: transform 0.18s ease; box-shadow: none;
+  }
+  .riel.plegable.abierto { transform: none; box-shadow: 4px 0 18px rgba(0, 0, 0, 0.25); }
+  .riel-fondo { position: fixed; inset: 0; z-index: 59; background: rgba(11, 20, 26, 0.18); }
+  .orejita {
+    display: flex; align-items: center; justify-content: center; position: fixed; left: 0; top: 50%; z-index: 58;
+    width: 16px; height: 64px; margin-top: -32px; padding: 0; border: 0; border-radius: 0 10px 10px 0;
+    background: var(--riel); color: #9FC2BA; cursor: pointer; opacity: 0.85; transition: width 0.12s, opacity 0.12s;
+  }
+  .orejita:hover { width: 22px; opacity: 1; color: #fff; }
+  .orejita.oculta { opacity: 0; pointer-events: none; }
+}
