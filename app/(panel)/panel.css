@@ -742,3 +742,11 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .doc-mini img { width: 100%; height: 100%; object-fit: cover; }
 .doc-mini-pdf { position: absolute; bottom: 2px; right: 2px; font-size: 9px; font-weight: 700; color: #fff; background: #B91C1C; border-radius: 3px; padding: 0 3px; }
 .doc-linea { justify-content: flex-start; }
+
+/* Envío instantáneo */
+.audio-local { width: 240px; max-width: 100%; height: 36px; }
+.burbuja-espera { font-size: 12px; color: var(--texto-suave); }
+.burbuja-reintentar { align-self: flex-start; font-size: 12px; }
+.esqueleto { background: linear-gradient(90deg, #ECEEED 25%, #F5F6F5 50%, #ECEEED 75%); background-size: 200% 100%; animation: esqueleto 1.2s infinite linear; }
+.esqueleto.linea { display: block; width: 160px; height: 14px; border-radius: 6px; }
+@keyframes esqueleto { from { background-position: 200% 0; } to { background-position: -200% 0; } }

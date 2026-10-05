@@ -122,7 +122,10 @@ export default function Burbuja({ m, citado, acciones }) {
         )}
         {m.eliminado_at && <span className="aviso-eliminado">🚫 El cliente eliminó este mensaje. Decía:</span>}
         {m.tipo === 'audio' && m.media_path && <AudioBiblioteca path={m.media_path} titulo={m.texto} />}
-        {m.tipo === 'audio' && !m.media_path && (
+        {/* Recién grabado: se escucha desde el dispositivo mientras se sube */}
+        {m.tipo === 'audio' && m.urlLocal && <audio className="audio-local" controls src={m.urlLocal} />}
+        {m.tipo === 'audio' && m.local && !m.urlLocal && <span className="burbuja-adjunto">🎵 {m.texto}</span>}
+        {m.tipo === 'audio' && !m.media_path && !m.local && (
           <span className="burbuja-adjunto">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3" /></svg>
             Audio de voz
@@ -132,16 +135,22 @@ export default function Burbuja({ m, citado, acciones }) {
         {['imagen', 'documento', 'ubicacion', 'otro'].includes(m.tipo) && !(['documento', 'imagen'].includes(m.tipo) && m.media_path) && (
           <span className="burbuja-adjunto">{{ imagen: 'Imagen', documento: 'Documento', ubicacion: 'Ubicación', otro: 'Mensaje no soportado' }[m.tipo]}</span>
         )}
-        {m.texto && !m.media_path && (m.tipo === 'audio'
+        {m.texto && !m.media_path && !(m.local && m.tipo === 'audio') && (m.tipo === 'audio'
           ? <span className="transcripcion"><strong>Transcripción:</strong> {m.texto}</span>
           : <span className="burbuja-texto">{m.texto}</span>)}
-        {m.tipo === 'audio' && !m.texto && !m.media_path && <span className="transcripcion">Transcripción pendiente</span>}
+        {m.tipo === 'audio' && !m.texto && !m.media_path && !m.local && <span className="transcripcion">Transcripción pendiente</span>}
         {m.estado === 'fallido' && m.error && <span className="burbuja-error">{m.error}</span>}
+        {m.estado === 'esperando' && (
+          <span className="burbuja-espera">Sale en {m.restan} s · <button type="button" className="boton-link-texto" onClick={m.deshacer}>Deshacer</button></span>
+        )}
+        {m.estado === 'fallido' && m.reintentar && (
+          <button type="button" className="boton-link-texto burbuja-reintentar" onClick={m.reintentar}>↻ Reintentar</button>
+        )}
         <span className="burbuja-hora">
           {m.editado_at && <span className="marca-msg" title={m.texto_original ? `Antes decía: ${m.texto_original}` : ''}>editado · </span>}
           {m.corregido_por && <span className="marca-msg">corregido · </span>}
           {hora(m.creado_at)}
-          {saliente && m.estado && <Tildes estado={m.estado} />}
+          {saliente && m.estado && <Tildes estado={m.estado === 'esperando' ? 'pendiente' : m.estado} />}
         </span>
         {reacciones.length > 0 && (
           <span className="reacciones" aria-label="Reacciones">

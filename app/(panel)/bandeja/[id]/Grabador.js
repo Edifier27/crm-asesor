@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 
 const MAX_SEGUNDOS = 300;
 // Respaldo si no se puede codificar Opus: formatos nativos que acepta WhatsApp (como archivo de audio). WebM no.
@@ -12,10 +11,10 @@ const reloj = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 /**
  * Botón de micrófono del redactor: graba, muestra el tiempo y permite cancelar o enviar.
  * Graba en OGG/Opus (opus-recorder) para que al cliente le llegue como NOTA DE VOZ de WhatsApp.
- * onListo({ path, duracion }) recibe el audio ya subido al bucket "audios".
+ * onListo({ blob, extension, mime, duracion }) recibe el audio grabado (lo sube y envía la conversación).
  */
 export default function Grabador({ deshabilitado, onListo, onError }) {
-  const [estado, setEstado] = useState('quieto'); // quieto | grabando | subiendo
+  const [estado, setEstado] = useState('quieto'); // quieto | grabando
   const [segundos, setSegundos] = useState(0);
   const motor = useRef(null);       // { tipo: 'opus' | 'nativo', rec, extension, mime }
   const partes = useRef([]);
@@ -78,15 +77,12 @@ export default function Grabador({ deshabilitado, onListo, onError }) {
     try { motor.current?.rec?.stop(); } catch {}
   }
 
-  async function terminar(blob, extension, mime) {
+  // Al soltar, el audio aparece al instante en el chat; la subida y el envío siguen por detrás (con reintentos)
+  function terminar(blob, extension, mime) {
     const duracion = Math.max(1, Math.round((Date.now() - inicio.current) / 1000));
-    if (cancelado.current || !blob.size) { setEstado('quieto'); return; }
-    setEstado('subiendo');
-    const path = `grabaciones/${crypto.randomUUID()}.${extension}`;
-    const { error } = await createClient().storage.from('audios').upload(path, blob, { contentType: mime });
     setEstado('quieto');
-    if (error) return onError(`No se pudo subir el audio: ${error.message}`);
-    onListo({ path, duracion });
+    if (cancelado.current || !blob.size) return;
+    onListo({ blob, extension, mime, duracion });
   }
 
   const cancelar = () => { cancelado.current = true; detener(); setEstado('quieto'); };
@@ -106,11 +102,9 @@ export default function Grabador({ deshabilitado, onListo, onError }) {
   }
 
   return (
-    <button type="button" className="boton-enviar" onClick={empezar} disabled={deshabilitado || estado === 'subiendo'}
+    <button type="button" className="boton-enviar" onClick={empezar} disabled={deshabilitado}
       aria-label="Grabar audio" title="Grabar audio">
-      {estado === 'subiendo' ? <span className="girando" /> : (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3" /></svg>
-      )}
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3" /></svg>
     </button>
   );
 }

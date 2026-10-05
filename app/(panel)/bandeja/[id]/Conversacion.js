@@ -13,6 +13,7 @@ import { colorAvatar, iniciales, mismoDia, nombreVisible, separadorDia, telefono
 const ORIGENES = { swiss_medical: 'asignado por Swiss Medical', web: 'vía formulario', whatsapp: 'escribió por WhatsApp', manual: 'cargado a mano' };
 // La marca vence a los 2 minutos por si una ejecución se cortó sin limpiarla
 export const iaEscribiendo = (desde) => Boolean(desde) && Date.now() - new Date(desde) < 120_000;
+const porFecha = (a, b) => new Date(a.creado_at) - new Date(b.creado_at);
 
 export default function Conversacion({ conversacion, mensajesIniciales, onFicha, audios, plantillas, modoPrueba }) {
   const supabase = createClient();
@@ -58,13 +59,110 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
   }
   const fondo = useRef(null);
 
+  // ───── Envío instantáneo (como WhatsApp) ─────
+  // El mensaje aparece ya en el chat ("local") con el reloj; sale por detrás con hasta 3 intentos.
+  // Si falla, queda en el chat con "Reintentar" (el audio grabado no se pierde).
+  const [locales, setLocales] = useState([]);
+  const actualizarLocal = (id, cambios) => setLocales((l) => l.map((x) => (x.id === id ? { ...x, ...cambios } : x)));
+  const quitarLocal = (id) => setLocales((l) => l.filter((x) => x.id !== id));
+
+  // Trae un mensaje puntual (por si el aviso en vivo se demora o se perdió)
+  async function traerMensaje(id) {
+    if (!id) return;
+    const { data } = await supabase.from('mensajes').select(SELECT_MENSAJE).eq('id', id).maybeSingle();
+    if (data) setMensajes((prev) => (prev.some((x) => x.id === id) ? prev : [...prev, data].sort(porFecha)));
+  }
+
+  async function despachar(local, datos, audio) {
+    actualizarLocal(local.id, { estado: 'pendiente', error: null, reintentar: null, restan: null, deshacer: null });
+    let d = datos;
+    for (let intento = 1; intento <= 3; intento++) {
+      try {
+        if (audio && !d.grabacion) {
+          const path = `grabaciones/${crypto.randomUUID()}.${audio.extension}`;
+          const { error } = await supabase.storage.from('audios').upload(path, audio.blob, { contentType: audio.mime });
+          if (error) throw new Error(error.message);
+          d = { ...d, grabacion: { path, duracion: audio.duracion } };
+        }
+        const r = await enviarDesdeBandeja(conversacion.id, d);
+        if (r.error) {
+          // Error de negocio (ej.: ventana cerrada): reintentar solo no lo arregla
+          actualizarLocal(local.id, { estado: 'fallido', error: r.error, reintentar: () => despachar(local, d, audio) });
+          return;
+        }
+        await traerMensaje(r.id);
+        quitarLocal(local.id);
+        return;
+      } catch {
+        if (intento === 3) {
+          actualizarLocal(local.id, { estado: 'fallido', error: 'Sin conexión: no se pudo enviar.', reintentar: () => despachar(local, d, audio) });
+          return;
+        }
+        await new Promise((ok) => setTimeout(ok, 1000 * intento));
+      }
+    }
+  }
+
+  // demora: segundos para "Deshacer" (texto). audio: grabación a subir antes de enviar.
+  function enviarOptimista(datos, vista, { demora = 0, onDeshacer, audio } = {}) {
+    const local = {
+      id: `local-${crypto.randomUUID()}`, local: true, direccion: 'saliente', autor: 'asesor',
+      tipo: vista.tipo, texto: vista.texto ?? null, plantilla: vista.plantilla ?? null, urlLocal: vista.urlLocal ?? null,
+      responde_a: datos.respondeA ?? null, creado_at: new Date().toISOString(), estado: 'pendiente'
+    };
+    if (!demora) {
+      setLocales((l) => [...l, local]);
+      despachar(local, datos, audio);
+      return;
+    }
+    let restan = demora;
+    const timer = setInterval(() => {
+      restan -= 1;
+      if (restan > 0) return actualizarLocal(local.id, { restan });
+      clearInterval(timer);
+      despachar(local, datos, audio);
+    }, 1000);
+    setLocales((l) => [...l, {
+      ...local, estado: 'esperando', restan,
+      deshacer: () => { clearInterval(timer); quitarLocal(local.id); onDeshacer?.(datos.texto); }
+    }]);
+  }
+
+  // Avisar antes de cerrar la pestaña si hay algo saliendo
+  const saliendo = locales.some((x) => x.estado === 'pendiente' || x.estado === 'esperando');
+  useEffect(() => {
+    if (!saliendo) return;
+    const aviso = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', aviso);
+    return () => window.removeEventListener('beforeunload', aviso);
+  }, [saliendo]);
+
+  // Ponerse al día: al volver a la pestaña/app o al recuperar la conexión (lo que llegó mientras tanto)
+  async function sincronizar() {
+    const [{ data }, { data: c }] = await Promise.all([
+      supabase.from('mensajes').select(SELECT_MENSAJE).eq('conversacion_id', conversacion.id).order('creado_at').limit(500),
+      supabase.from('conversaciones').select('modo, ventana_expira_at, ia_pensando_desde').eq('id', conversacion.id).maybeSingle()
+    ]);
+    if (data) setMensajes(data);
+    if (c) { setModo(c.modo); setExpira(c.ventana_expira_at); setPensando(c.ia_pensando_desde); }
+  }
+
   // Las consultas de supabase-js recién se ejecutan al hacer await/then
   const marcarLeido = async () => {
     await supabase.from('conversaciones').update({ no_leidos: 0 }).eq('id', conversacion.id).gt('no_leidos', 0);
   };
 
   useEffect(() => {
+    const alVolver = () => { if (document.visibilityState === 'visible') { sincronizar(); marcarLeido(); } };
+    document.addEventListener('visibilitychange', alVolver);
+    window.addEventListener('online', sincronizar);
+    return () => { document.removeEventListener('visibilitychange', alVolver); window.removeEventListener('online', sincronizar); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversacion.id]);
+
+  useEffect(() => {
     marcarLeido();
+    let reconectado = false;
     const canal = supabase.channel(`chat-${conversacion.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mensajes', filter: `conversacion_id=eq.${conversacion.id}` },
         async ({ eventType, new: fila }) => {
@@ -74,19 +172,20 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
           setMensajes((prev) => {
             const i = prev.findIndex((x) => x.id === m.id);
             const lista = i >= 0 ? prev.with(i, m) : [...prev, m];
-            return lista.sort((a, b) => new Date(a.creado_at) - new Date(b.creado_at));
+            return lista.sort(porFecha);
           });
           if (eventType === 'INSERT' && m.direccion === 'entrante') marcarLeido();
         })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversaciones', filter: `id=eq.${conversacion.id}` },
         ({ new: fila }) => { setModo(fila.modo); setExpira(fila.ventana_expira_at); setPensando(fila.ia_pensando_desde); })
-      .subscribe();
+      // Si la conexión en vivo se cortó y volvió, se trae lo que pudo haberse perdido
+      .subscribe((estado) => { if (estado === 'SUBSCRIBED') { if (reconectado) sincronizar(); reconectado = true; } });
     const reloj = setInterval(() => refrescarReloj((n) => n + 1), 60_000);
     return () => { supabase.removeChannel(canal); clearInterval(reloj); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversacion.id]);
 
-  useEffect(() => { fondo.current?.scrollIntoView({ block: 'end' }); }, [mensajes.length]);
+  useEffect(() => { fondo.current?.scrollIntoView({ block: 'end' }); }, [mensajes.length, locales.length]);
 
   async function cambiarModo(nuevo) {
     const anterior = modo;
@@ -97,6 +196,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
 
   const v = ventana(expira);
   const porId = Object.fromEntries(mensajes.map((x) => [x.id, x]));
+  const lista = locales.length ? [...mensajes, ...locales] : mensajes;
   const acciones = {
     onResponder: (m) => { setCorrigiendo(null); setRespondiendo(m); },
     onCorregir: (m) => { setRespondiendo(null); setCorrigiendo(m); },
@@ -151,10 +251,10 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
       </header>
 
       <div className="mensajes">
-        {mensajes.map((m, i) => (
+        {lista.map((m, i) => (
           <div key={m.id} className="mensaje-fila">
-            {(i === 0 || !mismoDia(mensajes[i - 1].creado_at, m.creado_at)) && <div className="dia">{separadorDia(m.creado_at)}</div>}
-            <Burbuja m={m} citado={m.responde_a ? porId[m.responde_a] : null} acciones={v.abierta ? acciones : null} />
+            {(i === 0 || !mismoDia(lista[i - 1].creado_at, m.creado_at)) && <div className="dia">{separadorDia(m.creado_at)}</div>}
+            <Burbuja m={m} citado={m.responde_a ? porId[m.responde_a] : null} acciones={v.abierta && !m.local ? acciones : null} />
           </div>
         ))}
         {iaEscribiendo(pensando) && <div className="escribiendo"><span /><span /><span />Asesor IA está escribiendo…</div>}
@@ -174,7 +274,8 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
       {contacto.telefono.startsWith('54900000000') && <Simulador conversacionId={conversacion.id} />}
       {avisoAccion && <p className="aviso-error" role="alert">{avisoAccion}</p>}
       <Redactor conversacion={conversacion} ventanaAbierta={v.abierta} audios={audios} plantillas={plantillas} modoPrueba={modoPrueba}
-        respondiendo={respondiendo} corrigiendo={corrigiendo} onLimpiar={() => { setRespondiendo(null); setCorrigiendo(null); }} />
+        respondiendo={respondiendo} corrigiendo={corrigiendo} onLimpiar={() => { setRespondiendo(null); setCorrigiendo(null); }}
+        onEnviar={enviarOptimista} />
     </main>
   );
 }

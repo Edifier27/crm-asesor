@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { corregirMensaje, enviarDesdeBandeja } from './acciones';
+import { corregirMensaje } from './acciones';
 import { autorCorto } from '../../componentes/Burbuja';
 
 const SEGUNDOS_DESHACER = 5;
@@ -9,67 +9,41 @@ const EMOJIS = ['😊', '😀', '😂', '🙂', '😉', '😍', '🤗', '🙏', 
 import Grabador from './Grabador';
 
 /**
+ * Como en WhatsApp: lo que se manda aparece al instante en el chat y sale por detrás (onEnviar lo maneja la conversación).
  * respondiendo: mensaje citado (responder); corrigiendo: mensaje propio a corregir; onLimpiar: sale de esos modos.
  */
-export default function Redactor({ conversacion, ventanaAbierta, audios, plantillas, modoPrueba, respondiendo, corrigiendo, onLimpiar }) {
+export default function Redactor({ conversacion, ventanaAbierta, audios, plantillas, modoPrueba, respondiendo, corrigiendo, onLimpiar, onEnviar }) {
   const [texto, setTexto] = useState('');
-  const [panel, setPanel] = useState(null); // 'audios' | 'plantillas' | null
+  const [panel, setPanel] = useState(null); // 'audios' | 'plantillas' | 'emojis' | null
   const [error, setError] = useState('');
-  const [enviando, iniciar] = useTransition();
+  const [corrigiendoAhora, iniciar] = useTransition();
   const campo = useRef(null);
-  // "Deshacer envío": el texto espera unos segundos antes de salir
-  const [pendiente, setPendiente] = useState(null); // { texto, respondeA, corrige, restan }
-  const temporizador = useRef(null);
-  const pendienteRef = useRef(null); // fuente de verdad del envío diferido (evita envíos dobles)
 
   useEffect(() => { if (respondiendo || corrigiendo) campo.current?.focus(); }, [respondiendo, corrigiendo]);
-  useEffect(() => () => clearInterval(temporizador.current), []);
 
   const nombre = conversacion.contacto.nombre?.trim().split(/\s+/)[0] || 'qué tal';
 
-  function enviar(datos, alTerminar) {
-    setError('');
-    iniciar(async () => {
-      const r = await enviarDesdeBandeja(conversacion.id, datos);
-      if (r.error) setError(r.error);
-      else { alTerminar?.(); setPanel(null); }
-    });
-  }
-
   function enviarTexto() {
-    if (!texto.trim() || pendiente) return;
-    const envio = { texto, respondeA: respondiendo?.id ?? null, corrige: corrigiendo?.id ?? null, restan: SEGUNDOS_DESHACER };
-    pendienteRef.current = envio;
-    setPendiente(envio);
+    const t = texto.trim();
+    if (!t) return;
+    setError('');
+    if (corrigiendo) {
+      // Corregir un mensaje propio: sale directo (es una corrección, no hay deshacer)
+      const id = corrigiendo.id;
+      setTexto(''); onLimpiar?.();
+      iniciar(async () => {
+        const r = await corregirMensaje(id, t);
+        if (r.error) { setError(r.error); setTexto(t); }
+      });
+      return;
+    }
+    onEnviar(
+      { tipo: 'texto', texto: t, respondeA: respondiendo?.id ?? null },
+      { tipo: 'texto', texto: t },
+      { demora: SEGUNDOS_DESHACER, onDeshacer: (original) => { setTexto(original); campo.current?.focus(); } }
+    );
     setTexto('');
     onLimpiar?.();
-    clearInterval(temporizador.current);
-    temporizador.current = setInterval(() => {
-      const p = pendienteRef.current;
-      if (!p) { clearInterval(temporizador.current); return; }
-      if (p.restan > 1) { pendienteRef.current = { ...p, restan: p.restan - 1 }; setPendiente(pendienteRef.current); return; }
-      clearInterval(temporizador.current);
-      pendienteRef.current = null;
-      setPendiente(null);
-      despachar(p);
-    }, 1000);
-  }
-
-  function despachar(p) {
-    setError('');
-    iniciar(async () => {
-      const r = p.corrige
-        ? await corregirMensaje(p.corrige, p.texto)
-        : await enviarDesdeBandeja(conversacion.id, { tipo: 'texto', texto: p.texto, respondeA: p.respondeA });
-      if (r.error) { setError(r.error); setTexto(p.texto); }
-    });
-  }
-
-  function deshacer() {
-    clearInterval(temporizador.current);
-    setTexto(pendiente.texto);
-    pendienteRef.current = null;
-    setPendiente(null);
     campo.current?.focus();
   }
 
@@ -87,14 +61,6 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
         <p className="aviso-prueba">Modo prueba: los mensajes se guardan pero no salen a WhatsApp hasta conectar Meta.</p>
       )}
       {error && <p className="aviso-error" role="alert">{error}</p>}
-
-      {pendiente && (
-        <div className="pendiente" role="status">
-          <span>Enviando en {pendiente.restan} s…</span>
-          <span className="pendiente-texto">{pendiente.texto}</span>
-          <button type="button" className="boton-secundario" onClick={deshacer}>Deshacer</button>
-        </div>
-      )}
 
       {(respondiendo || corrigiendo) && (
         <div className={`respondiendo${corrigiendo ? ' corrigiendo' : ''}`}>
@@ -120,8 +86,8 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
           </div>
           {audios.length === 0 && <p className="selector-vacio">Todavía no cargaste audios. Subilos desde la sección Audios del menú.</p>}
           {audios.map((a) => (
-            <button key={a.id} type="button" className="selector-item" disabled={enviando}
-              onClick={() => enviar({ tipo: 'audio', audioId: a.id })}>
+            <button key={a.id} type="button" className="selector-item"
+              onClick={() => { onEnviar({ tipo: 'audio', audioId: a.id }, { tipo: 'audio', texto: a.titulo }); setPanel(null); }}>
               <span className="selector-titulo">{a.titulo}{a.duracion_seg ? ` · ${Math.floor(a.duracion_seg / 60)}:${String(a.duracion_seg % 60).padStart(2, '0')}` : ''}</span>
               {a.descripcion && <span className="selector-detalle">{a.descripcion}</span>}
             </button>
@@ -136,8 +102,8 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
             <button type="button" className="boton-icono" aria-label="Cerrar" onClick={() => setPanel(null)}>×</button>
           </div>
           {plantillas.map((p) => (
-            <button key={p.id} type="button" className="selector-item" disabled={enviando}
-              onClick={() => enviar({ tipo: 'plantilla', plantillaId: p.id })}>
+            <button key={p.id} type="button" className="selector-item"
+              onClick={() => { onEnviar({ tipo: 'plantilla', plantillaId: p.id }, { tipo: 'plantilla', plantilla: p.nombre, texto: p.cuerpo.replaceAll('{{1}}', nombre) }); setPanel(null); }}>
               <span className="selector-titulo">{p.nombre}{p.uso ? ` · ${p.uso}` : ''}</span>
               <span className="selector-detalle">{p.cuerpo.replaceAll('{{1}}', nombre)}</span>
             </button>
@@ -158,7 +124,7 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
           onClick={() => setPanel(panel === 'emojis' ? null : 'emojis')} aria-label="Emojis" title="Emojis">😊</button>
         <label className="redactor-campo">
           <span className="oculto">Mensaje</span>
-          <textarea ref={campo} rows={1} value={texto} disabled={!ventanaAbierta || enviando}
+          <textarea ref={campo} rows={1} value={texto} disabled={!ventanaAbierta || corrigiendoAhora}
             placeholder={!ventanaAbierta ? 'Ventana cerrada: enviá una plantilla aprobada' : corrigiendo ? 'Escribí el texto corregido' : 'Escribí un mensaje'}
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={(e) => {
@@ -168,12 +134,16 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
         </label>
         {/* Como en WhatsApp: con texto, enviar; sin texto, grabar audio */}
         {texto.trim() || corrigiendo ? (
-          <button type="button" className="boton-enviar" disabled={!ventanaAbierta || enviando || !texto.trim() || Boolean(pendiente)} onClick={enviarTexto} aria-label="Enviar">
+          <button type="button" className="boton-enviar" disabled={!ventanaAbierta || corrigiendoAhora || !texto.trim()} onClick={enviarTexto} aria-label="Enviar">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4z" /></svg>
           </button>
         ) : (
-          <Grabador deshabilitado={!ventanaAbierta || enviando} onError={setError}
-            onListo={(grabacion) => { enviar({ tipo: 'grabacion', grabacion, respondeA: respondiendo?.id ?? null }); onLimpiar?.(); }} />
+          <Grabador deshabilitado={!ventanaAbierta} onError={setError}
+            onListo={(audio) => {
+              onEnviar({ tipo: 'grabacion', respondeA: respondiendo?.id ?? null },
+                { tipo: 'audio', urlLocal: URL.createObjectURL(audio.blob), texto: null }, { audio });
+              onLimpiar?.();
+            }} />
         )}
       </div>
     </footer>

@@ -92,9 +92,12 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
       conversacionId, tipo: tipo === 'grabacion' ? 'audio' : tipo, texto, audioId, plantillaId, documento, grabacion, archivo, respondeA,
       autor: 'asesor', perfilId: user.id
     });
-    const admin = createAdminClient();
-    if ((await modoIa(admin)) === 'copiloto') await programarSecuencia(admin, conversacionId);
-    return { ok: true, simulado: r.simulado };
+    // La secuencia de plantillas se programa después de responder, para que el envío se sienta instantáneo
+    after(async () => {
+      const admin = createAdminClient();
+      if ((await modoIa(admin)) === 'copiloto') await programarSecuencia(admin, conversacionId);
+    });
+    return { ok: true, id: r.id, simulado: r.simulado };
   } catch (e) {
     return { error: e.message };
   }
