@@ -49,8 +49,16 @@ export default function ListaChats({ inicial, iaInicial }) {
     for (const tabla of ['conversaciones', 'contactos', 'contacto_etiquetas']) {
       canal.on('postgres_changes', { event: '*', schema: 'public', table: tabla }, programar);
     }
-    canal.subscribe();
-    return () => { clearTimeout(temporizador.current); supabase.removeChannel(canal); };
+    // Si la conexión en vivo se cortó y volvió (celular bloqueado, sin señal), se pone al día
+    let reconectado = false;
+    canal.subscribe((estado) => { if (estado === 'SUBSCRIBED') { if (reconectado) recargar(); reconectado = true; } });
+    const alVolver = () => document.visibilityState === 'visible' && recargar();
+    document.addEventListener('visibilitychange', alVolver);
+    window.addEventListener('online', recargar);
+    return () => {
+      clearTimeout(temporizador.current); supabase.removeChannel(canal);
+      document.removeEventListener('visibilitychange', alVolver); window.removeEventListener('online', recargar);
+    };
   }, [supabase, recargar]);
 
   const conteos = useMemo(() => ({
