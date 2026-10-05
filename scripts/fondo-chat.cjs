@@ -70,6 +70,6 @@ for (const p of piezas) {
   }
 }
 
-const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${T}" height="${T}" viewBox="0 0 ${T} ${T}"><g fill="none" stroke="#C9BEAC" stroke-linecap="round" stroke-linejoin="round">${lineas.join('')}</g></svg>`;
+const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${T}" height="${T}" viewBox="0 0 ${T} ${T}"><g fill="none" stroke="#D9D0C2" stroke-linecap="round" stroke-linejoin="round">${lineas.join('')}</g></svg>`;
 fs.writeFileSync(require('path').join(__dirname, '..', 'public', 'fondo-chat.svg'), svg);
 console.log('piezas', lineas.length, 'bytes', svg.length);
