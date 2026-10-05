@@ -771,3 +771,5 @@ a.riel-usuario { text-decoration: none; color: inherit; }
 .usos-plantilla select { font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--borde); border-radius: 8px; background: #fff; width: 100%; }
 .usos-secuencia { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; border: 1px solid var(--linea); border-radius: 10px; padding: 10px 12px; }
 .usos-secuencia legend { font-size: 13px; font-weight: 700; padding: 0 6px; }
+
+.selector-item.activo { background: #E7F6EC; }

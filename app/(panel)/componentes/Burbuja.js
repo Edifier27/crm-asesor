@@ -165,6 +165,9 @@ export default function Burbuja({ m, citado, acciones, equipo }) {
           <button type="button" className="accion-mini" aria-label="Responder" title="Responder" onClick={() => acciones.onResponder(m)}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
           </button>
+          {acciones.onGuardarRapida && saliente && m.tipo === 'texto' && m.texto && (
+            <button type="button" className="accion-mini" aria-label="Guardar como respuesta rápida" title="Guardar como respuesta rápida" onClick={() => acciones.onGuardarRapida(m)}>⚡</button>
+          )}
           {corregible && (
             <button type="button" className="accion-mini" aria-label="Corregir" title="Corregir (hasta 15 min)" onClick={() => acciones.onCorregir(m)}>✏️</button>
           )}

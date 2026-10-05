@@ -8,6 +8,7 @@ import Redactor from './Redactor';
 import Simulador from './Simulador';
 import Burbuja from '../../componentes/Burbuja';
 import { enviarDesdeBandeja, reaccionar, registrarDocumento } from './acciones';
+import { limpiarAtajo } from '../../asesor/RespuestasRapidas';
 import { colorAvatar, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo, ultimoDelCliente, ventana } from '@/lib/formato';
 
 const ORIGENES = { swiss_medical: 'asignado por Swiss Medical', web: 'vía formulario', whatsapp: 'escribió por WhatsApp', manual: 'cargado a mano' };
@@ -15,7 +16,8 @@ const ORIGENES = { swiss_medical: 'asignado por Swiss Medical', web: 'vía formu
 export const iaEscribiendo = (desde) => Boolean(desde) && Date.now() - new Date(desde) < 120_000;
 const porFecha = (a, b) => new Date(a.creado_at) - new Date(b.creado_at);
 
-export default function Conversacion({ conversacion, mensajesIniciales, onFicha, audios, plantillas, modoPrueba, equipo }) {
+export default function Conversacion({ conversacion, mensajesIniciales, onFicha, audios, plantillas, modoPrueba, equipo, respuestasIniciales = [] }) {
+  const [respuestas, setRespuestas] = useState(respuestasIniciales);
   const supabase = createClient();
   const { contacto } = conversacion;
   const [mensajes, setMensajes] = useState(mensajesIniciales);
@@ -200,6 +202,18 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
   const acciones = {
     onResponder: (m) => { setCorrigiendo(null); setRespondiendo(m); },
     onCorregir: (m) => { setRespondiendo(null); setCorrigiendo(m); },
+    // Guardar un mensaje propio como respuesta rápida
+    onGuardarRapida: async (m) => {
+      const atajo = limpiarAtajo(window.prompt('Atajo para usarla con "/" (ej.: cartilla):', '') ?? '');
+      if (!atajo) return;
+      const nombre = contacto.nombre?.trim().split(/\s+/)[0];
+      // Si el texto tiene el nombre del cliente, se guarda como {nombre} para que sirva con cualquiera
+      const texto = nombre ? m.texto.replace(new RegExp(`\\b${nombre}\\b`, 'g'), '{nombre}') : m.texto;
+      const { data, error } = await supabase.from('respuestas_rapidas').insert({ atajo, texto }).select('id, atajo, texto, usos').single();
+      if (error) return setAvisoAccion(error.code === '23505' ? `Ya existe /${atajo}` : error.message);
+      setRespuestas((l) => [...l, data]);
+      setAvisoAccion(`Guardada como /${atajo}`); setTimeout(() => setAvisoAccion(''), 3000);
+    },
     onReaccionar: async (m, emoji) => {
       const r = await reaccionar(m.id, emoji);
       setAvisoAccion(r.error ?? '');
@@ -275,7 +289,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
       {avisoAccion && <p className="aviso-error" role="alert">{avisoAccion}</p>}
       <Redactor conversacion={conversacion} ventanaAbierta={v.abierta} audios={audios} plantillas={plantillas} modoPrueba={modoPrueba}
         respondiendo={respondiendo} corrigiendo={corrigiendo} onLimpiar={() => { setRespondiendo(null); setCorrigiendo(null); }}
-        onEnviar={enviarOptimista} />
+        onEnviar={enviarOptimista} respuestas={respuestas} />
     </main>
   );
 }

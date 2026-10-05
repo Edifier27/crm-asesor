@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { corregirMensaje } from './acciones';
+import { createClient } from '@/lib/supabase/client';
 import { autorCorto } from '../../componentes/Burbuja';
 
 const SEGUNDOS_DESHACER = 5;
@@ -12,7 +13,7 @@ import Grabador from './Grabador';
  * Como en WhatsApp: lo que se manda aparece al instante en el chat y sale por detrás (onEnviar lo maneja la conversación).
  * respondiendo: mensaje citado (responder); corrigiendo: mensaje propio a corregir; onLimpiar: sale de esos modos.
  */
-export default function Redactor({ conversacion, ventanaAbierta, audios, plantillas, modoPrueba, respondiendo, corrigiendo, onLimpiar, onEnviar }) {
+export default function Redactor({ conversacion, ventanaAbierta, audios, plantillas, modoPrueba, respondiendo, corrigiendo, onLimpiar, onEnviar, respuestas = [] }) {
   const [texto, setTexto] = useState('');
   const [panel, setPanel] = useState(null); // 'audios' | 'plantillas' | 'emojis' | null
   const [error, setError] = useState('');
@@ -22,6 +23,19 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
   useEffect(() => { if (respondiendo || corrigiendo) campo.current?.focus(); }, [respondiendo, corrigiendo]);
 
   const nombre = conversacion.contacto.nombre?.trim().split(/\s+/)[0] || 'qué tal';
+  const [elegida, setElegida] = useState(0);
+
+  // Respuestas rápidas: "/" al principio filtra por atajo o texto
+  const buscando = texto.startsWith('/') && !texto.includes('\n') ? texto.slice(1).toLowerCase() : null;
+  const sugeridas = buscando === null ? [] : respuestas
+    .filter((r) => r.atajo.includes(buscando) || r.texto.toLowerCase().includes(buscando)).slice(0, 8);
+  const conNombre = (t) => t.replaceAll('{nombre}', conversacion.contacto.nombre?.trim().split(/\s+/)[0] ?? '').replace(/\s+,/g, ',').replace(/\s{2,}/g, ' ');
+  function usarRapida(r) {
+    setTexto(conNombre(r.texto));
+    setPanel(null); setElegida(0);
+    createClient().from('respuestas_rapidas').update({ usos: (r.usos ?? 0) + 1 }).eq('id', r.id).then(() => {});
+    requestAnimationFrame(() => campo.current?.focus());
+  }
 
   function enviarTexto() {
     const t = texto.trim();
@@ -69,6 +83,23 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
             <span>{(corrigiendo ?? respondiendo).texto?.slice(0, 160) ?? 'Mensaje'}</span>
           </span>
           <button type="button" className="boton-icono" aria-label="Cancelar" onClick={onLimpiar}>×</button>
+        </div>
+      )}
+
+      {(sugeridas.length > 0 || panel === 'rapidas') && (
+        <div className="selector" role="listbox" aria-label="Respuestas rápidas">
+          <div className="selector-cabecera">
+            <strong>Respuestas rápidas</strong>
+            <span className="selector-detalle">↑↓ y Enter · se cargan en el cuadro para retocarlas</span>
+          </div>
+          {(sugeridas.length ? sugeridas : respuestas).map((r, i) => (
+            <button key={r.id} type="button" role="option" aria-selected={sugeridas.length > 0 && i === elegida}
+              className={`selector-item${sugeridas.length > 0 && i === elegida ? ' activo' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => usarRapida(r)}>
+              <span className="selector-titulo">/{r.atajo}</span>
+              <span className="selector-detalle">{conNombre(r.texto)}</span>
+            </button>
+          ))}
+          {respuestas.length === 0 && <p className="selector-vacio">Todavía no hay respuestas rápidas. Creálas en Asesor IA o guardá un mensaje tuyo con ⚡.</p>}
         </div>
       )}
 
@@ -122,12 +153,19 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
         </button>
         <button type="button" className={`boton-herramienta${panel === 'emojis' ? ' activo' : ''}`} disabled={!ventanaAbierta}
           onClick={() => setPanel(panel === 'emojis' ? null : 'emojis')} aria-label="Emojis" title="Emojis">😊</button>
+        <button type="button" className={`boton-herramienta${panel === 'rapidas' ? ' activo' : ''}`} disabled={!ventanaAbierta}
+          onClick={() => setPanel(panel === 'rapidas' ? null : 'rapidas')} aria-label="Respuestas rápidas" title="Respuestas rápidas ( / )">⚡</button>
         <label className="redactor-campo">
           <span className="oculto">Mensaje</span>
           <textarea ref={campo} rows={1} value={texto} disabled={!ventanaAbierta || corrigiendoAhora}
             placeholder={!ventanaAbierta ? 'Ventana cerrada: enviá una plantilla aprobada' : corrigiendo ? 'Escribí el texto corregido' : 'Escribí un mensaje'}
-            onChange={(e) => setTexto(e.target.value)}
+            onChange={(e) => { setTexto(e.target.value); setElegida(0); }}
             onKeyDown={(e) => {
+              if (sugeridas.length) {
+                if (e.key === 'ArrowDown') { e.preventDefault(); setElegida((i) => (i + 1) % sugeridas.length); return; }
+                if (e.key === 'ArrowUp') { e.preventDefault(); setElegida((i) => (i - 1 + sugeridas.length) % sugeridas.length); return; }
+                if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); usarRapida(sugeridas[elegida]); return; }
+              }
               if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarTexto(); }
               if (e.key === 'Escape') onLimpiar?.();
             }} />
