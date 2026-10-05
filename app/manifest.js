@@ -1,7 +1,7 @@
 export default function manifest() {
   return {
-    name: 'CRM Asesor',
-    short_name: 'CRM',
+    name: 'AsesorCRM',
+    short_name: 'AsesorCRM',
     description: 'Chats y leads con asesor IA',
     start_url: '/bandeja',
     display: 'standalone',

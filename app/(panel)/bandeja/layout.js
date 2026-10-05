@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { SELECT_LISTA } from '@/lib/consultas';
 import ListaChats from './ListaChats';
 
-export const metadata = { title: 'Chats · CRM Asesor' };
+export const metadata = { title: 'Chats · AsesorCRM' };
 
 export default async function BandejaLayout({ children }) {
   const supabase = await createClient();

@@ -1,4 +1,4 @@
-export const metadata = { title: 'Política de privacidad · DatoCRM' };
+export const metadata = { title: 'Política de privacidad · AsesorCRM' };
 
 // Página pública que Meta exige para publicar la app de WhatsApp.
 export default function Privacidad() {
@@ -8,7 +8,7 @@ export default function Privacidad() {
       <p className="legal-fecha">Última actualización: 5 de octubre de 2026</p>
 
       <p>
-        DatoCRM es la herramienta que usa el asesor comercial Darío Bettalio para atender por WhatsApp a las personas que consultan
+        AsesorCRM es la herramienta que usa el asesor comercial Darío Bettalio para atender por WhatsApp a las personas que consultan
         por planes de medicina prepaga. Esta política explica qué datos se tratan, para qué y cuáles son tus derechos, de acuerdo con
         la Ley 25.326 de Protección de Datos Personales de la República Argentina.
       </p>

@@ -4,7 +4,7 @@ import './globals.css';
 const figtree = Figtree({ subsets: ['latin'], display: 'swap' });
 
 export const metadata = {
-  title: 'CRM Asesor',
+  title: 'AsesorCRM',
   robots: { index: false, follow: false }
 };
 

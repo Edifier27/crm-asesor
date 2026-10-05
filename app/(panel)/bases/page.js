@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import Bases from './Bases';
 import { plantillaPara } from '@/lib/plantillas-uso';
 
-export const metadata = { title: 'Bases · CRM Asesor' };
+export const metadata = { title: 'Bases · AsesorCRM' };
 
 export default async function BasesPage() {
   const supabase = await createClient();

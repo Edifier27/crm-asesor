@@ -3,7 +3,7 @@ import PanelAsesor from './PanelAsesor';
 import Plantillas from './Plantillas';
 import RespuestasRapidas from './RespuestasRapidas';
 
-export const metadata = { title: 'Asesor IA · CRM Asesor' };
+export const metadata = { title: 'Asesor IA · AsesorCRM' };
 
 export default async function AsesorPage() {
   const supabase = await createClient();

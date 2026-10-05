@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import Biblioteca from './Biblioteca';
 
-export const metadata = { title: 'Audios · CRM Asesor' };
+export const metadata = { title: 'Audios · AsesorCRM' };
 
 export default async function AudiosPage() {
   const supabase = await createClient();

@@ -13,7 +13,7 @@ export default async function PanelLayout({ children }) {
   return (
     <div className="app">
       <nav className="riel" aria-label="Secciones">
-        <div className="riel-marca">CRM</div>
+        <div className="riel-marca" title="AsesorCRM">AC</div>
         <RielLinks esAdmin={perfil?.rol === 'admin'} />
         <div className="riel-espacio" />
         <Link href="/bienvenida" className="riel-usuario" title={`${user.email} · cambiar contraseña`}>{inicial}</Link>

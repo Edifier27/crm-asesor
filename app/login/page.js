@@ -9,7 +9,7 @@ export default function Login() {
   return (
     <main className="login">
       <form action={accion} className="login-card">
-        <div className="marca">CRM</div>
+        <div className="marca">AsesorCRM</div>
         <h1>Ingresá a tu cuenta</h1>
 
         <label>

@@ -26,7 +26,7 @@ export default function Bienvenida() {
   return (
     <main className="login">
       <form onSubmit={guardar} className="login-card">
-        <div className="marca">CRM</div>
+        <div className="marca">AsesorCRM</div>
         <h1>Elegí tu contraseña</h1>
         <label>
           Contraseña nueva
