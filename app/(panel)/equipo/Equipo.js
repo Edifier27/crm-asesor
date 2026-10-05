@@ -3,7 +3,10 @@
 import { useState, useTransition } from 'react';
 import { cambiarAcceso, invitar, reenviarInvitacion } from './acciones';
 
-export default function Equipo({ miembros: iniciales, yo }) {
+import { LIMITES_FREE, estadoUso, mb } from '@/lib/uso';
+
+export default function Equipo({ miembros: iniciales, yo, uso }) {
+  const estado = estadoUso(uso);
   const [miembros, setMiembros] = useState(iniciales);
   const [aviso, setAviso] = useState('');
   const [ocupado, iniciar] = useTransition();
@@ -61,6 +64,23 @@ export default function Equipo({ miembros: iniciales, yo }) {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="tarjeta" id="uso">
+        <h2>Espacio en Supabase (plan gratis)</h2>
+        <p className="selector-detalle">
+          {estado.nivel === 'urgente' ? 'Está casi lleno: pasá a Pro (USD 25 por mes) en supabase.com → Billing para no perder datos.'
+            : estado.nivel === 'atencion' ? 'Pasó el 70%: es momento de pasar a Pro (USD 25 por mes) en supabase.com → Billing.'
+              : 'Todo bien. Te avisamos arriba en el CRM cuando pase el 70%.'}
+        </p>
+        {[['Base de datos (chats, contactos)', uso?.base_bytes, LIMITES_FREE.base, estado.pctBase], ['Archivos (audios, PDF, documentos)', uso?.archivos_bytes, LIMITES_FREE.archivos, estado.pctArchivos]].map(([rotulo, usado, limite, pct]) => (
+          <div key={rotulo} className="uso-fila">
+            <span>{rotulo}</span>
+            <span className="uso-barra"><span className={pct >= 90 ? 'urgente' : pct >= 70 ? 'atencion' : ''} style={{ width: `${Math.min(100, Math.max(2, pct))}%` }} /></span>
+            <span className="selector-detalle">{mb(usado)} de {mb(limite)} · {pct}%</span>
+          </div>
+        ))}
+        {uso?.medido_at && <span className="selector-detalle">Medido {new Date(uso.medido_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}</span>}
       </section>
 
       <section className="tarjeta">

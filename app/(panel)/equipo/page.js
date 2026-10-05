@@ -20,5 +20,6 @@ export default async function EquipoPage() {
   const miembros = (perfiles ?? []).map((p) => ({
     ...p, email: porId[p.id]?.email ?? '', ingreso: Boolean(porId[p.id]?.last_sign_in_at)
   }));
-  return <Equipo miembros={miembros} yo={user.id} />;
+  const { data: uso } = await admin.from('uso_sistema').select('*').maybeSingle();
+  return <Equipo miembros={miembros} yo={user.id} uso={uso} />;
 }

@@ -773,3 +773,14 @@ a.riel-usuario { text-decoration: none; color: inherit; }
 .usos-secuencia legend { font-size: 13px; font-weight: 700; padding: 0 6px; }
 
 .selector-item.activo { background: #E7F6EC; }
+
+/* Aviso de espacio en Supabase */
+.aviso-uso { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 90; padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; text-decoration: none; box-shadow: 0 4px 14px #00000026; }
+.aviso-uso.atencion { background: #FEF3C7; color: #92400E; }
+.aviso-uso.urgente { background: #FDECEC; color: #8B1E1E; }
+.uso-fila { display: grid; grid-template-columns: 220px 1fr auto; gap: 12px; align-items: center; margin: 10px 0; font-size: 14px; }
+.uso-barra { height: 10px; border-radius: 5px; background: var(--fondo); overflow: hidden; }
+.uso-barra span { display: block; height: 100%; background: #22A06B; border-radius: 5px; }
+.uso-barra span.atencion { background: #D97706; }
+.uso-barra span.urgente { background: #DC2626; }
+@media (max-width: 640px) { .uso-fila { grid-template-columns: 1fr; } }
