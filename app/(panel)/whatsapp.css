@@ -5,7 +5,7 @@
   --wa-verde: #00A884; --wa-verde-oscuro: #008069; --wa-noleido: #25D366; --wa-azul: #53BDEB; --wa-linea: #E9EDEF;
   font-family: "Segoe UI", "Helvetica Neue", Helvetica, "Lucida Grande", Arial, Ubuntu, Cantarell, "Fira Sans", sans-serif;
 }
-.conversacion, .en-vivo-panel, .vacio { --chat-fondo: #EFEAE2; }
+.conversacion, .en-vivo-panel, .vacio { --chat-fondo: #EFEAE2; background-size: 480px 480px; }
 
 /* Lista de chats */
 .lista { background: #fff; border-right: 1px solid var(--wa-linea); }
