@@ -54,6 +54,9 @@ export default function Grabador({ deshabilitado, onListo, onError }) {
 
   async function empezar() {
     cancelado.current = false;
+    // Como en WhatsApp: al empezar a grabar se corta cualquier audio que esté sonando
+    window.dispatchEvent(new CustomEvent('nota-de-voz', { detail: 'grabando' }));
+    document.querySelectorAll('audio').forEach((a) => a.pause());
     try {
       const ok = await empezarOpus().catch((e) => { if (e?.name === 'NotAllowedError') throw e; return false; });
       if (!ok) await empezarNativo();
