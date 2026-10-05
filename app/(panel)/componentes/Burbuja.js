@@ -90,6 +90,7 @@ const firmarAudio = async (path) => (await createClient().storage.from('audios')
  * @param {object} [p.avatar]   { iniciales, estilo } para las notas de voz
  */
 export default function Burbuja({ m, citado, acciones, equipo, cola = true, avatar }) {
+  const [escuchadoLocal, setEscuchadoLocal] = useState(false);
   const [menu, setMenu] = useState(null); // null | 'opciones' | 'reacciones'
   const [copiado, setCopiado] = useState(false);
   const caja = useRef(null);
@@ -132,6 +133,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
     <span className="burbuja-meta">
       {m.editado_at && <span className="marca-msg" title={m.texto_original ? `Antes decía: ${m.texto_original}` : ''}>Editado</span>}
       {m.corregido_por && <span className="marca-msg">Corregido</span>}
+      {saliente && esAudio && m.escuchado_at && <span className="marca-escuchado">Leído</span>}
       {hora(m.creado_at)}
       {saliente && m.estado && <Tildes estado={m.estado === 'esperando' ? 'pendiente' : m.estado} />}
     </span>
@@ -158,7 +160,12 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
         {esAudio && !grabado && m.autor !== 'contacto' && m.texto && <span className="audio-titulo">🎵 {m.texto}</span>}
         {tieneAudio && (
           <NotaDeVoz id={m.id} url={m.urlLocal ?? null} obtenerUrl={m.media_path ? () => firmarAudio(m.media_path) : undefined}
-            duracion={segundosDe(m.texto) || m.duracion || 0} iniciales={avatar?.iniciales} estiloAvatar={avatar?.estilo} />
+            duracion={segundosDe(m.texto) || m.duracion || 0} iniciales={avatar?.iniciales} estiloAvatar={avatar?.estilo}
+            escuchado={Boolean(m.escuchado_at) || (m.direccion === 'entrante' && escuchadoLocal)}
+            onEscuchar={m.direccion === 'entrante' && !m.escuchado_at && !escuchadoLocal && !m.local ? () => {
+              setEscuchadoLocal(true);
+              createClient().from('mensajes').update({ escuchado_at: new Date().toISOString() }).eq('id', m.id).is('escuchado_at', null).then(() => {});
+            } : undefined} />
         )}
         {esAudio && !tieneAudio && <span className="burbuja-adjunto">🎤 Audio de voz {m.local ? '' : '(no disponible)'}</span>}
         {esAudio && m.autor === 'contacto' && m.texto && <span className="transcripcion">{m.texto}</span>}

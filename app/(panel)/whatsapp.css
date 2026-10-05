@@ -201,3 +201,8 @@
   .orejita:hover { width: 22px; opacity: 1; color: #fff; }
   .orejita.oculta { opacity: 0; pointer-events: none; }
 }
+
+/* Notas de voz: micrófono verde sin escuchar, azul escuchado */
+.nota-mic, .burbuja.entrante .nota-mic { color: #25D366; }
+.nota-mic.escuchado, .burbuja.entrante .nota-mic.escuchado { color: #53BDEB; }
+.marca-escuchado { color: #53BDEB; font-weight: 600; margin-right: 3px; }

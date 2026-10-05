@@ -25,7 +25,7 @@ function onda(semilla, n = 34) {
  * @param {number} [duracion]    segundos (si se conoce antes de cargar)
  * @param {string} [iniciales] / [estiloAvatar]  avatar con el micrófono, como WhatsApp
  */
-export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, duracion = 0, iniciales, estiloAvatar }) {
+export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, duracion = 0, iniciales, estiloAvatar, escuchado = false, onEscuchar }) {
   const audio = useRef(null);
   const tocarAlCargar = useRef(false);
   const [url, setUrl] = useState(urlInicial);
@@ -139,7 +139,7 @@ export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, dura
         : (
           <span className="nota-avatar" style={estiloAvatar}>
             {iniciales}
-            <svg className="nota-mic" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2z" /></svg>
+            <svg className={`nota-mic${escuchado ? ' escuchado' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2z" /></svg>
           </span>
         )}
       {url && (
@@ -147,7 +147,7 @@ export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, dura
           onLoadedMetadata={(e) => { leerDuracion(e.currentTarget); e.currentTarget.playbackRate = velocidad; }}
           onDurationChange={(e) => { if (Number.isFinite(e.currentTarget.duration)) setTotal(e.currentTarget.duration); }}
           onTimeUpdate={(e) => { if (e.currentTarget.currentTime < 1e6) setActual(e.currentTarget.currentTime); }}
-          onPlay={() => { setSonando(true); window.dispatchEvent(new CustomEvent('nota-de-voz', { detail: id })); }}
+          onPlay={() => { setSonando(true); onEscuchar?.(); window.dispatchEvent(new CustomEvent('nota-de-voz', { detail: id })); }}
           onPause={() => setSonando(false)}
           onEnded={() => { setSonando(false); setActual(0); }}
           onError={alFallar} />
