@@ -3,6 +3,7 @@ import { salir } from '../login/actions';
 import Link from 'next/link';
 import RielLinks from './RielLinks';
 import './panel.css';
+import './whatsapp.css';
 
 export default async function PanelLayout({ children }) {
   const supabase = await createClient();

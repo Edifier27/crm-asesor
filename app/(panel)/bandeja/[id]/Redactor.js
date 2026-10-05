@@ -13,7 +13,8 @@ import Grabador from './Grabador';
  * Como en WhatsApp: lo que se manda aparece al instante en el chat y sale por detrás (onEnviar lo maneja la conversación).
  * respondiendo: mensaje citado (responder); corrigiendo: mensaje propio a corregir; onLimpiar: sale de esos modos.
  */
-export default function Redactor({ conversacion, ventanaAbierta, audios, plantillas, modoPrueba, respondiendo, corrigiendo, onLimpiar, onEnviar, respuestas = [] }) {
+export default function Redactor({ conversacion, ventanaAbierta, audios, plantillas, modoPrueba, respondiendo, corrigiendo, onLimpiar, onEnviar, respuestas = [], onAdjuntar }) {
+  const archivoRef = useRef(null);
   const [texto, setTexto] = useState('');
   const [panel, setPanel] = useState(null); // 'audios' | 'plantillas' | 'emojis' | null
   const [error, setError] = useState('');
@@ -142,23 +143,39 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
         </div>
       )}
 
+      {panel === 'adjuntar' && (
+        <div className="menu-adjuntar" role="menu">
+          <button type="button" role="menuitem" disabled={!ventanaAbierta} onClick={() => { setPanel(null); archivoRef.current?.click(); }}>
+            <span className="icono-adjunto doc">📄</span>Foto o documento
+          </button>
+          <button type="button" role="menuitem" onClick={() => setPanel('plantillas')}>
+            <span className="icono-adjunto plantilla">📝</span>Plantillas
+          </button>
+          <button type="button" role="menuitem" disabled={!ventanaAbierta} onClick={() => setPanel('rapidas')}>
+            <span className="icono-adjunto rapida">⚡</span>Respuestas rápidas
+          </button>
+          <button type="button" role="menuitem" disabled={!ventanaAbierta} onClick={() => setPanel('audios')}>
+            <span className="icono-adjunto audio">🎵</span>Audios guardados
+          </button>
+        </div>
+      )}
+      <input ref={archivoRef} type="file" hidden accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
+        onChange={(e) => { const a = e.target.files?.[0]; e.target.value = ''; if (a) onAdjuntar?.(a); }} />
+
       <div className="redactor">
-        <button type="button" className={`boton-herramienta${panel === 'audios' ? ' activo' : ''}`} disabled={!ventanaAbierta}
-          onClick={() => setPanel(panel === 'audios' ? null : 'audios')} aria-label="Enviar audio de la biblioteca" title="Audios">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>
-        </button>
-        <button type="button" className={`boton-herramienta${panel === 'plantillas' ? ' activo' : ''}${!ventanaAbierta ? ' destacado' : ''}`}
-          onClick={() => setPanel(panel === 'plantillas' ? null : 'plantillas')} aria-label="Enviar plantilla" title="Plantillas">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><path d="M8 13h8M8 17h5" /></svg>
-        </button>
         <button type="button" className={`boton-herramienta${panel === 'emojis' ? ' activo' : ''}`} disabled={!ventanaAbierta}
-          onClick={() => setPanel(panel === 'emojis' ? null : 'emojis')} aria-label="Emojis" title="Emojis">😊</button>
-        <button type="button" className={`boton-herramienta${panel === 'rapidas' ? ' activo' : ''}`} disabled={!ventanaAbierta}
-          onClick={() => setPanel(panel === 'rapidas' ? null : 'rapidas')} aria-label="Respuestas rápidas" title="Respuestas rápidas ( / )">⚡</button>
+          onClick={() => setPanel(panel === 'emojis' ? null : 'emojis')} aria-label="Emojis" title="Emojis">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0" /><circle cx="9" cy="10" r="0.9" fill="currentColor" /><circle cx="15" cy="10" r="0.9" fill="currentColor" /></svg>
+        </button>
+        <button type="button" className={`boton-herramienta${['adjuntar', 'plantillas', 'audios', 'rapidas'].includes(panel) ? ' activo' : ''}${!ventanaAbierta ? ' destacado' : ''}`}
+          onClick={() => setPanel(['adjuntar', 'plantillas', 'audios', 'rapidas'].includes(panel) ? null : (ventanaAbierta ? 'adjuntar' : 'plantillas'))}
+          aria-label={ventanaAbierta ? 'Adjuntar' : 'Enviar plantilla'} title={ventanaAbierta ? 'Adjuntar' : 'Plantillas'}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+        </button>
         <label className="redactor-campo">
           <span className="oculto">Mensaje</span>
           <textarea ref={campo} rows={1} value={texto} disabled={!ventanaAbierta || corrigiendoAhora}
-            placeholder={!ventanaAbierta ? 'Ventana cerrada: enviá una plantilla aprobada' : corrigiendo ? 'Escribí el texto corregido' : 'Escribí un mensaje'}
+            placeholder={!ventanaAbierta ? 'Pasaron 24 h: mandá una plantilla con el +' : corrigiendo ? 'Escribí el texto corregido' : 'Escribe un mensaje'}
             onChange={(e) => { setTexto(e.target.value); setElegida(0); }}
             onKeyDown={(e) => {
               if (sugeridas.length) {
@@ -173,7 +190,7 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
         {/* Como en WhatsApp: con texto, enviar; sin texto, grabar audio */}
         {texto.trim() || corrigiendo ? (
           <button type="button" className="boton-enviar" disabled={!ventanaAbierta || corrigiendoAhora || !texto.trim()} onClick={enviarTexto} aria-label="Enviar">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4z" /></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4l17.45-7.48a1 1 0 0 0 0-1.84L3.4 3.6a.99.99 0 0 0-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .71.73 1.2 1.39.91z" /></svg>
           </button>
         ) : (
           <Grabador deshabilitado={!ventanaAbierta} onError={setError}

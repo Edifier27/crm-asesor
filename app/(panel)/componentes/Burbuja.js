@@ -1,37 +1,18 @@
 'use client';
 
-// Burbuja de mensaje: la usan la conversación de la bandeja y el panel en vivo del embudo
-import { useEffect, useState } from 'react';
+// Burbuja de mensaje, igual que WhatsApp: colita en el primero del grupo, hora y tildes adentro abajo a la derecha,
+// flechita con menú al pasar el mouse y carita para reaccionar. La usan la bandeja y el panel en vivo del embudo.
+import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { hora } from '@/lib/formato';
 import { verDocumento } from '../bandeja/[id]/acciones';
 import VisorArchivo from './VisorArchivo';
+import NotaDeVoz from './NotaDeVoz';
 
 const ESTADOS = { pendiente: 'enviando…', enviado: 'enviado', entregado: 'entregado', leido: 'leído', fallido: 'no se pudo enviar' };
 const AUTORES = { ia: 'Asesor IA', asesor: 'Vos' };
 
-// Audio enviado desde la biblioteca: se firma la URL recién al darle play
-function AudioBiblioteca({ path, titulo }) {
-  const [url, setUrl] = useState(null);
-  async function cargar() {
-    const { data } = await createClient().storage.from('audios').createSignedUrl(path, 600);
-    if (data) setUrl(data.signedUrl);
-  }
-  return (
-    <span className="audio-biblioteca">
-      <span className="burbuja-adjunto">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>
-        {titulo}
-      </span>
-      {url
-        ? <audio controls autoPlay src={url} />
-        : <button type="button" className="boton-secundario" onClick={cargar}>Escuchar</button>}
-    </span>
-  );
-}
-
 // Foto o PDF (enviado o recibido): vista previa dentro de la burbuja, como en WhatsApp.
-// El link es temporal (10 min) y se pide al mostrar la burbuja; el PDF se carga recién al acercarse en pantalla.
 const ES_IMAGEN = /\.(jpe?g|png|webp|gif)$/i;
 function DocumentoEnviado({ path, texto }) {
   const [url, setUrl] = useState(null);
@@ -67,11 +48,10 @@ function DocumentoEnviado({ path, texto }) {
           {url ? <iframe src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} title={texto} loading="lazy" tabIndex={-1} /> : <span className="adjunto-cargando">Cargando PDF…</span>}
         </button>
       )}
-      <span className="doc-enviado">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
+      <button type="button" className="doc-enviado" onClick={ver}>
+        <span className="doc-icono">{tipo === 'pdf' ? 'PDF' : 'DOC'}</span>
         <span className="doc-enviado-texto">{texto}</span>
-        <button type="button" className="boton-secundario" onClick={ver}>Ver</button>
-      </span>
+      </button>
     </span>
   );
 }
@@ -79,9 +59,11 @@ function DocumentoEnviado({ path, texto }) {
 export const REACCIONES = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 const MIN_CORREGIR = 15; // misma regla que editar en WhatsApp
 
-// Tildes como en WhatsApp: ✓ enviado · ✓✓ entregado · ✓✓ azul leído
+// Tildes como en WhatsApp: reloj enviando · ✓ enviado · ✓✓ entregado · ✓✓ azul leído
 function Tildes({ estado }) {
-  if (estado === 'pendiente') return <span className="tildes" title="Enviando">🕓</span>;
+  if (estado === 'pendiente') {
+    return <span className="tildes" title="Enviando"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l2.5 1.5" /></svg></span>;
+  }
   if (estado === 'fallido') return <span className="tildes fallo" title="No se pudo enviar">!</span>;
   const dobles = estado === 'entregado' || estado === 'leido';
   return (
@@ -94,51 +76,99 @@ function Tildes({ estado }) {
 }
 
 export const autorCorto = (m) => (m.direccion === 'entrante' ? 'Cliente' : AUTORES[m.autor] ?? '');
-const resumen = (m) => m.texto || { audio: 'Audio', documento: 'Documento', imagen: 'Imagen', plantilla: 'Plantilla' }[m.tipo] || 'Mensaje';
+const resumen = (m) => m.texto || { audio: '🎤 Audio', documento: '📄 Documento', imagen: '📷 Foto', plantilla: 'Plantilla' }[m.tipo] || 'Mensaje';
+// "Audio grabado (0:42)" → 42 segundos
+const segundosDe = (t) => { const x = /\((\d+):(\d{2})\)/.exec(t ?? ''); return x ? Number(x[1]) * 60 + Number(x[2]) : 0; };
+const firmarAudio = async (path) => (await createClient().storage.from('audios').createSignedUrl(path, 3600)).data?.signedUrl ?? null;
 
 /**
  * @param {object} p
- * @param {object} p.m         mensaje
- * @param {object} [p.citado]  mensaje al que responde (si lo tiene)
- * @param {object} [p.acciones] { onResponder(m), onReaccionar(m, emoji), onCorregir(m) } — sin acciones, solo lectura
+ * @param {object} p.m          mensaje
+ * @param {object} [p.citado]   mensaje al que responde (si lo tiene)
+ * @param {object} [p.acciones] { onResponder, onReaccionar, onCorregir, onGuardarRapida } — sin acciones, solo lectura
+ * @param {boolean} [p.cola]    primer mensaje del grupo: lleva la "colita" como en WhatsApp
+ * @param {object} [p.avatar]   { iniciales, estilo } para las notas de voz
  */
-export default function Burbuja({ m, citado, acciones, equipo }) {
-  const [menu, setMenu] = useState(false);
+export default function Burbuja({ m, citado, acciones, equipo, cola = true, avatar }) {
+  const [menu, setMenu] = useState(null); // null | 'opciones' | 'reacciones'
+  const [copiado, setCopiado] = useState(false);
+  const caja = useRef(null);
+
+  // Cerrar el menú al tocar afuera
+  useEffect(() => {
+    if (!menu) return;
+    const fuera = (e) => { if (!caja.current?.contains(e.target)) setMenu(null); };
+    document.addEventListener('pointerdown', fuera);
+    return () => document.removeEventListener('pointerdown', fuera);
+  }, [menu]);
+
   if (m.autor === 'sistema') return <div className="evento">{m.texto}</div>;
   const saliente = m.direccion === 'saliente';
   const reacciones = Object.entries(m.reacciones ?? {});
   const corregible = acciones?.onCorregir && saliente && m.tipo === 'texto' && ['asesor', 'ia'].includes(m.autor)
     && !m.corregido_por && Date.now() - new Date(m.creado_at) < MIN_CORREGIR * 60_000;
 
+  // Como WhatsApp, lo tuyo no lleva nombre; sí la IA, las plantillas y lo que mandó un compañero
+  const companero = m.autor === 'asesor' && m.autor_perfil_id && equipo && m.autor_perfil_id !== equipo.yo;
+  const etiqueta = !saliente ? null
+    : m.tipo === 'plantilla' ? `Plantilla${m.plantilla ? ` · ${m.plantilla}` : ''}`
+      : m.autor === 'ia' ? 'Asesor IA'
+        : companero ? (equipo.nombres[m.autor_perfil_id] ?? 'Compañero') : null;
+
+  const esAudio = m.tipo === 'audio';
+  const grabado = esAudio && /^Audio grabado/.test(m.texto ?? '');
+  const tieneAudio = esAudio && (m.urlLocal || m.media_path);
+  const conArchivo = ['documento', 'imagen'].includes(m.tipo) && m.media_path;
+  // Texto visible: en audios solo la transcripción del cliente o el título de la biblioteca
+  const texto = esAudio ? null : conArchivo ? null : m.texto;
+
+  async function copiar() {
+    await navigator.clipboard?.writeText(m.texto ?? '').catch(() => {});
+    setCopiado(true); setMenu(null);
+    setTimeout(() => setCopiado(false), 1500);
+  }
+
+  const meta = (
+    <span className="burbuja-meta">
+      {m.editado_at && <span className="marca-msg" title={m.texto_original ? `Antes decía: ${m.texto_original}` : ''}>Editado</span>}
+      {m.corregido_por && <span className="marca-msg">Corregido</span>}
+      {hora(m.creado_at)}
+      {saliente && m.estado && <Tildes estado={m.estado === 'esperando' ? 'pendiente' : m.estado} />}
+    </span>
+  );
+
   return (
-    <div className={`burbuja-envoltura ${saliente ? 'saliente' : 'entrante'}`} onMouseLeave={() => setMenu(false)}>
-      <div className={`burbuja ${saliente ? 'saliente' : 'entrante'}${m.estado === 'fallido' ? ' fallida' : ''}${m.eliminado_at ? ' eliminada' : ''}`}>
-        {saliente && <span className={`burbuja-autor autor-${m.autor}`}>{m.tipo === 'plantilla' ? `Plantilla${m.plantilla ? ` · ${m.plantilla}` : ''}` : m.autor === 'asesor' && m.autor_perfil_id && equipo && m.autor_perfil_id !== equipo.yo ? (equipo.nombres[m.autor_perfil_id] ?? 'Compañero') : AUTORES[m.autor]}</span>}
+    <div ref={caja} className={`burbuja-envoltura ${saliente ? 'saliente' : 'entrante'}${cola ? ' con-cola' : ''}`}>
+      <div className={`burbuja ${saliente ? 'saliente' : 'entrante'}${cola ? ' cola' : ''}${m.estado === 'fallido' ? ' fallida' : ''}${m.eliminado_at ? ' eliminada' : ''}${tieneAudio ? ' con-audio' : ''}${conArchivo ? ' con-archivo' : ''}`}>
+        {acciones && !m.eliminado_at && (
+          <button type="button" className="burbuja-flecha" aria-label="Opciones del mensaje" onClick={() => setMenu(menu === 'opciones' ? null : 'opciones')}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+          </button>
+        )}
+        {etiqueta && <span className={`burbuja-autor autor-${m.tipo === 'plantilla' ? 'plantilla' : m.autor}`}>{etiqueta}</span>}
         {citado && (
-          <span className="cita">
-            <strong>{autorCorto(citado)}</strong>
+          <span className={`cita ${citado.direccion === 'entrante' ? 'de-cliente' : 'propia'}`}>
+            <strong>{citado.direccion === 'entrante' ? 'Cliente' : 'Vos'}</strong>
             <span>{resumen(citado).slice(0, 140)}</span>
           </span>
         )}
         {m.eliminado_at && <span className="aviso-eliminado">🚫 El cliente eliminó este mensaje. Decía:</span>}
-        {m.tipo === 'audio' && m.media_path && <AudioBiblioteca path={m.media_path} titulo={m.texto} />}
-        {/* Recién grabado: se escucha desde el dispositivo mientras se sube */}
-        {m.tipo === 'audio' && m.urlLocal && <audio className="audio-local" controls src={m.urlLocal} />}
-        {m.tipo === 'audio' && m.local && !m.urlLocal && <span className="burbuja-adjunto">🎵 {m.texto}</span>}
-        {m.tipo === 'audio' && !m.media_path && !m.local && (
-          <span className="burbuja-adjunto">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3" /></svg>
-            Audio de voz
-          </span>
+
+        {/* Audios: nota de voz igual a WhatsApp (grabada, de la biblioteca o del cliente) */}
+        {esAudio && !grabado && m.autor !== 'contacto' && m.texto && <span className="audio-titulo">🎵 {m.texto}</span>}
+        {tieneAudio && (
+          <NotaDeVoz id={m.id} url={m.urlLocal ?? null} obtenerUrl={m.media_path ? () => firmarAudio(m.media_path) : undefined}
+            duracion={segundosDe(m.texto) || m.duracion || 0} iniciales={avatar?.iniciales} estiloAvatar={avatar?.estilo} />
         )}
-        {['documento', 'imagen'].includes(m.tipo) && m.media_path && <DocumentoEnviado path={m.media_path} texto={m.texto ?? (m.tipo === 'imagen' ? 'Imagen' : 'Documento')} />}
-        {['imagen', 'documento', 'ubicacion', 'otro'].includes(m.tipo) && !(['documento', 'imagen'].includes(m.tipo) && m.media_path) && (
-          <span className="burbuja-adjunto">{{ imagen: 'Imagen', documento: 'Documento', ubicacion: 'Ubicación', otro: 'Mensaje no soportado' }[m.tipo]}</span>
+        {esAudio && !tieneAudio && <span className="burbuja-adjunto">🎤 Audio de voz {m.local ? '' : '(no disponible)'}</span>}
+        {esAudio && m.autor === 'contacto' && m.texto && <span className="transcripcion">{m.texto}</span>}
+
+        {conArchivo && <DocumentoEnviado path={m.media_path} texto={m.texto ?? (m.tipo === 'imagen' ? 'Foto' : 'Documento')} />}
+        {['imagen', 'documento', 'ubicacion', 'otro'].includes(m.tipo) && !conArchivo && (
+          <span className="burbuja-adjunto">{{ imagen: '📷 Foto', documento: '📄 Documento', ubicacion: '📍 Ubicación', otro: 'Mensaje no soportado' }[m.tipo]}</span>
         )}
-        {m.texto && !m.media_path && !(m.local && m.tipo === 'audio') && (m.tipo === 'audio'
-          ? <span className="transcripcion"><strong>Transcripción:</strong> {m.texto}</span>
-          : <span className="burbuja-texto">{m.texto}</span>)}
-        {m.tipo === 'audio' && !m.texto && !m.media_path && !m.local && <span className="transcripcion">Transcripción pendiente</span>}
+
+        {texto && <span className="burbuja-texto">{texto}<span className="meta-espacio" aria-hidden="true" /></span>}
         {m.estado === 'fallido' && m.error && <span className="burbuja-error">{m.error}</span>}
         {m.estado === 'esperando' && (
           <span className="burbuja-espera">Sale en {m.restan} s · <button type="button" className="boton-link-texto" onClick={m.deshacer}>Deshacer</button></span>
@@ -146,36 +176,37 @@ export default function Burbuja({ m, citado, acciones, equipo }) {
         {m.estado === 'fallido' && m.reintentar && (
           <button type="button" className="boton-link-texto burbuja-reintentar" onClick={m.reintentar}>↻ Reintentar</button>
         )}
-        <span className="burbuja-hora">
-          {m.editado_at && <span className="marca-msg" title={m.texto_original ? `Antes decía: ${m.texto_original}` : ''}>editado · </span>}
-          {m.corregido_por && <span className="marca-msg">corregido · </span>}
-          {hora(m.creado_at)}
-          {saliente && m.estado && <Tildes estado={m.estado === 'esperando' ? 'pendiente' : m.estado} />}
-        </span>
+        {meta}
         {reacciones.length > 0 && (
           <span className="reacciones" aria-label="Reacciones">
             {reacciones.map(([quien, e]) => <span key={quien} title={quien === 'contacto' ? 'Cliente' : 'Vos'}>{e}</span>)}
           </span>
         )}
+
+        {menu === 'opciones' && (
+          <div className="menu-mensaje" role="menu">
+            <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onResponder(m); }}>Responder</button>
+            <button type="button" role="menuitem" onClick={() => setMenu('reacciones')}>Reaccionar</button>
+            {m.texto && m.tipo !== 'audio' && <button type="button" role="menuitem" onClick={copiar}>Copiar</button>}
+            {acciones.onGuardarRapida && saliente && m.tipo === 'texto' && m.texto && (
+              <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onGuardarRapida(m); }}>Guardar como respuesta rápida</button>
+            )}
+            {corregible && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onCorregir(m); }}>Corregir</button>}
+          </div>
+        )}
+        {copiado && <span className="burbuja-copiado">Copiado</span>}
       </div>
 
       {acciones && !m.eliminado_at && (
-        <div className={`burbuja-acciones${menu ? ' abierto' : ''}`}>
-          <button type="button" className="accion-mini" aria-label="Reaccionar" title="Reaccionar" onClick={() => setMenu((v) => !v)}>☺</button>
-          <button type="button" className="accion-mini" aria-label="Responder" title="Responder" onClick={() => acciones.onResponder(m)}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
+        <div className="burbuja-acciones">
+          <button type="button" className="accion-reaccion" aria-label="Reaccionar" title="Reaccionar" onClick={() => setMenu(menu === 'reacciones' ? null : 'reacciones')}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0" /><circle cx="9" cy="10" r="0.8" fill="currentColor" /><circle cx="15" cy="10" r="0.8" fill="currentColor" /></svg>
           </button>
-          {acciones.onGuardarRapida && saliente && m.tipo === 'texto' && m.texto && (
-            <button type="button" className="accion-mini" aria-label="Guardar como respuesta rápida" title="Guardar como respuesta rápida" onClick={() => acciones.onGuardarRapida(m)}>⚡</button>
-          )}
-          {corregible && (
-            <button type="button" className="accion-mini" aria-label="Corregir" title="Corregir (hasta 15 min)" onClick={() => acciones.onCorregir(m)}>✏️</button>
-          )}
-          {menu && (
+          {menu === 'reacciones' && (
             <span className="selector-reacciones" role="group" aria-label="Elegí una reacción">
               {REACCIONES.map((e) => (
                 <button key={e} type="button" className={m.reacciones?.asesor === e ? 'activa' : ''}
-                  onClick={() => { setMenu(false); acciones.onReaccionar(m, e); }}>{e}</button>
+                  onClick={() => { setMenu(null); acciones.onReaccionar(m, e); }}>{e}</button>
               ))}
             </span>
           )}

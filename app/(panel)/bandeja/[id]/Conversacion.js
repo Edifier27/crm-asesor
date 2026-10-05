@@ -16,7 +16,7 @@ const ORIGENES = { swiss_medical: 'asignado por Swiss Medical', web: 'vía formu
 export const iaEscribiendo = (desde) => Boolean(desde) && Date.now() - new Date(desde) < 120_000;
 const porFecha = (a, b) => new Date(a.creado_at) - new Date(b.creado_at);
 
-export default function Conversacion({ conversacion, mensajesIniciales, onFicha, audios, plantillas, modoPrueba, equipo, respuestasIniciales = [] }) {
+export default function Conversacion({ conversacion, mensajesIniciales, onFicha, audios, plantillas, modoPrueba, equipo, respuestasIniciales = [], sinConexion = false }) {
   const [respuestas, setRespuestas] = useState(respuestasIniciales);
   const supabase = createClient();
   const { contacto } = conversacion;
@@ -37,7 +37,10 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
     e.preventDefault(); e.stopPropagation();
     setArrastrando(false);
     const archivo = e.dataTransfer.files?.[0];
-    if (!archivo) return;
+    if (archivo) await subirArchivo(archivo, destino);
+  }
+
+  async function subirArchivo(archivo, destino) {
     const ext = (archivo.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'bin';
     if (destino === 'enviar' && archivo.size > (archivo.type.startsWith('image/') ? 5 : 100) * 1024 * 1024) {
       return setAvisoAccion('El archivo es demasiado pesado para WhatsApp.');
@@ -60,6 +63,8 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
     }
   }
   const fondo = useRef(null);
+  const zonaMensajes = useRef(null);
+  const [lejos, setLejos] = useState(false);
 
   // ───── Envío instantáneo (como WhatsApp) ─────
   // El mensaje aparece ya en el chat ("local") con el reloj; sale por detrás con hasta 3 intentos.
@@ -141,6 +146,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
 
   // Ponerse al día: al volver a la pestaña/app o al recuperar la conexión (lo que llegó mientras tanto)
   async function sincronizar() {
+    if (sinConexion) return; // vista previa de diseño
     const [{ data }, { data: c }] = await Promise.all([
       supabase.from('mensajes').select(SELECT_MENSAJE).eq('conversacion_id', conversacion.id).order('creado_at').limit(500),
       supabase.from('conversaciones').select('modo, ventana_expira_at, ia_pensando_desde').eq('id', conversacion.id).maybeSingle()
@@ -199,6 +205,9 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
   const v = ventana(expira);
   const porId = Object.fromEntries(mensajes.map((x) => [x.id, x]));
   const lista = locales.length ? [...mensajes, ...locales] : mensajes;
+  const avatarCliente = { iniciales: iniciales(contacto), estilo: colorAvatar(contacto.telefono) };
+  const miNombre = equipo?.nombres?.[equipo?.yo] ?? '';
+  const avatarPropio = { iniciales: miNombre.slice(0, 2).toUpperCase() || 'YO', estilo: { background: '#DFE5E7', color: '#54656F' } };
   const acciones = {
     onResponder: (m) => { setCorrigiendo(null); setRespondiendo(m); },
     onCorregir: (m) => { setRespondiendo(null); setCorrigiendo(m); },
@@ -252,7 +261,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
         {cliente && (
           <span className={`minutero ${cliente.nivel}`} title="Último mensaje del cliente">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-            <span>Último mensaje del cliente: <strong>{cliente.texto}</strong></span>
+            <span>Cliente <strong>{cliente.texto}</strong></span>
           </span>
         )}
         <span className={`ventana ${v.abierta ? 'abierta' : 'cerrada'}`}>{v.texto}</span>
@@ -264,11 +273,13 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
         <button type="button" className="boton-secundario boton-ficha" onClick={onFicha}>Ficha</button>
       </header>
 
-      <div className="mensajes">
+      <div className="mensajes" ref={zonaMensajes} onScroll={(e) => { const z = e.currentTarget; setLejos(z.scrollHeight - z.scrollTop - z.clientHeight > 300); }}>
         {lista.map((m, i) => (
-          <div key={m.id} className="mensaje-fila">
+          <div key={m.id} className={`mensaje-fila${i > 0 && lista[i - 1].direccion === m.direccion && lista[i - 1].autor !== 'sistema' ? ' seguido' : ''}`}>
             {(i === 0 || !mismoDia(lista[i - 1].creado_at, m.creado_at)) && <div className="dia">{separadorDia(m.creado_at)}</div>}
-            <Burbuja m={m} citado={m.responde_a ? porId[m.responde_a] : null} acciones={v.abierta && !m.local ? acciones : null} equipo={equipo} />
+            <Burbuja m={m} citado={m.responde_a ? porId[m.responde_a] : null} acciones={v.abierta && !m.local ? acciones : null} equipo={equipo}
+              cola={i === 0 || lista[i - 1].direccion !== m.direccion || lista[i - 1].autor === 'sistema' || !mismoDia(lista[i - 1].creado_at, m.creado_at)}
+              avatar={m.direccion === 'entrante' ? avatarCliente : avatarPropio} />
           </div>
         ))}
         {iaEscribiendo(pensando) && <div className="escribiendo"><span /><span /><span />Asesor IA está escribiendo…</div>}
@@ -284,12 +295,17 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
         )}
         <div ref={fondo} />
       </div>
+      {lejos && (
+        <button type="button" className="bajar-al-final" aria-label="Ir al último mensaje" onClick={() => fondo.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+        </button>
+      )}
 
       {contacto.telefono.startsWith('54900000000') && <Simulador conversacionId={conversacion.id} />}
       {avisoAccion && <p className="aviso-error" role="alert">{avisoAccion}</p>}
       <Redactor conversacion={conversacion} ventanaAbierta={v.abierta} audios={audios} plantillas={plantillas} modoPrueba={modoPrueba}
         respondiendo={respondiendo} corrigiendo={corrigiendo} onLimpiar={() => { setRespondiendo(null); setCorrigiendo(null); }}
-        onEnviar={enviarOptimista} respuestas={respuestas} />
+        onEnviar={enviarOptimista} respuestas={respuestas} onAdjuntar={(archivo) => subirArchivo(archivo, 'enviar')} />
     </main>
   );
 }
