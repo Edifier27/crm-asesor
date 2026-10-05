@@ -48,6 +48,44 @@ export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, dura
     if (url && tocarAlCargar.current) { tocarAlCargar.current = false; audio.current?.play().catch(() => setError(true)); }
   }, [url]);
 
+  // Duración visible antes de tocar play (como WhatsApp): cuando el audio aparece en pantalla se pide su link
+  // y el navegador lee solo el encabezado del archivo para saber cuánto dura.
+  const caja = useRef(null);
+  useEffect(() => {
+    if (url || duracion || !obtenerUrl || !caja.current || typeof IntersectionObserver === 'undefined') return;
+    const vigia = new IntersectionObserver(async ([e]) => {
+      if (!e.isIntersecting) return;
+      vigia.disconnect();
+      const link = await obtenerUrl().catch(() => null);
+      if (link) setUrl((u) => u ?? link);
+    }, { rootMargin: '300px' });
+    vigia.observe(caja.current);
+    return () => vigia.disconnect();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Algunos audios (OGG grabados en el celu) no traen la duración en el encabezado: se la averigua yendo al final
+  function leerDuracion(a) {
+    if (Number.isFinite(a.duration) && a.duration > 0) { setTotal(a.duration); return; }
+    const alTerminar = () => {
+      a.removeEventListener('timeupdate', alTerminar);
+      if (Number.isFinite(a.duration)) setTotal(a.duration);
+      a.currentTime = 0;
+    };
+    a.addEventListener('timeupdate', alTerminar);
+    a.currentTime = 1e7;
+  }
+
+  // El link firmado vence: si falla, se pide uno nuevo una vez
+  const reintento = useRef(false);
+  async function alFallar() {
+    if (obtenerUrl && !reintento.current) {
+      reintento.current = true;
+      const link = await obtenerUrl().catch(() => null);
+      if (link) { setUrl(link); return; }
+    }
+    setError(true);
+  }
+
   async function alternar() {
     if (!url) {
       if (!obtenerUrl || cargando) return;
@@ -81,7 +119,7 @@ export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, dura
   const empezo = sonando || actual > 0;
 
   return (
-    <div className="nota-voz">
+    <div className="nota-voz" ref={caja}>
       <button type="button" className="nota-play" onClick={alternar} aria-label={sonando ? 'Pausar' : 'Reproducir'} disabled={error}>
         {cargando ? <span className="girando" />
           : sonando ? <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>
@@ -106,13 +144,13 @@ export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, dura
         )}
       {url && (
         <audio ref={audio} src={url} preload="metadata"
-          onLoadedMetadata={(e) => { if (Number.isFinite(e.currentTarget.duration)) setTotal(e.currentTarget.duration); e.currentTarget.playbackRate = velocidad; }}
+          onLoadedMetadata={(e) => { leerDuracion(e.currentTarget); e.currentTarget.playbackRate = velocidad; }}
           onDurationChange={(e) => { if (Number.isFinite(e.currentTarget.duration)) setTotal(e.currentTarget.duration); }}
-          onTimeUpdate={(e) => setActual(e.currentTarget.currentTime)}
+          onTimeUpdate={(e) => { if (e.currentTarget.currentTime < 1e6) setActual(e.currentTarget.currentTime); }}
           onPlay={() => { setSonando(true); window.dispatchEvent(new CustomEvent('nota-de-voz', { detail: id })); }}
           onPause={() => setSonando(false)}
           onEnded={() => { setSonando(false); setActual(0); }}
-          onError={() => setError(true)} />
+          onError={alFallar} />
       )}
     </div>
   );
