@@ -17,6 +17,6 @@ export default async function AsesorPage() {
   return (
     <PanelAsesor config={config} conocimientoInicial={conocimiento ?? []} ejecuciones={ejecuciones ?? []}
       tieneClave={Boolean(process.env.ANTHROPIC_API_KEY)}
-      plantillas={<Plantillas inicial={plantillas ?? []} />} />
+      plantillas={<Plantillas inicial={plantillas ?? []} usosIniciales={config?.plantillas_uso ?? {}} />} />
   );
 }

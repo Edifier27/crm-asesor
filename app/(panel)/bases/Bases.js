@@ -20,7 +20,7 @@ const primerNombre = (n) => (n ?? '').trim().split(/\s+/)[0] || 'Hola';
  * Dentro de cada mes se separa a los que contestaron alguna vez de los que nunca contestaron,
  * porque necesitan plantillas distintas.
  */
-export default function Bases({ filas, plantillas, difusionesIniciales }) {
+export default function Bases({ filas, plantillas, difusionesIniciales, plantillaCampana }) {
   const [vista, setVista] = useState('sin_cerrar');
   const [difusiones, setDifusiones] = useState(difusionesIniciales);
   const sinCerrar = useMemo(() => filas.filter((f) => f.etapa !== 'Ganado'), [filas]);
@@ -73,7 +73,7 @@ export default function Bases({ filas, plantillas, difusionesIniciales }) {
           </div>
           {vista === 'clientes'
             ? <ListaClientes filas={clientes.filter((f) => f.mes === mes)} />
-            : <BaseDelMes key={mes} mes={mes} filas={sinCerrar.filter((f) => f.mes === mes)} plantillas={plantillas}
+            : <BaseDelMes key={mes} mes={mes} filas={sinCerrar.filter((f) => f.mes === mes)} plantillas={plantillas} plantillaCampana={plantillaCampana}
                 difusiones={difusiones.filter((d) => d.mes === mes)} onDifusion={(d) => setDifusiones((l) => [d, ...l])} />}
         </>
       )}
@@ -81,13 +81,13 @@ export default function Bases({ filas, plantillas, difusionesIniciales }) {
   );
 }
 
-function BaseDelMes({ mes, filas, plantillas, difusiones, onDifusion }) {
+function BaseDelMes({ mes, filas, plantillas, difusiones, onDifusion, plantillaCampana }) {
   const [segmento, setSegmento] = useState('todos');
   const [provincia, setProvincia] = useState('');
   const [motivo, setMotivo] = useState('');
   const [sinRepetir, setSinRepetir] = useState(true);
   const [armando, setArmando] = useState(false);
-  const [plantillaId, setPlantillaId] = useState(() => (plantillas.find((p) => p.nombre === 'promo_reactivacion') ?? plantillas[0])?.id ?? '');
+  const [plantillaId, setPlantillaId] = useState(() => (plantillas.find((p) => p.nombre === plantillaCampana) ?? plantillas[0])?.id ?? '');
   const [aviso, setAviso] = useState('');
   const [ocupado, iniciar] = useTransition();
 

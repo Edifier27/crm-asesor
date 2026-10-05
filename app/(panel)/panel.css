@@ -759,3 +759,15 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .equipo-form select { font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--borde); border-radius: 8px; background: #fff; }
 a.riel-usuario { text-decoration: none; color: inherit; }
 @media (max-width: 760px) { .equipo-form { grid-template-columns: 1fr; } }
+
+/* Plantillas: estado en Meta y usos */
+.plantillas-resumen { display: flex; flex-wrap: wrap; gap: 8px; }
+.estado-plantilla { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--fondo); color: var(--texto-suave); }
+.estado-plantilla.ok { background: #E7F6EC; color: #15803D; }
+.estado-plantilla.espera { background: #FEF3C7; color: #92400E; }
+.estado-plantilla.mal { background: #FDECEC; color: #8B1E1E; }
+.plantilla-problemas { margin: 0; padding: 8px 12px 8px 28px; background: #FEF3C7; color: #92400E; border-radius: 8px; font-size: 13px; }
+.usos-plantilla { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 8px; }
+.usos-plantilla select { font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--borde); border-radius: 8px; background: #fff; width: 100%; }
+.usos-secuencia { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; border: 1px solid var(--linea); border-radius: 10px; padding: 10px 12px; }
+.usos-secuencia legend { font-size: 13px; font-weight: 700; padding: 0 6px; }

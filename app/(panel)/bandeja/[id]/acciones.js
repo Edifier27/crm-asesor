@@ -15,6 +15,7 @@ import { alVolverDeLaBase } from '@/lib/bases';
 import { alEntrarMensaje, modoIa, programarSecuencia } from '@/lib/secuencias';
 import { BUCKET_CLIENTES, leerDocumento, renombrarMensaje } from '@/lib/documentos-cliente';
 import { etiquetaDocumento } from '@/lib/formato';
+import { plantillaPara } from '@/lib/plantillas-uso';
 
 // Solo se pueden ver/enviar los PDF del catálogo (planes y cartillas)
 const DOCUMENTOS_VALIDOS = new Set([...Object.values(PLANES_PDF).map((p) => p.path), ...CARTILLAS_ARCHIVOS.map((c) => c.path)]);
@@ -205,8 +206,10 @@ export async function enviarLinkPago(conversacionId, { dni, precarga } = {}) {
     if (ventana(conv.ventana_expira_at).abierta) {
       await enviarMensaje({ conversacionId, tipo: 'texto', texto: mensajeCobro(nombre, link, 1), autor: 'asesor', perfilId: user.id });
     } else {
-      const { data: plantilla } = await admin.from('plantillas').select('id').eq('nombre', 'link_pago').eq('activa', true).maybeSingle();
-      if (!plantilla) return { error: 'La ventana de 24 h está cerrada y no hay plantilla "link_pago" activa.' };
+      const { data: config } = await admin.from('asesor_config').select('plantillas_uso').single();
+      const nombrePago = plantillaPara(config?.plantillas_uso, 'link_pago');
+      const { data: plantilla } = await admin.from('plantillas').select('id').eq('nombre', nombrePago).eq('activa', true).maybeSingle();
+      if (!plantilla) return { error: `La ventana de 24 h está cerrada y la plantilla "${nombrePago}" no está activa (Asesor IA → Plantillas).` };
       await enviarMensaje({ conversacionId, tipo: 'plantilla', plantillaId: plantilla.id, parametrosExtra: [link], autor: 'asesor', perfilId: user.id });
     }
   } catch (e) {
