@@ -33,7 +33,9 @@ export async function GET(request) {
     if (!propio) return new Response('Sin acceso', { status: 403 });
   }
 
-  const { data: firmado, error } = await createAdminClient().storage.from(bucket).createSignedUrl(ruta, VALIDEZ);
+  // ?descargar=Nombre.ext → el navegador lo baja con ese nombre en vez de abrirlo
+  const descargar = new URL(request.url).searchParams.get('descargar')?.replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 120);
+  const { data: firmado, error } = await createAdminClient().storage.from(bucket).createSignedUrl(ruta, VALIDEZ, descargar ? { download: descargar } : undefined);
   if (error) return new Response('No encontrado', { status: 404 });
   const respuesta = NextResponse.redirect(firmado.signedUrl, 302);
   // El navegador puede reusar la redirección unos minutos (menos que lo que dura el link)

@@ -114,7 +114,7 @@ export const tipoArchivo = (nombre = '', mime = '') =>
     : mime === 'application/pdf' || /\.pdf$/i.test(nombre) ? 'pdf' : 'otro';
 
 /** Ventana emergente para ver una foto o un PDF sin salir del CRM. Se cierra con Esc, la ✕ o tocando afuera. */
-export default function VisorArchivo({ url, nombre, tipo, onCerrar }) {
+export default function VisorArchivo({ url, nombre, tipo, descarga, onCerrar }) {
   useEffect(() => {
     const tecla = (e) => e.key === 'Escape' && onCerrar();
     window.addEventListener('keydown', tecla);
@@ -127,6 +127,7 @@ export default function VisorArchivo({ url, nombre, tipo, onCerrar }) {
       <div className={`visor ${tipo}`}>
         <div className="visor-barra">
           <span className="visor-nombre">{nombre}</span>
+          {descarga && <a className="boton-link-texto" href={descarga} download>⬇ Descargar</a>}
           {url && <a className="boton-link-texto" href={url} target="_blank" rel="noreferrer">Abrir aparte</a>}
           <button type="button" className="visor-cerrar" aria-label="Cerrar" onClick={onCerrar}>✕</button>
         </div>

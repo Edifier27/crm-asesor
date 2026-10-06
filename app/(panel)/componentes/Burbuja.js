@@ -14,6 +14,18 @@ const AUTORES = { ia: 'Asesor IA', asesor: 'Vos' };
 // Foto o PDF (enviado o recibido): vista previa dentro de la burbuja, como en WhatsApp.
 const ES_IMAGEN = /\.(jpe?g|png|webp|gif)$/i;
 const linkArchivo = (path) => `/api/archivo?path=${encodeURIComponent(path)}`;
+// Nombre con el que se baja: el texto del mensaje ("DNI TITULAR frente") + la extensión del archivo
+const nombreDescarga = (texto, path) => {
+  const ext = path.split('.').pop().toLowerCase();
+  const base = (texto || 'archivo').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 100) || 'archivo';
+  return base.toLowerCase().endsWith(`.${ext}`) ? base : `${base}.${ext}`;
+};
+const linkDescarga = (path, texto) => `${linkArchivo(path)}&descargar=${encodeURIComponent(nombreDescarga(texto, path))}`;
+// Audios (bucket "audios"): link firmado que fuerza la descarga
+async function descargarAudio(path, texto) {
+  const { data } = await createClient().storage.from('audios').createSignedUrl(path, 600, { download: nombreDescarga(texto || 'Nota de voz', path) });
+  if (data?.signedUrl) window.location.href = data.signedUrl;
+}
 function DocumentoEnviado({ path, texto }) {
   const tipo = ES_IMAGEN.test(path) ? 'imagen' : /\.pdf$/i.test(path) ? 'pdf' : 'otro';
   const url = linkArchivo(path);
@@ -23,7 +35,7 @@ function DocumentoEnviado({ path, texto }) {
     if (tipo === 'pdf' && !muestraPdf()) { window.open(url, '_blank'); return; }
     setAbierto({ url });
   }
-  const visor = abierto && <VisorArchivo url={abierto.url} nombre={texto} tipo={tipo} onCerrar={() => setAbierto(null)} />;
+  const visor = abierto && <VisorArchivo url={abierto.url} nombre={texto} tipo={tipo} descarga={linkDescarga(path, texto)} onCerrar={() => setAbierto(null)} />;
   if (tipo === 'imagen') {
     return (
       <>
@@ -247,6 +259,8 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
             <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onResponder(m); }}>Responder</button>
             {menu === 'opciones' && <button type="button" role="menuitem" onClick={() => setMenu('reacciones')}>Reaccionar</button>}
             {m.texto && m.tipo !== 'audio' && <button type="button" role="menuitem" onClick={copiar}>Copiar</button>}
+            {conArchivo && <a role="menuitem" href={linkDescarga(m.media_path, m.texto)} download onClick={() => setMenu(null)}>Descargar</a>}
+            {esAudio && m.media_path && <button type="button" role="menuitem" onClick={() => { setMenu(null); descargarAudio(m.media_path, m.texto); }}>Descargar</button>}
             {acciones.onGuardarRapida && saliente && m.tipo === 'texto' && m.texto && (
               <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onGuardarRapida(m); }}>Guardar como respuesta rápida</button>
             )}
