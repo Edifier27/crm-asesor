@@ -8,6 +8,9 @@ import { autorCorto } from '../../componentes/Burbuja';
 const EMOJIS = ['😊', '😀', '😂', '🙂', '😉', '😍', '🤗', '🙏', '👍', '👌', '👏', '💪', '🙌', '✅', '❤️', '💚', '🎉', '✨', '🔥', '⭐', '😅', '🤔', '😮', '😢', '👋', '📄', '📞', '📍', '🏥', '👨‍👩‍👧', '👶', '💬', '⏰', '📅', '💰', '🤝'];
 import Grabador from './Grabador';
 
+// Celular o tablet (pantalla táctil sin mouse)
+const esTactil = () => typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches;
+
 /**
  * Como en WhatsApp: lo que se manda aparece al instante en el chat y sale por detrás (onEnviar lo maneja la conversación).
  * respondiendo: mensaje citado (responder); corrigiendo: mensaje propio a corregir; onLimpiar: sale de esos modos.
@@ -58,7 +61,9 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
     );
     setTexto('');
     onLimpiar?.();
-    campo.current?.focus();
+    // Como WhatsApp: al enviar se cierran los emojis (y el resto de los paneles)
+    setPanel(null);
+    if (!esTactil()) campo.current?.focus();
   }
 
   function insertarEmoji(e) {
@@ -66,6 +71,8 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
     const ini = el?.selectionStart ?? texto.length;
     const fin = el?.selectionEnd ?? texto.length;
     setTexto(texto.slice(0, ini) + e + texto.slice(fin));
+    // En el celu no se abre el teclado mientras se eligen emojis (taparía media pantalla)
+    if (esTactil()) return;
     requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(ini + e.length, ini + e.length); });
   }
 
@@ -176,6 +183,7 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
           <textarea ref={campo} rows={1} value={texto} disabled={!ventanaAbierta || corrigiendoAhora}
             placeholder={!ventanaAbierta ? 'Pasaron 24 h: mandá una plantilla con el +' : corrigiendo ? 'Escribí el texto corregido' : 'Escribe un mensaje'}
             onChange={(e) => { setTexto(e.target.value); setElegida(0); }}
+            onFocus={() => { if (esTactil() && panel === 'emojis') setPanel(null); }}
             onKeyDown={(e) => {
               if (sugeridas.length) {
                 if (e.key === 'ArrowDown') { e.preventDefault(); setElegida((i) => (i + 1) % sugeridas.length); return; }
