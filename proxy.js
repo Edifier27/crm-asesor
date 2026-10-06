@@ -44,5 +44,5 @@ export async function proxy(request) {
 
 export const config = {
   // Fuera del proxy: webhooks/API, robots y archivos estáticos
-  matcher: ['/((?!api/|robots.txt|manifest.webmanifest|opus/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)']
+  matcher: ['/((?!api/(?!archivo)|robots.txt|manifest.webmanifest|opus/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)']
 };

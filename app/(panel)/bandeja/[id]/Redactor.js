@@ -5,7 +5,6 @@ import { corregirMensaje } from './acciones';
 import { createClient } from '@/lib/supabase/client';
 import { autorCorto } from '../../componentes/Burbuja';
 
-const SEGUNDOS_DESHACER = 5;
 const EMOJIS = ['😊', '😀', '😂', '🙂', '😉', '😍', '🤗', '🙏', '👍', '👌', '👏', '💪', '🙌', '✅', '❤️', '💚', '🎉', '✨', '🔥', '⭐', '😅', '🤔', '😮', '😢', '👋', '📄', '📞', '📍', '🏥', '👨‍👩‍👧', '👶', '💬', '⏰', '📅', '💰', '🤝'];
 import Grabador from './Grabador';
 
@@ -55,8 +54,7 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
     }
     onEnviar(
       { tipo: 'texto', texto: t, respondeA: respondiendo?.id ?? null },
-      { tipo: 'texto', texto: t },
-      { demora: SEGUNDOS_DESHACER, onDeshacer: (original) => { setTexto(original); campo.current?.focus(); } }
+      { tipo: 'texto', texto: t }
     );
     setTexto('');
     onLimpiar?.();

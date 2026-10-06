@@ -1,13 +1,13 @@
 'use server';
 
 import { after } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, usuarioActual } from '@/lib/supabase/server';
 import { procesarDifusiones } from '@/lib/bases';
 
 /** Crea una difusión a un grupo de la base. Los envíos salen en tandas (ahora la primera, el resto con el cron). */
 export async function crearDifusion({ nombre, mes, segmento, plantillaId, contactoIds }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioActual(supabase);
   if (!user) return { error: 'Sesión vencida.' };
   const ids = [...new Set(contactoIds ?? [])];
   if (!ids.length) return { error: 'No hay contactos para enviar.' };

@@ -1,11 +1,11 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, usuarioActual } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 async function soyAdmin() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioActual(supabase);
   if (!user) return null;
   const { data } = await supabase.from('perfiles').select('rol, activo').eq('id', user.id).maybeSingle();
   return data?.rol === 'admin' && data.activo ? user : null;

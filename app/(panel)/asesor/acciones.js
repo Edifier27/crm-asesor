@@ -1,13 +1,14 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, usuarioActual } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { crearPlantillaMeta, listarPlantillas } from '@/lib/whatsapp/meta';
 import { problemasPlantilla } from '@/lib/plantillas-uso';
+import { refrescarDatosEquipo } from '@/lib/datos-equipo';
 
 async function conSesion() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioActual(supabase);
   return user ? supabase : null;
 }
 
@@ -61,6 +62,7 @@ export async function sincronizarPlantillas() {
   await q;
 
   const { data } = await admin.from('plantillas').select('*').order('nombre');
+  refrescarDatosEquipo();
   return { ok: true, plantillas: data ?? [], traidas: filas.length };
 }
 

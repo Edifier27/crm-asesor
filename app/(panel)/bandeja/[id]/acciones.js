@@ -2,7 +2,7 @@
 
 import crypto from 'node:crypto';
 import { after } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, usuarioActual } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { enviarMensaje } from '@/lib/whatsapp/enviar';
 import { enviarReaccion } from '@/lib/whatsapp/meta';
@@ -23,7 +23,7 @@ const DOCUMENTOS_VALIDOS = new Set([...Object.values(PLANES_PDF).map((p) => p.pa
 // Link temporal (10 min) para abrir un plan o una cartilla desde la ficha
 export async function verDocumento(path) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
   // Archivos de clientes (los que mandó o le mandaron): bucket privado documentos-clientes
   if (path?.startsWith('clientes/')) {
@@ -41,7 +41,7 @@ const TELEFONO_DEMO = '54900000000';
 // Pasa por el mismo camino que el webhook: registrar_mensaje_entrante + asesor IA.
 export async function simularEntrante(conversacionId, texto) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
   const { data: conv } = await supabase.from('conversaciones')
     .select('id, contacto:contactos(telefono, nombre)').eq('id', conversacionId).maybeSingle();
@@ -73,7 +73,7 @@ export async function simularEntrante(conversacionId, texto) {
 // que pueda ver la conversación; el envío en sí usa la service role.
 export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId, plantillaId, documento, grabacion, archivo, respondeA }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
 
   const { data: conv } = await supabase.from('conversaciones').select('id, contacto_id, ventana_expira_at').eq('id', conversacionId).maybeSingle();
@@ -107,7 +107,7 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
 // Reacción del asesor a un mensaje (como en WhatsApp). Requiere la ventana de 24 h abierta.
 export async function reaccionar(mensajeId, emoji) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
   const { data: msg } = await supabase.from('mensajes')
     .select('id, wa_message_id, reacciones, conversacion:conversaciones(ventana_expira_at, contacto:contactos(telefono))')
@@ -135,7 +135,7 @@ export async function reaccionar(mensajeId, emoji) {
 // al original, con la misma regla de WhatsApp para editar (hasta 15 minutos después de enviado).
 export async function corregirMensaje(mensajeId, textoNuevo) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
   const { data: msg } = await supabase.from('mensajes')
     .select('id, conversacion_id, direccion, tipo, autor, creado_at, corregido_por').eq('id', mensajeId).maybeSingle();
@@ -158,7 +158,7 @@ export async function corregirMensaje(mensajeId, textoNuevo) {
 // ───────────── Venta y cobro ─────────────
 async function contextoVenta(conversacionId) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
   const { data: conv } = await supabase.from('conversaciones')
     .select('id, ventana_expira_at, contacto:contactos(id, nombre, venta)').eq('id', conversacionId).maybeSingle();
@@ -252,7 +252,7 @@ export async function cerrarCobro(conversacionId, pago) {
 // ───────────── Documentación del cliente ─────────────
 async function documentoPropio(id) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
   const { data: doc } = await supabase.from('documentos_cliente').select('id, path, contacto_id, mensaje_id, persona, datos').eq('id', id).maybeSingle();
   if (!doc) return { error: 'Documento inexistente.' };
@@ -262,7 +262,7 @@ async function documentoPropio(id) {
 // El asesor subió un archivo (ya está en el bucket, subido con su sesión): se registra y la IA lo lee
 export async function registrarDocumento(contactoId, { path, mime, nombre }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
   if (!path?.startsWith(`${contactoId}/`)) return { error: 'Archivo inválido.' };
   const { data, error } = await supabase.from('documentos_cliente')

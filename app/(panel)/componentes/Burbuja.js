@@ -5,7 +5,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { hora } from '@/lib/formato';
-import { verDocumento } from '../bandeja/[id]/acciones';
 import VisorArchivo, { muestraPdf } from './VisorArchivo';
 import NotaDeVoz from './NotaDeVoz';
 
@@ -14,26 +13,15 @@ const AUTORES = { ia: 'Asesor IA', asesor: 'Vos' };
 
 // Foto o PDF (enviado o recibido): vista previa dentro de la burbuja, como en WhatsApp.
 const ES_IMAGEN = /\.(jpe?g|png|webp|gif)$/i;
+const linkArchivo = (path) => `/api/archivo?path=${encodeURIComponent(path)}`;
 function DocumentoEnviado({ path, texto }) {
-  const [url, setUrl] = useState(null);
   const tipo = ES_IMAGEN.test(path) ? 'imagen' : /\.pdf$/i.test(path) ? 'pdf' : 'otro';
-  useEffect(() => {
-    let vivo = true;
-    if (tipo === 'imagen' || (tipo === 'pdf' && muestraPdf())) verDocumento(path).then((r) => vivo && r.url && setUrl(r.url));
-    return () => { vivo = false; };
-  }, [path, tipo]);
+  const url = linkArchivo(path);
   // "Ver": ventana emergente dentro del CRM, con un link nuevo por si el de la vista previa venció
   const [abierto, setAbierto] = useState(null);
-  async function ver() {
-    if (tipo === 'pdf' && !muestraPdf()) {
-      const ventana = window.open('', '_blank');
-      const r = await verDocumento(path);
-      if (r.url && ventana) ventana.location.href = r.url; else ventana?.close();
-      return;
-    }
-    setAbierto({ url: null });
-    const r = await verDocumento(path);
-    setAbierto(r.url ? { url: r.url } : null);
+  function ver() {
+    if (tipo === 'pdf' && !muestraPdf()) { window.open(url, '_blank'); return; }
+    setAbierto({ url });
   }
   const visor = abierto && <VisorArchivo url={abierto.url} nombre={texto} tipo={tipo} onCerrar={() => setAbierto(null)} />;
   if (tipo === 'imagen') {

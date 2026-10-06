@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, usuarioActual } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import Equipo from './Equipo';
 
@@ -7,7 +7,7 @@ export const metadata = { title: 'Equipo · AsesorCRM' };
 
 export default async function EquipoPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await usuarioActual(supabase);
   const { data: yo } = await supabase.from('perfiles').select('rol').eq('id', user.id).maybeSingle();
   if (yo?.rol !== 'admin') redirect('/bandeja');
 

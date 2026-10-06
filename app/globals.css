@@ -11,6 +11,8 @@
 * { box-sizing: border-box; }
 
 body {
+  /* Tipografía del sistema (la misma de WhatsApp): no se descarga ninguna fuente */
+  font-family: "Segoe UI", "Helvetica Neue", Helvetica, Roboto, Arial, sans-serif;
   margin: 0;
   background: var(--fondo);
   color: var(--texto);

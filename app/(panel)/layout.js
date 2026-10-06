@@ -9,11 +9,15 @@ import './whatsapp.css';
 
 export default async function PanelLayout({ children }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: perfil } = await supabase.from('perfiles').select('nombre, rol').eq('id', user.id).maybeSingle();
+  const { data: sesion } = await supabase.auth.getClaims();
+  const user = { id: sesion?.claims?.sub, email: sesion?.claims?.email };
+  const [{ data: perfil }, { data: usoTodos }] = await Promise.all([
+    supabase.from('perfiles').select('nombre, rol').eq('id', user.id).maybeSingle(),
+    supabase.from('uso_sistema').select('*').maybeSingle()
+  ]);
   const inicial = (perfil?.nombre ?? user.email ?? '?').slice(0, 2).toUpperCase();
   // Aviso para pasar Supabase a Pro (solo lo ve el administrador)
-  const { data: uso } = perfil?.rol === 'admin' ? await supabase.from('uso_sistema').select('*').maybeSingle() : { data: null };
+  const uso = perfil?.rol === 'admin' ? usoTodos : null;
   const alerta = estadoUso(uso);
 
   return (

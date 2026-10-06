@@ -6,7 +6,7 @@ import { pesos } from '@/lib/cotizador';
 import { DOCUMENTOS_REQUERIDOS, TIPOS_DOCUMENTO } from '@/lib/formato';
 import { tipoDeModalidad } from '@/lib/venta';
 import { borrarDocumento, clasificarDocumento, registrarDocumento, releerDocumento, renombrarDocumento, verDocumentoCliente } from './acciones';
-import VisorArchivo, { tipoArchivo } from '../../componentes/VisorArchivo';
+import VisorArchivo, { muestraPdf, tipoArchivo } from '../../componentes/VisorArchivo';
 
 const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'application/pdf': 'pdf' };
 const cubre = { dni_frente: ['dni_frente', 'dni_completo'], dni_dorso: ['dni_dorso', 'dni_completo'], recibo: ['recibo'], opcion_cambio: ['opcion_cambio'] };
@@ -20,14 +20,10 @@ function resumen(d) {
 }
 
 // Miniatura del documento (foto en chico; PDF con ícono). El link firmado vale 10 min.
+const linkDoc = (d) => (d.path ? `/api/archivo?path=${encodeURIComponent(`clientes/${d.path}`)}` : null);
 function Miniatura({ doc, onAbrir }) {
-  const [url, setUrl] = useState(null);
+  const url = linkDoc(doc);
   const tipo = tipoArchivo(doc.nombre_archivo ?? '', doc.mime ?? '');
-  useEffect(() => {
-    let vivo = true;
-    verDocumentoCliente(doc.id).then((r) => vivo && r.url && setUrl(r.url));
-    return () => { vivo = false; };
-  }, [doc.id]);
   return (
     <button type="button" className="doc-mini" aria-label="Ver documento" onClick={() => onAbrir({ url, tipo, nombre: doc.etiqueta ?? doc.nombre_archivo ?? 'Documento' })}>
       {tipo === 'imagen' && url ? <img src={url} alt="" />
@@ -99,6 +95,11 @@ export default function Documentacion({ contacto, etapa, inicial, onContacto }) 
   async function ver(d) {
     const nombre = d.etiqueta ?? d.nombre_archivo ?? 'Documento';
     const tipo = tipoArchivo(d.nombre_archivo ?? '', d.mime ?? '');
+    const directo = linkDoc(d);
+    if (directo) {
+      if (tipo === 'pdf' && !muestraPdf()) window.open(directo, '_blank'); else setVisor({ url: directo, nombre, tipo });
+      return;
+    }
     setVisor({ url: null, nombre, tipo });
     const r = await verDocumentoCliente(d.id);
     if (r.url) setVisor({ url: r.url, nombre, tipo }); else { setVisor(null); setAviso(r.error ?? 'No se pudo abrir'); }
