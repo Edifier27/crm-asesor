@@ -1,7 +1,8 @@
 'use client';
 
 import VisorArchivo from '../../componentes/VisorArchivo';
-import { useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { zonaPorCaracteristica } from '@/lib/caracteristicas';
 import { createClient } from '@/lib/supabase/client';
 import { CAMPANIAS, ZONA_ROTULO, cotizar, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
 import { PROVINCIAS, datosProvincia, provinciaDesdeTexto } from '@/lib/provincias';
@@ -27,11 +28,26 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
     const desde = miembrosDesdeRelevamiento(contacto.relevamiento?.integrantes);
     return desde.length ? desde : [{ edad: '', esHijo: false }];
   });
-  // La provincia manda: de ella salen la zona de precios y la región de la cartilla
+  // La provincia manda: de ella salen la zona de precios y la región de la cartilla.
+  // Si todavía no se sabe, se estima por la característica del teléfono (0299 → Neuquén, 11 → AMBA).
+  const caracteristica = useMemo(() => zonaPorCaracteristica(contacto.telefono), [contacto.telefono]);
   const [provincia, setProvincia] = useState(() =>
-    contacto.relevamiento?.provincia ?? provinciaDesdeTexto(contacto.relevamiento?.localidad) ?? null);
+    contacto.relevamiento?.provincia ?? provinciaDesdeTexto(contacto.relevamiento?.localidad) ?? caracteristica?.provincia ?? null);
+  const elegidaAMano = useRef(false);
+  // Cuando el cliente dice su zona ("CABA", "GBA Sur", "Neuquén") la IA la guarda en la ficha: el precio se actualiza solo
+  useEffect(() => {
+    const canal = supabase.channel(`cotizador-${contacto.id}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'contactos', filter: `id=eq.${contacto.id}` }, ({ new: c }) => {
+        const p = c.relevamiento?.provincia;
+        if (p && !elegidaAMano.current) setProvincia(p);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(canal); };
+  }, [contacto.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const datosProv = datosProvincia(provincia);
-  const zona = datosProv?.zona ?? contacto.zona ?? 'AMBA';
+  const zona = datosProv?.zona ?? contacto.zona ?? caracteristica?.zona ?? 'AMBA';
+  const porCaracteristica = !contacto.relevamiento?.provincia && !contacto.relevamiento?.localidad && caracteristica
+    && (!provincia || provincia === caracteristica.provincia);
   const [modalidad, setModalidad] = useState(guardada.modalidad ?? 'directo');
   const [campania, setCampania] = useState(guardada.campania ?? 'individual50');
   const [sueldos, setSueldos] = useState(guardada.sueldos ?? ['', '']);
@@ -172,6 +188,11 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
         <span className="cot-vigencia">Precios {lista.vigencia}</span>
       </div>
 
+      {porCaracteristica && !elegidaAMano.current && (
+        <p className="aviso-zona">
+          Zona estimada por la característica {caracteristica.codigo === '11' ? '11' : `0${caracteristica.codigo}`} ({caracteristica.rotulo}). Confirmala con el cliente: si la elegís acá, queda confirmada.
+        </p>
+      )}
       {contacto.relevamiento?.zona_confirmada === false && (
         <p className="aviso-zona">
           Zona aproximada por la web{contacto.relevamiento.localidad ? ` (${contacto.relevamiento.localidad})` : ''}. Confirmala antes de enviar: si la cambiás acá, queda confirmada.
@@ -195,7 +216,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
 
       <div className="campos-dobles">
         <label className="campo"><span>Provincia</span>
-          <select value={provincia ?? ''} onChange={(e) => cambiar(setProvincia, 'provincia')(e.target.value || null)}>
+          <select value={provincia ?? ''} onChange={(e) => { elegidaAMano.current = true; cambiar(setProvincia, 'provincia')(e.target.value || null); }}>
             {!provincia && <option value="">Elegí la provincia</option>}
             {PROVINCIAS.map((p) => <option key={p.nombre} value={p.nombre}>{p.nombre}</option>)}
           </select>
