@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { TONOS, guardarPreferencias, leerPreferencias, sonarAviso } from '../componentes/avisos-prefs';
+import { TONOS, guardarPreferencias, leerPreferencias, notificarSistema, sonarAviso } from '../componentes/avisos-prefs';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -13,6 +13,7 @@ export default function Perfil({ id, email, nombreInicial, temaInicial }) {
   const [aviso, setAviso] = useState('');
   const [avisos, setAvisos] = useState({ sonido: true, cartel: true, tono: 'cristal' });
   const [permiso, setPermiso] = useState('default');
+  const [prueba, setPrueba] = useState('');
   useEffect(() => {
     setAvisos(leerPreferencias());
     setPermiso(typeof Notification === 'undefined' ? 'no' : Notification.permission);
@@ -85,7 +86,20 @@ export default function Perfil({ id, email, nombreInicial, temaInicial }) {
             <button type="button" className="boton-primario" onClick={async () => setPermiso(await Notification.requestPermission())}>Avisarme también con otra ventana abierta</button>
           )}
         </div>
-        {permiso === 'granted' && <p className="selector-detalle">✓ Si estás en otra ventana o programa, te llega la notificación de la computadora (con el CRM abierto).</p>}
+        {permiso === 'granted' && (
+          <>
+            <p className="selector-detalle">✓ Si estás en otra ventana o programa, te llega la notificación de la computadora (con el CRM abierto, aunque sea detrás).</p>
+            <div className="acciones">
+              <button type="button" className="boton-secundario" onClick={() => {
+                const motivo = notificarSistema('AsesorCRM · prueba', 'Así te va a llegar cuando te escriba un cliente.', 'prueba');
+                setPrueba(motivo ? `No se pudo mostrar: ${motivo}` : 'Notificación enviada: si no la ves abajo a la derecha, revisá la configuración de Windows (abajo).');
+                setTimeout(() => setPrueba(''), 8000);
+              }}>Probar notificación</button>
+            </div>
+            {prueba && <p className="pp-aviso" role="status">{prueba}</p>}
+            <p className="selector-detalle">¿No aparece? En Windows: Configuración → Sistema → Notificaciones → que estén activadas para tu navegador (Chrome o Edge) y que "No molestar" esté apagado.</p>
+          </>
+        )}
         {permiso === 'denied' && <p className="selector-detalle">Las notificaciones están bloqueadas para este sitio: activalas desde el candadito de la barra de direcciones.</p>}
       </section>
 

@@ -106,3 +106,19 @@ export function sonarAviso(tono = leerPreferencias().tono) {
     }
   } catch {}
 }
+
+/**
+ * Notificación de Windows / del sistema (el cartel de abajo a la derecha). Necesita el permiso del navegador.
+ * Devuelve el motivo si no se pudo mostrar.
+ */
+export function notificarSistema(titulo, texto, tag, alTocar) {
+  if (typeof Notification === 'undefined') return 'Este navegador no tiene notificaciones.';
+  if (Notification.permission !== 'granted') return Notification.permission === 'denied' ? 'bloqueadas' : 'sin permiso';
+  try {
+    const n = new Notification(titulo, { body: String(texto ?? '').slice(0, 180), icon: '/icono-192.png', badge: '/icono-192.png', tag, renotify: Boolean(tag) });
+    n.onclick = () => { window.focus(); alTocar?.(); n.close(); };
+    return null;
+  } catch (e) {
+    return e.message;
+  }
+}

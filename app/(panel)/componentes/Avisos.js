@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { nombreVisible } from '@/lib/formato';
-import { leerPreferencias, sonarAviso } from './avisos-prefs';
+import { leerPreferencias, notificarSistema, sonarAviso } from './avisos-prefs';
 
 const VISTA_PREVIA = { audio: '🎤 Nota de voz', imagen: '📷 Foto', documento: '📄 Documento', video: '🎥 Video', sticker: 'Sticker', ubicacion: '📍 Ubicación' };
 const DURACION_MS = 6000;
@@ -33,7 +33,9 @@ export default function Avisos() {
         // Mensajes viejos que se reprocesan no avisan
         if (Date.now() - new Date(m.creado_at).getTime() > 5 * 60_000) return;
 
-        const enEseChat = rutaRef.current === `/bandeja/${m.conversacion_id}` && document.visibilityState === 'visible';
+        // "Mirando el CRM" = ventana visible Y con el foco (si está detrás de otro programa, no lo estás viendo)
+        const mirando = document.visibilityState === 'visible' && document.hasFocus();
+        const enEseChat = rutaRef.current === `/bandeja/${m.conversacion_id}` && mirando;
         if (enEseChat) return; // ya lo estás viendo, como en WhatsApp
 
         const { data: conv } = await supabase.from('conversaciones')
@@ -44,10 +46,7 @@ export default function Avisos() {
         const p = leerPreferencias();
 
         if (p.sonido) sonarAviso();
-        if (document.visibilityState === 'hidden' && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-          const n = new Notification(nombre, { body: texto.slice(0, 180), icon: '/icono-192.png', tag: conv.id });
-          n.onclick = () => { window.focus(); router.push(`/bandeja/${conv.id}`); n.close(); };
-        }
+        if (!mirando) notificarSistema(nombre, texto, conv.id, () => router.push(`/bandeja/${conv.id}`));
         if (p.cartel) {
           const aviso = { id: m.id, conversacionId: conv.id, nombre, texto };
           setCarteles((l) => [aviso, ...l.filter((x) => x.conversacionId !== conv.id)].slice(0, 3));
