@@ -258,7 +258,7 @@
   .conv-cabecera { padding: 8px 10px; gap: 8px; }
   .conv-detalle { display: none; }
   .ventana { order: 10; flex-basis: 100%; text-align: center; }
-  .boton-primario { display: none; }
+  .conv-cabecera .boton-primario { display: none; }
   .mensajes { padding: 12px; }
   .burbuja { max-width: 86%; }
 }

@@ -59,11 +59,12 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, abi
   return (
     <aside className={`ficha${abierta ? ' abierta' : ''}`} aria-label="Ficha del lead">
       <div className="ficha-cabecera">
+        {/* Flechita para volver al chat (a la izquierda), título al medio */}
+        <button type="button" className="boton-icono boton-cerrar-ficha" aria-label="Volver al chat" onClick={onCerrar}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+        </button>
         <span className="ficha-rotulo">Ficha del lead</span>
         <span className="ficha-aviso" role="status">{aviso}</span>
-        <button type="button" className="boton-icono boton-cerrar-ficha" aria-label="Cerrar ficha" onClick={onCerrar}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
-        </button>
       </div>
 
       <ProximoPaso conversacionId={conversacion.id} contactoId={contacto.id} temperaturaInicial={contacto.temperatura}

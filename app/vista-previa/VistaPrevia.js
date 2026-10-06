@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import ListaChats from '../(panel)/bandeja/ListaChats';
 import Conversacion from '../(panel)/bandeja/[id]/Conversacion';
 import RielPlegable from '../(panel)/RielPlegable';
+import Ficha from '../(panel)/bandeja/[id]/Ficha';
 import RielLinks from '../(panel)/RielLinks';
 
 // Tono de prueba (WAV) para escuchar la nota de voz sin servidor
@@ -53,6 +54,8 @@ export default function VistaPrevia() {
       <ListaChats inicial={lista} iaInicial={3} />
       <Conversacion conversacion={conversacion} mensajesIniciales={mensajes} onFicha={() => {}} audios={[]} plantillas={[]} modoPrueba={false}
         equipo={{ yo: 'yo', nombres: { yo: 'Darío' } }} respuestasIniciales={[]} sinConexion />
+      <Ficha conversacion={{ ...conversacion, contacto: { ...contacto, etapa_id: 4, relevamiento: {}, documentos: [] } }} abierta lista={null} todasEtiquetas={[]} onCerrar={() => {}}
+        etapas={[{ id: 1, nombre: 'Nuevo', orden: 1, color: '#999' }, { id: 4, nombre: 'Cotizado', orden: 4, color: '#7C3AED' }, { id: 5, nombre: 'Por cerrar', orden: 5, color: '#B45309' }, { id: 8, nombre: 'Perdido', orden: 8, color: '#999' }]} />
     </div>
   );
 }
