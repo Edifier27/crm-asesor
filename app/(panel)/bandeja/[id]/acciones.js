@@ -16,6 +16,7 @@ import { alEntrarMensaje, modoIa, programarSecuencia } from '@/lib/secuencias';
 import { BUCKET_CLIENTES, leerDocumento, renombrarMensaje } from '@/lib/documentos-cliente';
 import { etiquetaDocumento } from '@/lib/formato';
 import { plantillaPara } from '@/lib/plantillas-uso';
+import { BUCKET_FORMULARIOS, nombreArchivo } from '@/lib/formularios';
 
 // Solo se pueden ver/enviar los PDF del catálogo (planes y cartillas)
 const DOCUMENTOS_VALIDOS = new Set([...Object.values(PLANES_PDF).map((p) => p.path), ...CARTILLAS_ARCHIVOS.map((c) => c.path)]);
@@ -81,7 +82,7 @@ export async function simularEntrante(conversacionId, texto) {
 
 // El asesor envía un mensaje desde la bandeja. Primero se valida con su sesión (RLS)
 // que pueda ver la conversación; el envío en sí usa la service role.
-export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId, plantillaId, documento, grabacion, archivo, respondeA }) {
+export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId, plantillaId, documento, grabacion, archivo, respondeA, formularioId }) {
   const supabase = await createClient();
   const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
@@ -94,7 +95,19 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
     if (!ventana(conv.ventana_expira_at).abierta) return { error: 'Pasaron más de 24 h desde el último mensaje del cliente: WhatsApp solo deja mandar plantillas.' };
   }
 
-  if (tipo === 'documento' && !DOCUMENTOS_VALIDOS.has(documento?.path)) return { error: 'Documento inválido.' };
+  if (tipo === 'documento') {
+    if (!DOCUMENTOS_VALIDOS.has(documento?.path)) return { error: 'Documento inválido.' };
+    documento = { path: documento.path, nombre: documento.nombre, caption: documento.caption }; // el bucket lo decide el servidor
+  }
+  // Formulario de la biblioteca: se manda como documento desde el bucket "formularios"
+  if (tipo === 'formulario') {
+    const { data: f } = await supabase.from('formularios').select('id, nombre, path').eq('id', formularioId).maybeSingle();
+    if (!f) return { error: 'Formulario inexistente.' };
+    if (!ventana(conv.ventana_expira_at).abierta) return { error: 'Pasaron más de 24 h desde el último mensaje del cliente: WhatsApp no deja mandar archivos, solo plantillas.' };
+    tipo = 'documento';
+    documento = { path: f.path, nombre: nombreArchivo(f.nombre, f.path), bucket: BUCKET_FORMULARIOS };
+    after(() => createAdminClient().rpc('contar_envio_formulario', { p_id: f.id }));
+  }
   // Audio grabado desde la bandeja: tiene que estar en la carpeta de grabaciones del bucket "audios"
   if (tipo === 'grabacion' && !/^grabaciones\/[0-9a-f-]{36}\.(ogg|m4a)$/.test(grabacion?.path ?? '')) return { error: 'Audio inválido.' };
 

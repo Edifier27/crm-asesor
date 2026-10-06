@@ -342,3 +342,22 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 .tema-opcion.activo { border-color: var(--acento); font-weight: 600; }
 .tema-muestra { width: 44px; height: 44px; border-radius: 50%; box-shadow: inset 0 0 0 1px #0000001a; }
 .link-entrada input { width: 100%; padding: 10px; border: 1px solid var(--wa-linea); border-radius: 8px; font: inherit; font-size: 13px; margin: 8px 0; }
+
+/* Formularios: biblioteca y envío a un cliente */
+.lista-formularios { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.formulario { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 0; border-bottom: 1px solid var(--wa-linea); }
+.formulario:last-child { border-bottom: 0; }
+.formulario-info { display: flex; align-items: center; gap: 12px; flex: 1 1 260px; min-width: 0; }
+.formulario-info > div { display: flex; flex-direction: column; min-width: 0; }
+.formulario-icono { font-size: 26px; }
+.formulario .acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+.formulario .acciones a { text-decoration: none; display: inline-flex; align-items: center; }
+.form-enviar { flex: 1 1 100%; display: flex; flex-direction: column; gap: 8px; background: var(--wa-barra); border-radius: 10px; padding: 10px; }
+.form-enviar input, .form-filtro, .selector-buscar { width: 100%; padding: 10px 12px; border: 1px solid var(--wa-linea); border-radius: 8px; font: inherit; background: #fff; }
+.form-filtro { margin-bottom: 8px; }
+.selector-buscar { margin: 0 0 6px; }
+.form-resultados { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.form-resultados button { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 0; border-radius: 8px; background: #fff; font: inherit; cursor: pointer; }
+.form-resultados button:hover:not(:disabled) { background: var(--wa-saliente); }
+.form-resultados button:disabled { opacity: 0.55; cursor: not-allowed; }
+.icono-adjunto.formulario { background: #FFF0DC; }

@@ -27,13 +27,13 @@ export default async function ChatPage({ params }) {
   if (error) throw new Error(`No se pudo cargar la conversación: ${error.message}`);
   if (!conversacion) notFound();
 
-  const { etapas, audios, plantillas, lista, perfiles, respuestas } = datos;
+  const { etapas, audios, plantillas, lista, perfiles, respuestas, formularios } = datos;
   const equipo = { yo: sesion?.claims?.sub, nombres: Object.fromEntries(perfiles.map((p) => [p.id, p.nombre])) };
 
   // key: al cambiar de chat se reinicia el estado de los componentes de cliente
   return (
     <ChatVista key={id} conversacion={conversacion} mensajesIniciales={mensajes ?? []}
-      etapas={etapas ?? []} etiquetas={etiquetas ?? []} audios={audios ?? []} plantillas={plantillas ?? []}
+      etapas={etapas ?? []} etiquetas={etiquetas ?? []} audios={audios ?? []} formularios={formularios ?? []} plantillas={plantillas ?? []}
       modoPrueba={modoPrueba()} lista={lista} equipo={equipo} respuestas={respuestas ?? []} />
   );
 }

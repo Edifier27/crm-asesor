@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { BUCKET_DOCUMENTOS, CARTILLAS_ARCHIVOS, PLANES_PDF } from '@/lib/documentos';
 import { BUCKET_CLIENTES } from '@/lib/documentos-cliente';
+import { BUCKET_FORMULARIOS, PREFIJO_FORMULARIOS } from '@/lib/formularios';
 
 const CATALOGO = new Set([...Object.values(PLANES_PDF).map((p) => p.path), ...CARTILLAS_ARCHIVOS.map((c) => c.path)]);
 const VALIDEZ = 600; // segundos del link firmado
@@ -19,6 +20,7 @@ export async function GET(request) {
   let bucket, ruta;
   if (path.startsWith('clientes/')) { bucket = BUCKET_CLIENTES; ruta = path.slice('clientes/'.length); }
   else if (CATALOGO.has(path)) { bucket = BUCKET_DOCUMENTOS; ruta = path; }
+  else if (path.startsWith(PREFIJO_FORMULARIOS)) { bucket = BUCKET_FORMULARIOS; ruta = path.slice(PREFIJO_FORMULARIOS.length); }
   else return new Response('Archivo inválido', { status: 400 });
 
   // Solo miembros activos del equipo

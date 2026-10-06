@@ -4,12 +4,12 @@ import { useState } from 'react';
 import Conversacion from './Conversacion';
 import Ficha from './Ficha';
 
-export default function ChatVista({ conversacion, mensajesIniciales, etapas, etiquetas, audios, plantillas, modoPrueba, lista, equipo, respuestas }) {
+export default function ChatVista({ conversacion, mensajesIniciales, etapas, etiquetas, audios, formularios, plantillas, modoPrueba, lista, equipo, respuestas }) {
   const [fichaAbierta, setFichaAbierta] = useState(false);
   return (
     <>
       <Conversacion conversacion={conversacion} mensajesIniciales={mensajesIniciales}
-        onFicha={() => setFichaAbierta((v) => !v)} audios={audios} plantillas={plantillas} modoPrueba={modoPrueba} equipo={equipo} respuestasIniciales={respuestas} />
+        onFicha={() => setFichaAbierta((v) => !v)} audios={audios} formularios={formularios} plantillas={plantillas} modoPrueba={modoPrueba} equipo={equipo} respuestasIniciales={respuestas} />
       <Ficha conversacion={conversacion} etapas={etapas} todasEtiquetas={etiquetas} lista={lista}
         abierta={fichaAbierta} onCerrar={() => setFichaAbierta(false)} />
     </>

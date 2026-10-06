@@ -16,7 +16,7 @@ const ORIGENES = { swiss_medical: 'asignado por Swiss Medical', web: 'vía formu
 export const iaEscribiendo = (desde) => Boolean(desde) && Date.now() - new Date(desde) < 120_000;
 const porFecha = (a, b) => new Date(a.creado_at) - new Date(b.creado_at);
 
-export default function Conversacion({ conversacion, mensajesIniciales, onFicha, audios, plantillas, modoPrueba, equipo, respuestasIniciales = [], sinConexion = false }) {
+export default function Conversacion({ conversacion, mensajesIniciales, onFicha, audios, formularios = [], plantillas, modoPrueba, equipo, respuestasIniciales = [], sinConexion = false }) {
   const [respuestas, setRespuestas] = useState(respuestasIniciales);
   const supabase = createClient();
   const { contacto } = conversacion;
@@ -316,7 +316,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
 
       {contacto.telefono.startsWith('54900000000') && <Simulador conversacionId={conversacion.id} />}
       {avisoAccion && <p className="aviso-error" role="alert">{avisoAccion}</p>}
-      <Redactor conversacion={conversacion} ventanaAbierta={v.abierta} audios={audios} plantillas={plantillas} modoPrueba={modoPrueba}
+      <Redactor conversacion={conversacion} ventanaAbierta={v.abierta} audios={audios} formularios={formularios} plantillas={plantillas} modoPrueba={modoPrueba}
         respondiendo={respondiendo} corrigiendo={corrigiendo} onLimpiar={() => { setRespondiendo(null); setCorrigiendo(null); }}
         onEnviar={enviarOptimista} respuestas={respuestas} onAdjuntar={(archivo) => subirArchivo(archivo, 'enviar')} />
     </main>

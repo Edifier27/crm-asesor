@@ -14,11 +14,12 @@ const esTactil = () => typeof window !== 'undefined' && window.matchMedia('(hove
  * Como en WhatsApp: lo que se manda aparece al instante en el chat y sale por detrás (onEnviar lo maneja la conversación).
  * respondiendo: mensaje citado (responder); corrigiendo: mensaje propio a corregir; onLimpiar: sale de esos modos.
  */
-export default function Redactor({ conversacion, ventanaAbierta, audios, plantillas, modoPrueba, respondiendo, corrigiendo, onLimpiar, onEnviar, respuestas = [], onAdjuntar }) {
+export default function Redactor({ conversacion, ventanaAbierta, audios, formularios = [], plantillas, modoPrueba, respondiendo, corrigiendo, onLimpiar, onEnviar, respuestas = [], onAdjuntar }) {
   const archivoRef = useRef(null);
   const [grabando, setGrabando] = useState(false);
   const [texto, setTexto] = useState('');
-  const [panel, setPanel] = useState(null); // 'audios' | 'plantillas' | 'emojis' | null
+  const [panel, setPanel] = useState(null); // 'audios' | 'plantillas' | 'formularios' | 'emojis' | null
+  const [buscaFormulario, setBuscaFormulario] = useState('');
   const [error, setError] = useState('');
   const [corrigiendoAhora, iniciar] = useTransition();
   const campo = useRef(null);
@@ -132,6 +133,26 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
         </div>
       )}
 
+      {panel === 'formularios' && (
+        <div className="selector" role="dialog" aria-label="Formularios">
+          <div className="selector-cabecera">
+            <strong>Formularios</strong>
+            <button type="button" className="boton-icono" aria-label="Cerrar" onClick={() => setPanel(null)}>×</button>
+          </div>
+          {formularios.length > 6 && (
+            <input className="selector-buscar" autoFocus placeholder="Buscar formulario…" value={buscaFormulario} onChange={(e) => setBuscaFormulario(e.target.value)} />
+          )}
+          {formularios.length === 0 && <p className="selector-vacio">Todavía no cargaste formularios. Subilos desde la sección Formularios del menú.</p>}
+          {formularios.filter((f) => !buscaFormulario.trim() || f.nombre.toLowerCase().includes(buscaFormulario.trim().toLowerCase())).map((f) => (
+            <button key={f.id} type="button" className="selector-item"
+              onClick={() => { onEnviar({ tipo: 'formulario', formularioId: f.id }, { tipo: 'documento', texto: f.nombre }); setPanel(null); setBuscaFormulario(''); }}>
+              <span className="selector-titulo">📋 {f.nombre}</span>
+              {f.descripcion && <span className="selector-detalle">{f.descripcion}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
       {panel === 'plantillas' && (
         <div className="selector" role="dialog" aria-label="Plantillas">
           <div className="selector-cabecera">
@@ -153,6 +174,9 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
           <button type="button" role="menuitem" disabled={!ventanaAbierta} onClick={() => { setPanel(null); archivoRef.current?.click(); }}>
             <span className="icono-adjunto doc">📄</span>Foto o documento
           </button>
+          <button type="button" role="menuitem" disabled={!ventanaAbierta} onClick={() => setPanel('formularios')}>
+            <span className="icono-adjunto formulario">📋</span>Formularios
+          </button>
           <button type="button" role="menuitem" onClick={() => setPanel('plantillas')}>
             <span className="icono-adjunto plantilla">📝</span>Plantillas
           </button>
@@ -172,8 +196,8 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
           onClick={() => setPanel(panel === 'emojis' ? null : 'emojis')} aria-label="Emojis" title="Emojis">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0" /><circle cx="9" cy="10" r="0.9" fill="currentColor" /><circle cx="15" cy="10" r="0.9" fill="currentColor" /></svg>
         </button>
-        <button type="button" className={`boton-herramienta${['adjuntar', 'plantillas', 'audios', 'rapidas'].includes(panel) ? ' activo' : ''}${!ventanaAbierta ? ' destacado' : ''}`}
-          onClick={() => setPanel(['adjuntar', 'plantillas', 'audios', 'rapidas'].includes(panel) ? null : (ventanaAbierta ? 'adjuntar' : 'plantillas'))}
+        <button type="button" className={`boton-herramienta${['adjuntar', 'plantillas', 'audios', 'rapidas', 'formularios'].includes(panel) ? ' activo' : ''}${!ventanaAbierta ? ' destacado' : ''}`}
+          onClick={() => setPanel(['adjuntar', 'plantillas', 'audios', 'rapidas', 'formularios'].includes(panel) ? null : (ventanaAbierta ? 'adjuntar' : 'plantillas'))}
           aria-label={ventanaAbierta ? 'Adjuntar' : 'Enviar plantilla'} title={ventanaAbierta ? 'Adjuntar' : 'Plantillas'}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
         </button>
