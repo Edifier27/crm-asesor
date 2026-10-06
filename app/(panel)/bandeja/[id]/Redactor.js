@@ -15,6 +15,7 @@ import Grabador from './Grabador';
  */
 export default function Redactor({ conversacion, ventanaAbierta, audios, plantillas, modoPrueba, respondiendo, corrigiendo, onLimpiar, onEnviar, respuestas = [], onAdjuntar }) {
   const archivoRef = useRef(null);
+  const [grabando, setGrabando] = useState(false);
   const [texto, setTexto] = useState('');
   const [panel, setPanel] = useState(null); // 'audios' | 'plantillas' | 'emojis' | null
   const [error, setError] = useState('');
@@ -162,7 +163,7 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
       <input ref={archivoRef} type="file" hidden accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
         onChange={(e) => { const a = e.target.files?.[0]; e.target.value = ''; if (a) onAdjuntar?.(a); }} />
 
-      <div className="redactor">
+      <div className={`redactor${grabando ? ' con-grabacion' : ''}`}>
         <button type="button" className={`boton-herramienta${panel === 'emojis' ? ' activo' : ''}`} disabled={!ventanaAbierta}
           onClick={() => setPanel(panel === 'emojis' ? null : 'emojis')} aria-label="Emojis" title="Emojis">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0" /><circle cx="9" cy="10" r="0.9" fill="currentColor" /><circle cx="15" cy="10" r="0.9" fill="currentColor" /></svg>
@@ -193,7 +194,7 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4l17.45-7.48a1 1 0 0 0 0-1.84L3.4 3.6a.99.99 0 0 0-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .71.73 1.2 1.39.91z" /></svg>
           </button>
         ) : (
-          <Grabador deshabilitado={!ventanaAbierta} onError={setError}
+          <Grabador deshabilitado={!ventanaAbierta} onError={setError} onEstado={setGrabando}
             onListo={(audio) => {
               onEnviar({ tipo: 'grabacion', respondeA: respondiendo?.id ?? null },
                 { tipo: 'audio', urlLocal: URL.createObjectURL(audio.blob), texto: null }, { audio });

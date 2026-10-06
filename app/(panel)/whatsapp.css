@@ -213,3 +213,18 @@
   .conversacion .mensajes { flex: 1 1 0; min-height: 0; }
   .conv-cabecera, .redactor-zona { flex: 0 0 auto; }
 }
+
+/* Grabando nota de voz: el panel reemplaza toda la barra de escribir (como WhatsApp) */
+.redactor.con-grabacion > :not(.panel-grabacion) { display: none; }
+.panel-grabacion { flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 6px 2px; }
+.grabacion-fila { display: flex; align-items: center; gap: 12px; }
+.panel-grabacion .grabando-tiempo { min-width: 56px; font-size: 17px; font-weight: 400; color: var(--wa-texto); display: inline-flex; align-items: center; gap: 8px; }
+.panel-grabacion .punto-rec { width: 10px; height: 10px; border-radius: 50%; background: #EA0038; animation: titila 1s infinite; }
+.grabando-tiempo.pausado .punto-rec { animation: none; background: #8696A0; }
+@keyframes titila { 50% { opacity: 0.2; } }
+.grabacion-onda { flex: 1; height: 28px; display: flex; align-items: center; gap: 2px; overflow: hidden; }
+.grabacion-onda span { flex: 1; min-width: 2px; border-radius: 2px; background: #54656F; }
+.grabacion-onda span.vacia { background: #C4CBCE; height: 3px !important; }
+.grabacion-descartar { flex: 0 0 46px; height: 46px; border: 0; border-radius: 50%; background: #FDE2E6; color: #EA0038; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.grabacion-pausa { flex: 1; height: 46px; border: 0; border-radius: 23px; background: #fff; color: var(--wa-texto); font: inherit; font-size: 15px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; }
+.grabacion-enviar { flex: 0 0 46px; height: 46px; border: 0; border-radius: 50%; background: var(--wa-verde); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; }
