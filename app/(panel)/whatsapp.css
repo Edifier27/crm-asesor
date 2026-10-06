@@ -276,3 +276,7 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 .barra-mantenido button.activa { background: var(--wa-barra); }
 .menu-mensaje.bajo-mantenido { top: calc(100% + 6px); }
 .conversacion .mensajes { overflow-x: hidden; }
+
+/* Reacciones: el mensaje deja lugar abajo y la reacción va por delante del mensaje siguiente */
+.burbuja:has(.reacciones) { margin-bottom: 20px; z-index: 2; }
+.reacciones { bottom: -17px; margin: 0; z-index: 3; line-height: 20px; }
