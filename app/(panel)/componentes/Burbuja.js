@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { hora } from '@/lib/formato';
 import { verDocumento } from '../bandeja/[id]/acciones';
-import VisorArchivo from './VisorArchivo';
+import VisorArchivo, { muestraPdf } from './VisorArchivo';
 import NotaDeVoz from './NotaDeVoz';
 
 const ESTADOS = { pendiente: 'enviando…', enviado: 'enviado', entregado: 'entregado', leido: 'leído', fallido: 'no se pudo enviar' };
@@ -19,12 +19,18 @@ function DocumentoEnviado({ path, texto }) {
   const tipo = ES_IMAGEN.test(path) ? 'imagen' : /\.pdf$/i.test(path) ? 'pdf' : 'otro';
   useEffect(() => {
     let vivo = true;
-    if (tipo !== 'otro') verDocumento(path).then((r) => vivo && r.url && setUrl(r.url));
+    if (tipo === 'imagen' || (tipo === 'pdf' && muestraPdf())) verDocumento(path).then((r) => vivo && r.url && setUrl(r.url));
     return () => { vivo = false; };
   }, [path, tipo]);
   // "Ver": ventana emergente dentro del CRM, con un link nuevo por si el de la vista previa venció
   const [abierto, setAbierto] = useState(null);
   async function ver() {
+    if (tipo === 'pdf' && !muestraPdf()) {
+      const ventana = window.open('', '_blank');
+      const r = await verDocumento(path);
+      if (r.url && ventana) ventana.location.href = r.url; else ventana?.close();
+      return;
+    }
     setAbierto({ url: null });
     const r = await verDocumento(path);
     setAbierto(r.url ? { url: r.url } : null);
@@ -43,7 +49,7 @@ function DocumentoEnviado({ path, texto }) {
   return (
     <span className="doc-enviado-caja">
       {visor}
-      {tipo === 'pdf' && (
+      {tipo === 'pdf' && muestraPdf() && (
         <button type="button" className="adjunto-pdf" onClick={ver} aria-label={`Abrir ${texto}`}>
           {url ? <iframe src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} title={texto} loading="lazy" tabIndex={-1} /> : <span className="adjunto-cargando">Cargando PDF…</span>}
         </button>

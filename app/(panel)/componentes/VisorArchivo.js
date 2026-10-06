@@ -3,6 +3,8 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
+export const muestraPdf = () => typeof navigator !== 'undefined' && navigator.pdfViewerEnabled === true;
+
 export const tipoArchivo = (nombre = '', mime = '') =>
   mime.startsWith('image/') || /\.(jpe?g|png|webp|gif)$/i.test(nombre) ? 'imagen'
     : mime === 'application/pdf' || /\.pdf$/i.test(nombre) ? 'pdf' : 'otro';
@@ -27,7 +29,8 @@ export default function VisorArchivo({ url, nombre, tipo, onCerrar }) {
         <div className="visor-cuerpo">
           {!url ? <span className="adjunto-cargando">Cargando…</span>
             : tipo === 'imagen' ? <img src={url} alt={nombre} />
-              : tipo === 'pdf' ? <iframe src={url} title={nombre} />
+              : tipo === 'pdf' && muestraPdf() ? <iframe src={url} title={nombre} />
+                : tipo === 'pdf' ? <a className="boton-primario" href={url} target="_blank" rel="noreferrer">Abrir PDF</a>
                 : <a className="boton-primario" href={url} target="_blank" rel="noreferrer">Descargar archivo</a>}
         </div>
       </div>
