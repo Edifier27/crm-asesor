@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Botmaker → AsesorCRM
 // @namespace    botmaker-kommo-dario
-// @version      2.0
+// @version      2.1
 // @description  Botón para cargar el contacto abierto en Botmaker como lead en AsesorCRM
 // @match        https://go.botmaker.com/*
 // @connect      crm-asesor.vercel.app
@@ -142,6 +142,8 @@
       prepaga_interes: d.planNombre ? `Swiss Medical ${d.planNombre}` : null,
       // Solo se conoce la edad del titular; el resto del grupo lo completa el asesor
       integrantes: edad > 0 ? [{ parentesco: 'Titular', edad }] : undefined,
+      // Ya habló con el bot de Swiss Medical: no se le manda la plantilla de bienvenida (esa es solo para SGC)
+      enviarBienvenida: false,
       mensaje: detalle || null,
     };
 
