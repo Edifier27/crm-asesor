@@ -4,6 +4,7 @@ import Link from 'next/link';
 import RielLinks from './RielLinks';
 import RielPlegable from './RielPlegable';
 import Avisos from './componentes/Avisos';
+import ReproductorGlobal from './componentes/ReproductorGlobal';
 import { estadoUso } from '@/lib/uso';
 import { temaValido } from '@/lib/temas';
 import { SALDO_BAJO_USD, saldosIa } from '@/lib/costos';
@@ -52,6 +53,7 @@ export default async function PanelLayout({ children }) {
       </RielPlegable>
       {children}
       <Avisos />
+      <ReproductorGlobal />
     </div>
   );
 }

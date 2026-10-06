@@ -427,3 +427,20 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
   background: var(--wa-verde); color: #fff; font-size: 10px; font-weight: 700; line-height: 18px; text-align: center; box-shadow: 0 0 0 2px #fff;
 }
 .burbuja.entrante .nota-texto-marca { right: auto; left: -6px; }
+
+/* Nota de voz que sigue sonando al salir del chat (barrita de arriba, como WhatsApp) */
+.reproductor-global {
+  position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 55; width: min(460px, calc(100vw - 24px));
+  display: flex; align-items: center; gap: 6px; padding: 6px 8px 10px; border-radius: 14px; overflow: hidden;
+  background: var(--riel); color: #fff; box-shadow: 0 8px 28px rgba(11, 20, 26, 0.3); animation: aviso-entra 0.2s ease-out;
+}
+.reproductor-global button { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.rg-play { flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--wa-verde) !important; display: flex; align-items: center; justify-content: center; }
+.rg-info { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; text-align: left; padding: 0 4px; }
+.rg-titulo { font-size: 14px; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rg-tiempo { font-size: 12px; opacity: 0.75; font-variant-numeric: tabular-nums; }
+.rg-velocidad { flex: none; font-size: 12px !important; font-weight: 700; padding: 4px 8px !important; border-radius: 999px; background: rgba(255,255,255,.15) !important; }
+.rg-cerrar { flex: none; width: 30px; height: 30px; border-radius: 50%; font-size: 15px !important; opacity: 0.8; }
+.rg-cerrar:hover { opacity: 1; background: rgba(255,255,255,.12) !important; }
+.rg-barra { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255,255,255,.15); }
+.rg-barra span { display: block; height: 100%; background: var(--wa-verde); transition: width 0.25s linear; }

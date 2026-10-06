@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Nota de voz como en WhatsApp: play directo, onda que se va pintando, duración y velocidad 1× / 1,5× / 2×.
 // El link (firmado) se pide recién al tocar play; mientras suena una, se pausan las demás.
@@ -25,8 +25,9 @@ function onda(semilla, n = 34) {
  * @param {number} [duracion]    segundos (si se conoce antes de cargar)
  * @param {string} [iniciales] / [estiloAvatar]  avatar con el micrófono, como WhatsApp
  * @param {function} [onTexto] si la nota tiene transcripción: tocar el círculo la muestra u oculta (textoVisible)
+ * @param {string} [titulo]      de quién es (para la barrita que sigue sonando si salís del chat)
  */
-export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, duracion = 0, iniciales, estiloAvatar, escuchado = false, onEscuchar, onTexto, textoVisible = false }) {
+export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, duracion = 0, iniciales, estiloAvatar, escuchado = false, onEscuchar, onTexto, textoVisible = false, titulo }) {
   const audio = useRef(null);
   const tocarAlCargar = useRef(false);
   const [url, setUrl] = useState(urlInicial);
@@ -37,6 +38,20 @@ export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, dura
   const [velocidad, setVelocidad] = useState(1);
   const [error, setError] = useState(false);
   const barras = useRef(onda(id)).current;
+
+  // Si salís del chat con el audio sonando, sigue en la barrita de arriba (ReproductorGlobal), como en WhatsApp.
+  // Se guarda el elemento al empezar a sonar (la ref de React ya no está al desmontar) y el chat donde estaba.
+  const vivo = useRef({ elemento: null, ruta: null, titulo });
+  vivo.current.titulo = titulo;
+  useLayoutEffect(() => () => {
+    const a = vivo.current.elemento;
+    if (!a || a.paused || a.ended) return;
+    window.dispatchEvent(new CustomEvent('reproductor-global', { detail: {
+      id, url: a.currentSrc || a.src, tiempo: a.currentTime, velocidad: a.playbackRate, total: a.duration,
+      titulo: vivo.current.titulo, ruta: vivo.current.ruta
+    } }));
+    a.pause();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Si empieza a sonar otra nota de voz, esta se pausa
   useEffect(() => {
@@ -151,7 +166,10 @@ export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, dura
           onLoadedMetadata={(e) => { leerDuracion(e.currentTarget); e.currentTarget.playbackRate = velocidad; }}
           onDurationChange={(e) => { if (Number.isFinite(e.currentTarget.duration)) setTotal(e.currentTarget.duration); }}
           onTimeUpdate={(e) => { if (e.currentTarget.currentTime < 1e6) setActual(e.currentTarget.currentTime); }}
-          onPlay={() => { setSonando(true); onEscuchar?.(); window.dispatchEvent(new CustomEvent('nota-de-voz', { detail: id })); }}
+          onPlay={(e) => {
+            vivo.current.elemento = e.currentTarget; vivo.current.ruta = window.location.pathname;
+            setSonando(true); onEscuchar?.(); window.dispatchEvent(new CustomEvent('nota-de-voz', { detail: id }));
+          }}
           onPause={() => setSonando(false)}
           onEnded={() => { setSonando(false); setActual(0); }}
           onError={alFallar} />

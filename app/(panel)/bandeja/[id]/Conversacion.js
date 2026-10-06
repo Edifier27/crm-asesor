@@ -218,9 +218,9 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
   };
   const localesVisibles = locales.filter((l) => !yaLlego(l));
   const lista = localesVisibles.length ? [...mensajes, ...localesVisibles] : mensajes;
-  const avatarCliente = { iniciales: iniciales(contacto), estilo: colorAvatar(contacto.telefono) };
+  const avatarCliente = { iniciales: iniciales(contacto), estilo: colorAvatar(contacto.telefono), nombre: nombreVisible(contacto) };
   const miNombre = equipo?.nombres?.[equipo?.yo] ?? '';
-  const avatarPropio = { iniciales: miNombre.slice(0, 2).toUpperCase() || 'YO', estilo: { background: '#DFE5E7', color: '#54656F' } };
+  const avatarPropio = { iniciales: miNombre.slice(0, 2).toUpperCase() || 'YO', estilo: { background: '#DFE5E7', color: '#54656F' }, nombre: `Vos → ${nombreVisible(contacto)}` };
   const acciones = {
     onResponder: (m) => { setCorrigiendo(null); setRespondiendo(m); },
     onCorregir: (m) => { setRespondiendo(null); setCorrigiendo(m); },

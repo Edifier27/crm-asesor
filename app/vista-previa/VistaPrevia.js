@@ -7,6 +7,7 @@ import RielPlegable from '../(panel)/RielPlegable';
 import Ficha from '../(panel)/bandeja/[id]/Ficha';
 import RielLinks from '../(panel)/RielLinks';
 import VisorArchivo from '../(panel)/componentes/VisorArchivo';
+import ReproductorGlobal from '../(panel)/componentes/ReproductorGlobal';
 
 // Tono de prueba (WAV) para escuchar la nota de voz sin servidor
 function tono(segundos = 6) {
@@ -25,6 +26,8 @@ const contacto = { id: '11111111-1111-1111-1111-111111111111', nombre: 'Lucía F
 export default function VistaPrevia() {
   const [audio, setAudio] = useState(null);
   const [visor, setVisor] = useState(false);
+  const [conChat, setConChat] = useState(true); // probar la barrita: window.__salirDelChat()
+  useEffect(() => { window.__salirDelChat = () => setConChat(false); }, []);
   useEffect(() => { setAudio(tono()); setVisor(new URLSearchParams(location.search).has('visor')); }, []);
   if (!audio) return null;
 
@@ -56,8 +59,9 @@ export default function VistaPrevia() {
       {visor && <VisorArchivo url="/icono-512.png" nombre="Foto de prueba" tipo="imagen" onCerrar={() => setVisor(false)} />}
       <RielPlegable><div className="riel-marca">AC</div><RielLinks esAdmin /></RielPlegable>
       <ListaChats inicial={lista} iaInicial={3} />
-      <Conversacion conversacion={conversacion} mensajesIniciales={mensajes} onFicha={() => {}} audios={[]} plantillas={[]} modoPrueba={false}
-        equipo={{ yo: 'yo', nombres: { yo: 'Darío' } }} respuestasIniciales={[]} sinConexion />
+      <ReproductorGlobal />
+      {conChat && <Conversacion conversacion={conversacion} mensajesIniciales={mensajes} onFicha={() => {}} audios={[]} plantillas={[]} modoPrueba={false}
+        equipo={{ yo: 'yo', nombres: { yo: 'Darío' } }} respuestasIniciales={[]} sinConexion />}
       <Ficha conversacion={{ ...conversacion, contacto: { ...contacto, etapa_id: 4, relevamiento: {}, documentos: [] } }} abierta lista={null} todasEtiquetas={[]} onCerrar={() => {}}
         etapas={[{ id: 1, nombre: 'Nuevo', orden: 1, color: '#999' }, { id: 4, nombre: 'Cotizado', orden: 4, color: '#7C3AED' }, { id: 5, nombre: 'Por cerrar', orden: 5, color: '#B45309' }, { id: 8, nombre: 'Perdido', orden: 8, color: '#999' }]} />
     </div>

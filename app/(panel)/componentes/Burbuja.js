@@ -214,7 +214,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
         {esAudio && !grabado && m.autor !== 'contacto' && m.texto && <span className="audio-titulo">🎵 {m.texto}</span>}
         {tieneAudio && (
           <NotaDeVoz id={m.id} url={m.urlLocal ?? null} obtenerUrl={m.media_path ? () => firmarAudio(m.media_path) : undefined}
-            duracion={segundosDe(m.texto) || m.duracion || 0} iniciales={avatar?.iniciales} estiloAvatar={avatar?.estilo}
+            duracion={segundosDe(m.texto) || m.duracion || 0} iniciales={avatar?.iniciales} estiloAvatar={avatar?.estilo} titulo={avatar?.nombre}
             escuchado={Boolean(m.escuchado_at) || (m.direccion === 'entrante' && escuchadoLocal)}
             onTexto={conTexto ? () => setVerTexto((v) => !v) : undefined} textoVisible={verTexto}
             onEscuchar={m.direccion === 'entrante' && !m.escuchado_at && !escuchadoLocal && !m.local ? () => {
