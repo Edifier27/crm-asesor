@@ -4,6 +4,7 @@ import { procesarSeguimientos } from '@/lib/seguimiento';
 import { archivarVencidos, procesarDifusiones } from '@/lib/bases';
 import { purgarDocumentos } from '@/lib/documentos-cliente';
 import { medirUso } from '@/lib/uso';
+import { reprocesarEventos } from '@/lib/whatsapp/procesar';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
@@ -15,6 +16,9 @@ export async function GET(request) {
     return new Response('No autorizado', { status: 401 });
   }
   try {
+    // Mensajes de WhatsApp que fallaron al entrar: se reintentan antes que nada
+    const reprocesados = await reprocesarEventos().catch((e) => { console.error('reprocesar_eventos', e); return 0; });
+    if (reprocesados) console.log('eventos_reprocesados', reprocesados);
     const r = await procesarSeguimientos();
     if (r.procesados) console.log('seguimientos', JSON.stringify(r));
     // Leads con 30 días → a su base del mes; difusiones pendientes → próxima tanda
