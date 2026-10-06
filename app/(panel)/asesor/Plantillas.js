@@ -17,6 +17,9 @@ const MOTIVOS = {
   INVALID_FORMAT: 'formato inválido', TAG_CONTENT_MISMATCH: 'la categoría no coincide con el texto', ABUSIVE_CONTENT: 'contenido no permitido',
   INCORRECT_CATEGORY: 'categoría incorrecta', PROMOTIONAL: 'es promocional (va como Marketing)', SCAM: 'parece engañosa'
 };
+// Botones de respuesta: los del borrador o, si vino de Meta, los de la plantilla aprobada
+const botonesDe = (p) => (p.botones?.length ? p.botones
+  : (p.componentes ?? []).find((c) => c.type === 'BUTTONS')?.buttons?.filter((b) => b.type === 'QUICK_REPLY').map((b) => b.text) ?? []);
 const estadoDe = (p) => ESTADOS[p.estado_meta] ?? { rotulo: 'No enviada a Meta', clase: 'nada' };
 
 // Plantillas de WhatsApp: se traen de Meta, se crean desde acá y se elige cuál usar para cada cosa.
@@ -60,8 +63,11 @@ export default function Plantillas({ inicial, usosIniciales }) {
       idioma: f.idioma.value.trim() || 'es_AR',
       categoria: f.categoria.value,
       cuerpo: f.cuerpo.value.trim(),
-      uso: f.uso.value.trim() || null
+      uso: f.uso.value.trim() || null,
+      botones: f.botones.value.split('\n').map((x) => x.trim()).filter(Boolean)
     };
+    const malos = problemasPlantilla(datos);
+    if (malos.length) return setAviso(malos.join(' '));
     const consulta = id === 'nueva'
       ? supabase.from('plantillas').insert(datos).select().single()
       : supabase.from('plantillas').update(datos).eq('id', id).select().single();
@@ -114,6 +120,8 @@ export default function Plantillas({ inicial, usosIniciales }) {
         <textarea name="cuerpo" required rows={3} defaultValue={p?.cuerpo ?? ''} placeholder="Hola {{1}}, pudiste ver la cotización que te pasé?"
           onChange={(e) => setBorrador((b) => ({ ...b, cuerpo: e.target.value }))} /></label>
       {problemas.length > 0 && borrador.cuerpo && <ul className="plantilla-problemas">{problemas.map((x) => <li key={x}>{x}</li>)}</ul>}
+      <label className="campo"><span>Botones de respuesta (opcional): uno por renglón, hasta 3, máximo 25 letras cada uno</span>
+        <textarea name="botones" rows={3} defaultValue={(p?.botones ?? []).join('\n')} placeholder={'Sí, cotizame\nNo, gracias'} /></label>
       <label className="campo"><span>¿Para qué sirve? (la IA lo usa para elegirla)</span>
         <input name="uso" defaultValue={p?.uso ?? ''} placeholder="Retomar un lead que recibió la cotización y no respondió" /></label>
       {p?.estado_meta === 'APPROVED' && <p className="selector-detalle">Ojo: esta ya está aprobada. Si cambiás el texto acá, en Meta sigue el original. Para otro texto, creá una nueva con otro nombre.</p>}
@@ -159,6 +167,9 @@ export default function Plantillas({ inicial, usosIniciales }) {
                       <span className={`estado-plantilla ${e.clase}`}>{e.rotulo}{p.motivo_rechazo ? `: ${MOTIVOS[p.motivo_rechazo] ?? p.motivo_rechazo}` : ''}</span>
                       {!p.activa && p.estado_meta === 'APPROVED' && !p.nota && <span className="etiqueta etiqueta-humano">Desactivada en el CRM</span>}
                       <p>{p.cuerpo}</p>
+                      {botonesDe(p).length > 0 && (
+                        <span className="plantilla-botones">{botonesDe(p).map((b) => <span key={b} className="plantilla-boton">{b}</span>)}</span>
+                      )}
                       {p.nota && <p className="cuando">{p.nota}</p>}
                       {p.uso && <p className="cuando"><strong>Para:</strong> {p.uso}</p>}
                     </div>

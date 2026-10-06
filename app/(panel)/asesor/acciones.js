@@ -81,7 +81,10 @@ export async function enviarAMeta(id) {
   const variables = Math.max(0, ...[...p.cuerpo.matchAll(/\{\{(\d+)\}\}/g)].map((m) => Number(m[1])));
   const cuerpo = { type: 'BODY', text: p.cuerpo, ...(variables ? { example: { body_text: [EJEMPLOS.slice(0, variables).concat(Array(Math.max(0, variables - EJEMPLOS.length)).fill('dato'))] } } : {}) };
   try {
-    const r = await crearPlantillaMeta({ name: p.nombre, language: p.idioma || 'es_AR', category: (p.categoria || 'marketing').toUpperCase(), components: [cuerpo] });
+    // Botones de respuesta rápida: el cliente contesta con un toque (el texto del botón llega como su mensaje)
+    const botones = (p.botones ?? []).filter(Boolean);
+    const componentes = [cuerpo, ...(botones.length ? [{ type: 'BUTTONS', buttons: botones.map((text) => ({ type: 'QUICK_REPLY', text })) }] : [])];
+    const r = await crearPlantillaMeta({ name: p.nombre, language: p.idioma || 'es_AR', category: (p.categoria || 'marketing').toUpperCase(), components: componentes });
     const cambios = { meta_id: r.id, estado_meta: r.status ?? 'PENDING', motivo_rechazo: null, nota: null, activa: r.status === 'APPROVED', sincronizada_at: new Date().toISOString() };
     await createAdminClient().from('plantillas').update(cambios).eq('id', id);
     return { ok: true, plantilla: { ...p, ...cambios } };

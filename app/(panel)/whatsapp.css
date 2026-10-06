@@ -444,3 +444,7 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 .rg-cerrar:hover { opacity: 1; background: rgba(255,255,255,.12) !important; }
 .rg-barra { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255,255,255,.15); }
 .rg-barra span { display: block; height: 100%; background: var(--wa-verde); transition: width 0.25s linear; }
+
+/* Botones de respuesta de una plantilla (como se ven en WhatsApp) */
+.plantilla-botones { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+.plantilla-boton { padding: 5px 12px; border-radius: 999px; border: 1px solid var(--wa-linea); background: #fff; color: #027EB5; font-size: 13px; font-weight: 500; }
