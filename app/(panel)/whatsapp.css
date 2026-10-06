@@ -304,3 +304,8 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 .ficha-cabecera .boton-cerrar-ficha { position: absolute; left: -8px; top: 50%; transform: translateY(-50%); }
 .ficha-cabecera .ficha-rotulo { text-align: center; }
 .ficha-cabecera .ficha-aviso { position: absolute; right: 0; top: 50%; transform: translateY(-50%); flex: none; }
+
+/* Celu: sin carita ni flechita en los mensajes; se reacciona y se responde manteniendo apretado o deslizando (como WhatsApp) */
+@media (hover: none) {
+  .burbuja-acciones, .burbuja-flecha { display: none !important; }
+}
