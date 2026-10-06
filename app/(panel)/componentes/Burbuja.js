@@ -89,6 +89,33 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
   const [copiado, setCopiado] = useState(false);
   const caja = useRef(null);
 
+  // Deslizar el mensaje a la derecha para responderlo (como WhatsApp, en el celu)
+  const UMBRAL = 56;
+  const [desliz, setDesliz] = useState(0);
+  const toque = useRef(null);
+  function alTocar(e) {
+    if (!acciones || m.eliminado_at || e.touches.length !== 1) return;
+    toque.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, horizontal: null };
+  }
+  function alMover(e) {
+    const t = toque.current;
+    if (!t) return;
+    const dx = e.touches[0].clientX - t.x;
+    const dy = e.touches[0].clientY - t.y;
+    // Se decide al primer movimiento: hacia la derecha es responder; vertical es desplazar el chat
+    if (t.horizontal === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) t.horizontal = dx > 0 && Math.abs(dx) > Math.abs(dy);
+    if (!t.horizontal) return;
+    const d = Math.max(0, Math.min(dx * 0.75, 90));
+    if (d >= UMBRAL && desliz < UMBRAL) navigator.vibrate?.(12);
+    setDesliz(d);
+  }
+  function alSoltar() {
+    const t = toque.current;
+    toque.current = null;
+    if (t?.horizontal && desliz >= UMBRAL) acciones.onResponder(m);
+    setDesliz(0);
+  }
+
   // Cerrar el menú al tocar afuera
   useEffect(() => {
     if (!menu) return;
@@ -134,7 +161,14 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
   );
 
   return (
-    <div ref={caja} className={`burbuja-envoltura ${saliente ? 'saliente' : 'entrante'}${cola ? ' con-cola' : ''}`}>
+    <div ref={caja} className={`burbuja-envoltura ${saliente ? 'saliente' : 'entrante'}${cola ? ' con-cola' : ''}${desliz ? ' deslizando' : ''}`}
+      style={desliz ? { transform: `translateX(${desliz}px)` } : undefined}
+      onTouchStart={alTocar} onTouchMove={alMover} onTouchEnd={alSoltar} onTouchCancel={alSoltar}>
+      {desliz > 0 && (
+        <span className="deslizar-responder" style={{ opacity: Math.min(1, desliz / UMBRAL), transform: `scale(${desliz >= UMBRAL ? 1 : 0.7})` }} aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
+        </span>
+      )}
       <div className={`burbuja ${saliente ? 'saliente' : 'entrante'}${cola ? ' cola' : ''}${m.estado === 'fallido' ? ' fallida' : ''}${m.eliminado_at ? ' eliminada' : ''}${tieneAudio ? ' con-audio' : ''}${conArchivo ? ' con-archivo' : ''}`}>
         {acciones && !m.eliminado_at && (
           <button type="button" className="burbuja-flecha" aria-label="Opciones del mensaje" onClick={() => setMenu(menu === 'opciones' ? null : 'opciones')}>

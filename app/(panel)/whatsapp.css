@@ -243,3 +243,9 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
   .conv-cabecera .ventana { order: 0; flex: 0 1 auto; flex-basis: auto; max-width: 104px; font-size: 11px; padding: 4px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .conv-cabecera .boton-ficha { flex: 0 0 auto; min-height: 32px; padding: 0 10px; font-size: 13px; }
 }
+
+/* Deslizar a la derecha para responder (celu) */
+.burbuja-envoltura { touch-action: pan-y; transition: transform 0.18s ease; }
+.burbuja-envoltura.deslizando { transition: none; }
+.deslizar-responder { position: absolute; left: -38px; top: 50%; margin-top: -15px; width: 30px; height: 30px; border-radius: 50%; background: rgba(11, 20, 26, 0.25); color: #fff; display: flex; align-items: center; justify-content: center; transition: transform 0.12s; }
+.burbuja-envoltura.saliente .deslizar-responder { left: auto; right: calc(100% + 8px); }
