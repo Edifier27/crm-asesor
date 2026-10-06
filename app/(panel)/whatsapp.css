@@ -409,3 +409,19 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 .pegada-imagen { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; background: var(--wa-barra); padding: 12px; }
 .pegada-imagen img { max-width: 100%; max-height: calc(100vh - 220px); object-fit: contain; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
 .pegada-acciones { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--wa-linea); }
+
+/* Crédito de IA (Equipo) */
+.credito-fila { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--wa-linea); }
+.credito-fila:last-child { border-bottom: 0; }
+.credito-cabecera { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.credito-queda { font-weight: 600; color: var(--wa-verde-oscuro); }
+.credito-queda.bajo { color: #C62828; }
+
+/* Nota de voz con transcripción: el círculo la despliega u oculta */
+.nota-avatar.con-texto { cursor: pointer; transition: box-shadow 0.15s; }
+.nota-avatar.con-texto:hover, .nota-avatar.abierto { box-shadow: 0 0 0 3px var(--wa-verde); }
+.nota-texto-marca {
+  position: absolute; top: -4px; right: -6px; min-width: 20px; height: 18px; padding: 0 4px; border-radius: 9px;
+  background: var(--wa-verde); color: #fff; font-size: 10px; font-weight: 700; line-height: 18px; text-align: center; box-shadow: 0 0 0 2px #fff;
+}
+.burbuja.entrante .nota-texto-marca { right: auto; left: -6px; }

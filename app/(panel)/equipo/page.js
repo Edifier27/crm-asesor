@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient, usuarioActual } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import Equipo from './Equipo';
+import { saldosIa } from '@/lib/costos';
 
 export const metadata = { title: 'Equipo · AsesorCRM' };
 
@@ -22,6 +23,6 @@ export default async function EquipoPage() {
   const miembros = (perfiles ?? []).map((p) => ({
     ...p, email: porId[p.id]?.email ?? '', ingreso: Boolean(porId[p.id]?.last_sign_in_at), numero: numeroDe[p.id] ?? null
   }));
-  const { data: uso } = await admin.from('uso_sistema').select('*').maybeSingle();
-  return <Equipo miembros={miembros} yo={user.id} uso={uso} />;
+  const [{ data: uso }, saldos] = await Promise.all([admin.from('uso_sistema').select('*').maybeSingle(), saldosIa(admin)]);
+  return <Equipo miembros={miembros} yo={user.id} uso={uso} saldos={saldos} />;
 }

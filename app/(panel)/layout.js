@@ -6,6 +6,7 @@ import RielPlegable from './RielPlegable';
 import Avisos from './componentes/Avisos';
 import { estadoUso } from '@/lib/uso';
 import { temaValido } from '@/lib/temas';
+import { SALDO_BAJO_USD, saldosIa } from '@/lib/costos';
 import './panel.css';
 import './whatsapp.css';
 
@@ -21,12 +22,21 @@ export default async function PanelLayout({ children }) {
   // Aviso para pasar Supabase a Pro (solo lo ve el administrador)
   const uso = perfil?.rol === 'admin' ? usoTodos : null;
   const alerta = estadoUso(uso);
+  // Crédito de IA casi agotado (solo lo ve el administrador)
+  const sinCredito = perfil?.rol === 'admin'
+    ? (await saldosIa(supabase).catch(() => [])).filter((s) => s.credito && s.queda < SALDO_BAJO_USD)
+    : [];
 
   return (
     <div className="app" data-tema={temaValido(perfil?.tema)}>
       {alerta.nivel !== 'ok' && (
         <Link href="/equipo#uso" className={`aviso-uso ${alerta.nivel}`}>
           {alerta.nivel === 'urgente' ? '⚠ Supabase está casi lleno' : '⚠ Supabase al'} {alerta.max}%{alerta.nivel === 'urgente' ? ': pasá a Pro ya para no perder datos' : ': es momento de pasar a Pro'}
+        </Link>
+      )}
+      {sinCredito.length > 0 && (
+        <Link href="/equipo#creditos" className="aviso-uso urgente">
+          ⚠ Queda poco crédito de {sinCredito.map((s) => (s.servicio === 'claude' ? 'Claude' : 'OpenAI')).join(' y ')}: cargá saldo para que la IA no se corte
         </Link>
       )}
       <RielPlegable>

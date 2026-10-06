@@ -1,11 +1,16 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { cambiarAcceso, conectarNumero, invitar, reenviarInvitacion } from './acciones';
+import { cambiarAcceso, conectarNumero, guardarSaldo, invitar, reenviarInvitacion } from './acciones';
+import { CONSOLA_SERVICIO, NOMBRE_SERVICIO, SALDO_BAJO_USD } from '@/lib/costos';
 
 import { LIMITES_FREE, estadoUso, mb } from '@/lib/uso';
 
-export default function Equipo({ miembros: iniciales, yo, uso }) {
+const usd = (n) => `US$ ${Number(n ?? 0).toFixed(2)}`;
+
+export default function Equipo({ miembros: iniciales, yo, uso, saldos: saldosIniciales = [] }) {
+  const [saldos, setSaldos] = useState(saldosIniciales);
+  const [anotando, setAnotando] = useState(null); // servicio al que se le anota el saldo
   const estado = estadoUso(uso);
   const [miembros, setMiembros] = useState(iniciales);
   const [aviso, setAviso] = useState('');
@@ -87,6 +92,45 @@ export default function Equipo({ miembros: iniciales, yo, uso }) {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="tarjeta" id="creditos">
+        <h2>Crédito de IA</h2>
+        <p className="selector-detalle">Claude y OpenAI no dejan consultar el saldo desde afuera: cuando cargues crédito, anotá acá el saldo que te muestra la consola y el CRM va descontando lo que gasta (es un cálculo aproximado; el dato exacto está en cada consola).</p>
+        {saldos.map((s) => {
+          const pct = s.credito && Number(s.credito.saldo_usd) > 0 ? Math.round((Math.max(0, s.queda) / Number(s.credito.saldo_usd)) * 100) : 0;
+          const bajo = s.credito && s.queda < SALDO_BAJO_USD;
+          return (
+            <div key={s.servicio} className="credito-fila">
+              <div className="credito-cabecera">
+                <strong>{NOMBRE_SERVICIO[s.servicio]}</strong>
+                <span className={`credito-queda${bajo ? ' bajo' : ''}`}>{s.credito ? `Quedan ≈ ${usd(Math.max(0, s.queda))}` : 'Saldo sin anotar'}</span>
+              </div>
+              {s.credito && <span className="uso-barra"><span className={bajo ? 'urgente' : pct < 30 ? 'atencion' : ''} style={{ width: `${Math.min(100, Math.max(2, pct))}%` }} /></span>}
+              <span className="selector-detalle">
+                {s.credito ? `Anotaste ${usd(s.credito.saldo_usd)} el ${new Date(s.credito.desde).toLocaleDateString('es-AR')} · gastado desde entonces ${usd(s.gastadoDesdeCarga)} · ` : ''}
+                Este mes: {usd(s.gastadoMes)}
+                {' · '}<a className="boton-link-texto" href={CONSOLA_SERVICIO[s.servicio]} target="_blank" rel="noreferrer">Abrir consola</a>
+                {' · '}<button type="button" className="boton-link-texto" onClick={() => setAnotando(anotando === s.servicio ? null : s.servicio)}>Cargué crédito</button>
+              </span>
+              {anotando === s.servicio && (
+                <form className="equipo-form" onSubmit={(ev) => {
+                  ev.preventDefault();
+                  const saldo = new FormData(ev.currentTarget).get('saldo');
+                  iniciar(async () => {
+                    const r = await guardarSaldo(s.servicio, saldo);
+                    if (r.error) return setAviso(r.error);
+                    setSaldos((l) => l.map((x) => (x.servicio === s.servicio ? { ...x, credito: r.credito, gastadoDesdeCarga: 0, queda: Number(r.credito.saldo_usd) } : x)));
+                    setAnotando(null); setAviso('Saldo anotado');
+                  });
+                }}>
+                  <label className="campo"><span>Saldo que muestra la consola ahora (US$)</span><input name="saldo" inputMode="decimal" placeholder="Ej. 5.00" required autoFocus /></label>
+                  <button type="submit" className="boton-primario" disabled={ocupado}>Guardar</button>
+                </form>
+              )}
+            </div>
+          );
+        })}
       </section>
 
       <section className="tarjeta" id="uso">

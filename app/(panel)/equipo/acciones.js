@@ -83,3 +83,15 @@ export async function conectarNumero(perfilId, { phoneNumberId, wabaId }) {
   const { error } = await admin.from('numeros_whatsapp').insert({ phone_number_id: id, waba_id: waba, cuenta: perfilId, telefono, principal });
   return error ? { error: error.message } : { ok: true, numero: { phone_number_id: id, waba_id: waba, telefono, principal } };
 }
+
+/** Saldo que muestra la consola de Claude u OpenAI al cargar crédito: desde ahí el CRM descuenta lo que gasta. */
+export async function guardarSaldo(servicio, saldo) {
+  const yo = await soyAdmin();
+  if (!yo) return { error: 'Solo un administrador puede anotar el crédito.' };
+  if (!['claude', 'openai'].includes(servicio)) return { error: 'Servicio inválido.' };
+  const monto = Number(String(saldo ?? '').replace(',', '.'));
+  if (!Number.isFinite(monto) || monto < 0 || monto > 100000) return { error: 'Poné el saldo en dólares, por ejemplo 5 o 12.40.' };
+  const fila = { servicio, saldo_usd: monto, desde: new Date().toISOString(), actualizado_por: yo.id };
+  const { error } = await createAdminClient().from('creditos_ia').upsert(fila);
+  return error ? { error: error.message } : { ok: true, credito: fila };
+}

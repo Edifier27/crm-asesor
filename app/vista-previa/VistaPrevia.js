@@ -35,7 +35,7 @@ export default function VistaPrevia() {
     { id: 'a4', direccion: 'entrante', autor: 'contacto', tipo: 'texto', texto: 'tenemos 34 y 36', creado_at: hace(79), reacciones: { asesor: '👍' } },
     { id: 'a5', direccion: 'saliente', autor: 'asesor', tipo: 'texto', texto: 'Genial Lucía! Lo harían en forma particular o derivando aportes?', estado: 'leido', creado_at: hace(70), responde_a: 'a4' },
     { id: 'a6', direccion: 'saliente', autor: 'asesor', tipo: 'audio', texto: 'Audio grabado (0:06)', urlLocal: audio, estado: 'leido', escuchado_at: hace(60), creado_at: hace(69) },
-    { id: 'a7', direccion: 'entrante', autor: 'contacto', tipo: 'audio', urlLocal: audio, texto: 'derivando, yo estoy en relación de dependencia', creado_at: hace(30) },
+    { id: 'a7', direccion: 'entrante', autor: 'contacto', tipo: 'audio', urlLocal: audio, transcripcion: 'Hola, te cuento que estoy en relación de dependencia y quiero derivar los aportes, somos tres en total.', creado_at: hace(30) },
     { id: 'a8', direccion: 'saliente', autor: 'asesor', tipo: 'texto', texto: 'Perfecto, ya te armo la cotización 🙌', estado: 'enviado', creado_at: hace(2) }
   ];
   const largos = Array.from({ length: 30 }, (_, i) => ({ id: `l${i}`, direccion: i % 2 ? 'entrante' : 'saliente', autor: i % 2 ? 'contacto' : 'asesor', tipo: 'texto', texto: `Mensaje de prueba número ${i + 1} para que el chat sea largo`, estado: 'leido', creado_at: hace(60 - i) }));

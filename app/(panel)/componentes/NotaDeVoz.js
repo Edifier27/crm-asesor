@@ -24,8 +24,9 @@ function onda(semilla, n = 34) {
  * @param {() => Promise<string|null>} [obtenerUrl]  pide el link al tocar play
  * @param {number} [duracion]    segundos (si se conoce antes de cargar)
  * @param {string} [iniciales] / [estiloAvatar]  avatar con el micrófono, como WhatsApp
+ * @param {function} [onTexto] si la nota tiene transcripción: tocar el círculo la muestra u oculta (textoVisible)
  */
-export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, duracion = 0, iniciales, estiloAvatar, escuchado = false, onEscuchar }) {
+export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, duracion = 0, iniciales, estiloAvatar, escuchado = false, onEscuchar, onTexto, textoVisible = false }) {
   const audio = useRef(null);
   const tocarAlCargar = useRef(false);
   const [url, setUrl] = useState(urlInicial);
@@ -137,9 +138,12 @@ export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, dura
       {empezo
         ? <button type="button" className="nota-velocidad" onClick={cambiarVelocidad} aria-label="Velocidad">{String(velocidad).replace('.', ',')}×</button>
         : (
-          <span className="nota-avatar" style={estiloAvatar}>
+          <span className={`nota-avatar${onTexto ? ' con-texto' : ''}${textoVisible ? ' abierto' : ''}`} style={estiloAvatar}
+            {...(onTexto ? { role: 'button', tabIndex: 0, title: textoVisible ? 'Ocultar transcripción' : 'Ver transcripción', 'aria-pressed': textoVisible,
+              onClick: onTexto, onKeyDown: (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onTexto()) } : {})}>
             {iniciales}
             <svg className={`nota-mic${escuchado ? ' escuchado' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2z" /></svg>
+            {onTexto && <span className="nota-texto-marca" aria-hidden="true">Aa</span>}
           </span>
         )}
       {url && (

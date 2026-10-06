@@ -134,6 +134,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
     return () => document.removeEventListener('pointerdown', fuera);
   }, [menu]);
 
+  const [verTexto, setVerTexto] = useState(false); // transcripción de la nota de voz, oculta hasta tocar el círculo
   if (m.autor === 'sistema') return <div className="evento">{m.texto}</div>;
   const saliente = m.direccion === 'saliente';
   const reacciones = Object.entries(m.reacciones ?? {});
@@ -150,6 +151,8 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
   const esAudio = m.tipo === 'audio';
   const grabado = esAudio && /^Audio grabado/.test(m.texto ?? '');
   const tieneAudio = esAudio && (m.urlLocal || m.media_path);
+  // Transcripción oculta: se despliega tocando el círculo de la nota de voz
+  const conTexto = esAudio && m.transcripcion && m.transcripcion !== '(sin palabras)';
   const conArchivo = ['documento', 'imagen'].includes(m.tipo) && m.media_path;
   // Texto visible: en audios solo la transcripción del cliente o el título de la biblioteca
   const texto = esAudio ? null : conArchivo ? null : m.texto;
@@ -201,6 +204,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
           <NotaDeVoz id={m.id} url={m.urlLocal ?? null} obtenerUrl={m.media_path ? () => firmarAudio(m.media_path) : undefined}
             duracion={segundosDe(m.texto) || m.duracion || 0} iniciales={avatar?.iniciales} estiloAvatar={avatar?.estilo}
             escuchado={Boolean(m.escuchado_at) || (m.direccion === 'entrante' && escuchadoLocal)}
+            onTexto={conTexto ? () => setVerTexto((v) => !v) : undefined} textoVisible={verTexto}
             onEscuchar={m.direccion === 'entrante' && !m.escuchado_at && !escuchadoLocal && !m.local ? () => {
               setEscuchadoLocal(true);
               createClient().from('mensajes').update({ escuchado_at: new Date().toISOString() }).eq('id', m.id).is('escuchado_at', null).then(() => {});
@@ -208,7 +212,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
         )}
         {esAudio && !tieneAudio && <span className="burbuja-adjunto">🎤 Audio de voz {m.local ? '' : '(no disponible)'}</span>}
         {/* Transcripción de la nota de voz (del cliente o tuya), como en WhatsApp */}
-        {esAudio && m.transcripcion && m.transcripcion !== '(sin palabras)' && <span className="transcripcion">{m.transcripcion}</span>}
+        {conTexto && verTexto && <span className="transcripcion">{m.transcripcion}</span>}
 
         {conArchivo && <DocumentoEnviado path={m.media_path} texto={m.texto ?? (m.tipo === 'imagen' ? 'Foto' : 'Documento')} />}
         {['imagen', 'documento', 'ubicacion', 'otro'].includes(m.tipo) && !conArchivo && (
