@@ -207,7 +207,8 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
             } : undefined} />
         )}
         {esAudio && !tieneAudio && <span className="burbuja-adjunto">🎤 Audio de voz {m.local ? '' : '(no disponible)'}</span>}
-        {esAudio && m.autor === 'contacto' && m.texto && <span className="transcripcion">{m.texto}</span>}
+        {/* Transcripción de la nota de voz (del cliente o tuya), como en WhatsApp */}
+        {esAudio && m.transcripcion && m.transcripcion !== '(sin palabras)' && <span className="transcripcion">{m.transcripcion}</span>}
 
         {conArchivo && <DocumentoEnviado path={m.media_path} texto={m.texto ?? (m.tipo === 'imagen' ? 'Foto' : 'Documento')} />}
         {['imagen', 'documento', 'ubicacion', 'otro'].includes(m.tipo) && !conArchivo && (

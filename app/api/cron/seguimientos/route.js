@@ -6,6 +6,7 @@ import { purgarDocumentos } from '@/lib/documentos-cliente';
 import { medirUso } from '@/lib/uso';
 import { reprocesarEventos } from '@/lib/whatsapp/procesar';
 import { aprenderSiToca } from '@/lib/ia/aprendizaje';
+import { transcribirPendientes } from '@/lib/transcripcion';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
@@ -20,6 +21,9 @@ export async function GET(request) {
     // Mensajes de WhatsApp que fallaron al entrar: se reintentan antes que nada
     const reprocesados = await reprocesarEventos().catch((e) => { console.error('reprocesar_eventos', e); return 0; });
     if (reprocesados) console.log('eventos_reprocesados', reprocesados);
+    // Notas de voz sin transcribir (sobre todo las del asesor; las del cliente se transcriben al llegar)
+    const transcriptos = await transcribirPendientes(createAdminClient()).catch((e) => { console.error('transcripcion', e); return 0; });
+    if (transcriptos) console.log('audios_transcriptos', transcriptos);
     const r = await procesarSeguimientos();
     if (r.procesados) console.log('seguimientos', JSON.stringify(r));
     // Leads con 30 días → a su base del mes; difusiones pendientes → próxima tanda
