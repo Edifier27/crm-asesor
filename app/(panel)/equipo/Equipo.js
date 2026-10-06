@@ -75,7 +75,7 @@ export default function Equipo({ miembros: iniciales, yo, uso }) {
               )}
               {m.id !== yo && (
                 <span className="equipo-acciones">
-                  {!m.ingreso && m.activo && (
+                  {m.activo && (
                     <button type="button" className="boton-link-texto" disabled={ocupado}
                       onClick={() => iniciar(async () => { const r = await reenviarInvitacion(m.email); if (r.error) setAviso(r.error); else setLink({ para: m.nombre ?? m.email, url: r.link }); })}>Nuevo link de entrada</button>
                   )}
