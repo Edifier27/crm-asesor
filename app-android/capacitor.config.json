@@ -1,0 +1,12 @@
+{
+  "appId": "com.asesorcrm.app",
+  "appName": "AsesorCRM",
+  "webDir": "www",
+  "server": {
+    "url": "https://crm-asesor.vercel.app",
+    "cleartext": false
+  },
+  "android": {
+    "backgroundColor": "#EFEAE2"
+  }
+}

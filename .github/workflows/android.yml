@@ -1,0 +1,48 @@
+# Arma la app de Android de AsesorCRM (.apk) en GitHub, sin necesitar Android Studio.
+# Se dispara a mano (Actions → "App Android" → Run workflow) o cuando cambia la carpeta app-android.
+# El .apk queda para descargar en la ejecución, sección "Artifacts".
+name: App Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['app-android/**', '.github/workflows/android.yml']
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app-android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app-android/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Dependencias
+        run: npm ci
+
+      - name: Sincronizar el proyecto Android
+        run: npx cap sync android
+
+      - name: Armar el .apk
+        working-directory: app-android/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AsesorCRM-android
+          path: app-android/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30

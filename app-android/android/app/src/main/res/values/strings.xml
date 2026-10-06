@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AsesorCRM</string>
+    <string name="title_activity_main">AsesorCRM</string>
+    <string name="package_name">com.asesorcrm.app</string>
+    <string name="custom_url_scheme">com.asesorcrm.app</string>
+</resources>

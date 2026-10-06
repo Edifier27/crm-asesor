@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AsesorCRM</title>
+  <style>
+    body { margin: 0; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #EFEAE2; color: #111B21; text-align: center; padding: 24px; box-sizing: border-box; }
+    .marca { width: 64px; height: 64px; border-radius: 16px; background: #0F766E; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+    button { font: inherit; border: 0; border-radius: 999px; padding: 10px 20px; background: #00A884; color: #fff; }
+  </style>
+</head>
+<body>
+  <!-- Solo se ve si el celular está sin conexión: la app abre el CRM en línea -->
+  <div class="marca">AC</div>
+  <p>No hay conexión a internet.</p>
+  <button onclick="location.reload()">Reintentar</button>
+</body>
+</html>
