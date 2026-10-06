@@ -93,15 +93,24 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
   const UMBRAL = 56;
   const [desliz, setDesliz] = useState(0);
   const toque = useRef(null);
+  // Mantener apretado (sin mover el dedo): barra de reacciones y opciones, como WhatsApp
+  const mantener = useRef(null);
   function alTocar(e) {
     if (!acciones || m.eliminado_at || e.touches.length !== 1) return;
     toque.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, horizontal: null };
+    clearTimeout(mantener.current);
+    mantener.current = setTimeout(() => {
+      toque.current = null;
+      navigator.vibrate?.(20);
+      setMenu('mantenido');
+    }, 450);
   }
   function alMover(e) {
     const t = toque.current;
     if (!t) return;
     const dx = e.touches[0].clientX - t.x;
     const dy = e.touches[0].clientY - t.y;
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) clearTimeout(mantener.current);
     // Se decide al primer movimiento: hacia la derecha es responder; vertical es desplazar el chat
     if (t.horizontal === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) t.horizontal = dx > 0 && Math.abs(dx) > Math.abs(dy);
     if (!t.horizontal) return;
@@ -110,6 +119,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
     setDesliz(d);
   }
   function alSoltar() {
+    clearTimeout(mantener.current);
     const t = toque.current;
     toque.current = null;
     if (t?.horizontal && desliz >= UMBRAL) acciones.onResponder(m);
@@ -161,7 +171,8 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
   );
 
   return (
-    <div ref={caja} className={`burbuja-envoltura ${saliente ? 'saliente' : 'entrante'}${cola ? ' con-cola' : ''}${desliz ? ' deslizando' : ''}`}
+    <div ref={caja} className={`burbuja-envoltura ${saliente ? 'saliente' : 'entrante'}${cola ? ' con-cola' : ''}${desliz ? ' deslizando' : ''}${menu === 'mantenido' ? ' mantenido' : ''}`}
+      onContextMenu={(e) => { if (acciones && window.matchMedia('(hover: none)').matches) e.preventDefault(); }}
       style={desliz ? { transform: `translateX(${desliz}px)` } : undefined}
       onTouchStart={alTocar} onTouchMove={alMover} onTouchEnd={alSoltar} onTouchCancel={alSoltar}>
       {desliz > 0 && (
@@ -218,10 +229,18 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
           </span>
         )}
 
-        {menu === 'opciones' && (
-          <div className="menu-mensaje" role="menu">
+        {menu === 'mantenido' && (
+          <div className="barra-mantenido" role="group" aria-label="Reaccionar">
+            {REACCIONES.map((e) => (
+              <button key={e} type="button" className={m.reacciones?.asesor === e ? 'activa' : ''}
+                onClick={() => { setMenu(null); acciones.onReaccionar(m, e); }}>{e}</button>
+            ))}
+          </div>
+        )}
+        {(menu === 'opciones' || menu === 'mantenido') && (
+          <div className={`menu-mensaje${menu === 'mantenido' ? ' bajo-mantenido' : ''}`} role="menu">
             <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onResponder(m); }}>Responder</button>
-            <button type="button" role="menuitem" onClick={() => setMenu('reacciones')}>Reaccionar</button>
+            {menu === 'opciones' && <button type="button" role="menuitem" onClick={() => setMenu('reacciones')}>Reaccionar</button>}
             {m.texto && m.tipo !== 'audio' && <button type="button" role="menuitem" onClick={copiar}>Copiar</button>}
             {acciones.onGuardarRapida && saliente && m.tipo === 'texto' && m.texto && (
               <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onGuardarRapida(m); }}>Guardar como respuesta rápida</button>
