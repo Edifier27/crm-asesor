@@ -280,3 +280,11 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 /* Reacciones: el mensaje deja lugar abajo y la reacción va por delante del mensaje siguiente */
 .burbuja:has(.reacciones) { margin-bottom: 20px; z-index: 2; }
 .reacciones { bottom: -17px; margin: 0; z-index: 3; line-height: 20px; }
+
+/* Teléfono debajo del nombre (tocás y llamás); en el celu solo el teléfono */
+.conv-telefono { color: inherit; text-decoration: none; }
+.conv-telefono:hover { text-decoration: underline; }
+@media (max-width: 760px) {
+  .conv-cabecera .conv-detalle { display: block; font-size: 12.5px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .conv-origen { display: none; }
+}

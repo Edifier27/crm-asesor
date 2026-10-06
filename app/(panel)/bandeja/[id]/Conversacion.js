@@ -258,7 +258,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
         <span className="avatar" style={colorAvatar(contacto.telefono)}>{iniciales(contacto)}</span>
         <div className="conv-quien">
           <span className="conv-nombre">{nombreVisible(contacto)}</span>
-          <span className="conv-detalle">{telefonoLindo(contacto.telefono)} · {ORIGENES[contacto.origen]}{contacto.origen_detalle ? ` (${contacto.origen_detalle})` : ''}</span>
+          <span className="conv-detalle"><a className="conv-telefono" href={`tel:+${contacto.telefono}`} title="Llamar">{telefonoLindo(contacto.telefono)}</a><span className="conv-origen"> · {ORIGENES[contacto.origen]}{contacto.origen_detalle ? ` (${contacto.origen_detalle})` : ''}</span></span>
         </div>
         {cliente && (
           <span className={`minutero ${cliente.nivel}`} title="Último mensaje del cliente">
