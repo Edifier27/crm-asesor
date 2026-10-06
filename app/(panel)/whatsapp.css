@@ -249,3 +249,15 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 .burbuja-envoltura.deslizando { transition: none; }
 .deslizar-responder { position: absolute; left: -38px; top: 50%; margin-top: -15px; width: 30px; height: 30px; border-radius: 50%; background: rgba(11, 20, 26, 0.25); color: #fff; display: flex; align-items: center; justify-content: center; transition: transform 0.12s; }
 .burbuja-envoltura.saliente .deslizar-responder { left: auto; right: calc(100% + 8px); }
+
+/* Respondiendo / corrigiendo: arriba del campo de escribir y del mismo ancho (como WhatsApp) */
+.respondiendo {
+  margin: 6px 68px 0 112px; padding: 6px 6px 6px 8px; background: #fff; border: 0; border-radius: 8px 8px 0 0; gap: 6px;
+}
+.respondiendo-cuerpo { background: rgba(11, 20, 26, 0.05); border-left: 4px solid #06CF9C; border-radius: 6px; padding: 5px 8px; }
+.respondiendo.corrigiendo .respondiendo-cuerpo { border-left-color: #B45309; }
+.respondiendo-cuerpo strong { color: var(--wa-verde-oscuro); font-weight: 500; font-size: 12.8px; }
+.redactor-zona:has(.respondiendo) .redactor-campo { border-top-left-radius: 0; border-top-right-radius: 0; }
+.redactor-zona:has(.respondiendo) .redactor { padding-top: 0; }
+/* La flechita para bajar sube cuando aparece el recuadro de respuesta, así no se tapan */
+.conversacion:has(.respondiendo) .bajar-al-final { bottom: 140px; }

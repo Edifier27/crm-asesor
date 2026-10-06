@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { corregirMensaje } from './acciones';
 import { createClient } from '@/lib/supabase/client';
-import { autorCorto } from '../../componentes/Burbuja';
 
 const EMOJIS = ['😊', '😀', '😂', '🙂', '😉', '😍', '🤗', '🙏', '👍', '👌', '👏', '💪', '🙌', '✅', '❤️', '💚', '🎉', '✨', '🔥', '⭐', '😅', '🤔', '😮', '😢', '👋', '📄', '📞', '📍', '🏥', '👨‍👩‍👧', '👶', '💬', '⏰', '📅', '💰', '🤝'];
 import Grabador from './Grabador';
@@ -86,7 +85,7 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, plantil
       {(respondiendo || corrigiendo) && (
         <div className={`respondiendo${corrigiendo ? ' corrigiendo' : ''}`}>
           <span className="respondiendo-cuerpo">
-            <strong>{corrigiendo ? 'Corregir tu mensaje' : `Respondiendo a ${autorCorto(respondiendo)}`}</strong>
+            <strong>{corrigiendo ? 'Corregir tu mensaje' : respondiendo.direccion === 'entrante' ? (conversacion.contacto.nombre?.trim() || 'Cliente') : 'Vos'}</strong>
             <span>{(corrigiendo ?? respondiendo).texto?.slice(0, 160) ?? 'Mensaje'}</span>
           </span>
           <button type="button" className="boton-icono" aria-label="Cancelar" onClick={onLimpiar}>×</button>
