@@ -6,6 +6,7 @@ import Conversacion from '../(panel)/bandeja/[id]/Conversacion';
 import RielPlegable from '../(panel)/RielPlegable';
 import Ficha from '../(panel)/bandeja/[id]/Ficha';
 import RielLinks from '../(panel)/RielLinks';
+import VisorArchivo from '../(panel)/componentes/VisorArchivo';
 
 // Tono de prueba (WAV) para escuchar la nota de voz sin servidor
 function tono(segundos = 6) {
@@ -23,7 +24,8 @@ const contacto = { id: '11111111-1111-1111-1111-111111111111', nombre: 'Lucía F
 
 export default function VistaPrevia() {
   const [audio, setAudio] = useState(null);
-  useEffect(() => { setAudio(tono()); }, []);
+  const [visor, setVisor] = useState(false);
+  useEffect(() => { setAudio(tono()); setVisor(new URLSearchParams(location.search).has('visor')); }, []);
   if (!audio) return null;
 
   const mensajes = [
@@ -50,6 +52,8 @@ export default function VistaPrevia() {
 
   return (
     <div className="app">
+      {/* Probar la lupa del visor: /vista-previa?visor=1 */}
+      {visor && <VisorArchivo url="/icono-512.png" nombre="Foto de prueba" tipo="imagen" onCerrar={() => setVisor(false)} />}
       <RielPlegable><div className="riel-marca">AC</div><RielLinks esAdmin /></RielPlegable>
       <ListaChats inicial={lista} iaInicial={3} />
       <Conversacion conversacion={conversacion} mensajesIniciales={mensajes} onFicha={() => {}} audios={[]} plantillas={[]} modoPrueba={false}
