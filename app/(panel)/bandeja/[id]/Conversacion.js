@@ -206,7 +206,18 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
 
   const v = ventana(expira);
   const porId = Object.fromEntries(mensajes.map((x) => [x.id, x]));
-  const lista = locales.length ? [...mensajes, ...locales] : mensajes;
+  // Si el mensaje "oficial" ya llegó por la conexión en vivo, la copia dibujada al instante se esconde (nunca se ven dos)
+  const usados = new Set();
+  const yaLlego = (l) => {
+    if (l.estado === 'fallido' || l.estado === 'esperando') return false;
+    const real = mensajes.find((x) => !usados.has(x.id) && x.direccion === 'saliente' && x.autor === 'asesor'
+      && x.tipo === l.tipo && (l.tipo === 'audio' || x.texto === l.texto)
+      && Math.abs(new Date(x.creado_at) - new Date(l.creado_at)) < 120_000);
+    if (real) usados.add(real.id);
+    return Boolean(real);
+  };
+  const localesVisibles = locales.filter((l) => !yaLlego(l));
+  const lista = localesVisibles.length ? [...mensajes, ...localesVisibles] : mensajes;
   const avatarCliente = { iniciales: iniciales(contacto), estilo: colorAvatar(contacto.telefono) };
   const miNombre = equipo?.nombres?.[equipo?.yo] ?? '';
   const avatarPropio = { iniciales: miNombre.slice(0, 2).toUpperCase() || 'YO', estilo: { background: '#DFE5E7', color: '#54656F' } };
