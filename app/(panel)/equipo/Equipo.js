@@ -62,14 +62,14 @@ export default function Equipo({ miembros: iniciales, yo, uso }) {
                   ev.preventDefault();
                   const f = new FormData(ev.currentTarget);
                   iniciar(async () => {
-                    const r = await conectarNumero(m.id, { phoneNumberId: f.get('id'), telefono: f.get('telefono') });
+                    const r = await conectarNumero(m.id, { phoneNumberId: f.get('id'), wabaId: f.get('waba') });
                     if (r.error) return setAviso(r.error);
                     setMiembros((l) => l.map((x) => (x.id === m.id ? { ...x, numero: r.numero } : x)));
                     setConectando(null); setAviso('Número conectado');
                   });
                 }}>
-                  <label className="campo"><span>ID del número en Meta</span><input name="id" inputMode="numeric" placeholder="Ej. 1282278918292068" required /></label>
-                  <label className="campo"><span>Número (para mostrar)</span><input name="telefono" inputMode="tel" placeholder="54911…" /></label>
+                  <label className="campo"><span>ID del número de teléfono</span><input name="id" inputMode="numeric" placeholder="Meta → Cuentas de WhatsApp → Números de teléfono" required /></label>
+                  <label className="campo"><span>ID de la cuenta de WhatsApp</span><input name="waba" inputMode="numeric" placeholder="Ej. 1046713031637739" required /></label>
                   <button type="submit" className="boton-primario" disabled={ocupado}>Guardar</button>
                 </form>
               )}
