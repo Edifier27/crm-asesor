@@ -378,3 +378,8 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 .aviso-cerrar:hover { color: var(--wa-texto); }
 @keyframes aviso-entra { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 @media (max-width: 760px) { .avisos { top: 8px; right: 8px; left: 8px; width: auto; } }
+.tonos { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin: 10px 0; }
+.tono-opcion { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 2px solid var(--wa-linea); border-radius: 12px; background: #fff; font: inherit; text-align: left; cursor: pointer; }
+.tono-opcion > span:last-child { display: flex; flex-direction: column; }
+.tono-opcion.activo { border-color: var(--acento); background: var(--wa-saliente); }
+.tono-play { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--wa-verde); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; }

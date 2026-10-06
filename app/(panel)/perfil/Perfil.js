@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { guardarPreferencias, leerPreferencias, sonarAviso } from '../componentes/avisos-prefs';
+import { TONOS, guardarPreferencias, leerPreferencias, sonarAviso } from '../componentes/avisos-prefs';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -11,7 +11,7 @@ export default function Perfil({ id, email, nombreInicial, temaInicial }) {
   const router = useRouter();
   const [tema, setTema] = useState(temaInicial);
   const [aviso, setAviso] = useState('');
-  const [avisos, setAvisos] = useState({ sonido: true, cartel: true });
+  const [avisos, setAvisos] = useState({ sonido: true, cartel: true, tono: 'cristal' });
   const [permiso, setPermiso] = useState('default');
   useEffect(() => {
     setAvisos(leerPreferencias());
@@ -70,8 +70,17 @@ export default function Perfil({ id, email, nombreInicial, temaInicial }) {
         <p className="selector-detalle">Como en WhatsApp: cuando un cliente te escribe aparece un cartel con el mensaje y suena el aviso del CRM. Se configura en cada dispositivo.</p>
         <label className="check"><input type="checkbox" checked={avisos.cartel} onChange={(e) => cambiarAviso({ cartel: e.target.checked })} /> Mostrar el cartel con el mensaje</label>
         <label className="check"><input type="checkbox" checked={avisos.sonido} onChange={(e) => cambiarAviso({ sonido: e.target.checked })} /> Sonido</label>
+        <div className="tonos" role="radiogroup" aria-label="Sonido del aviso">
+          {Object.entries(TONOS).map(([clave, t]) => (
+            <button key={clave} type="button" role="radio" aria-checked={avisos.tono === clave}
+              className={`tono-opcion${avisos.tono === clave ? ' activo' : ''}`}
+              onClick={() => { cambiarAviso({ tono: clave, sonido: true }); sonarAviso(clave); }}>
+              <span className="tono-play" aria-hidden="true">▶</span>
+              <span><strong>{t.nombre}</strong><span className="selector-detalle">{t.descripcion}</span></span>
+            </button>
+          ))}
+        </div>
         <div className="acciones">
-          <button type="button" className="boton-secundario" onClick={sonarAviso}>🔔 Escuchar el sonido</button>
           {permiso === 'default' && (
             <button type="button" className="boton-primario" onClick={async () => setPermiso(await Notification.requestPermission())}>Avisarme también con otra ventana abierta</button>
           )}
