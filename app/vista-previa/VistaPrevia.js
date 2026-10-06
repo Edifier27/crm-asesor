@@ -35,6 +35,8 @@ export default function VistaPrevia() {
     { id: 'a7', direccion: 'entrante', autor: 'contacto', tipo: 'audio', urlLocal: audio, texto: 'derivando, yo estoy en relación de dependencia', creado_at: hace(30) },
     { id: 'a8', direccion: 'saliente', autor: 'asesor', tipo: 'texto', texto: 'Perfecto, ya te armo la cotización 🙌', estado: 'enviado', creado_at: hace(2) }
   ];
+  const largos = Array.from({ length: 30 }, (_, i) => ({ id: `l${i}`, direccion: i % 2 ? 'entrante' : 'saliente', autor: i % 2 ? 'contacto' : 'asesor', tipo: 'texto', texto: `Mensaje de prueba número ${i + 1} para que el chat sea largo`, estado: 'leido', creado_at: hace(60 - i) }));
+  mensajes.push(...largos);
   const conversacion = {
     id: '00000000-0000-0000-0000-000000000000', modo: 'humano', ventana_expira_at: new Date(Date.now() + 20 * 3_600_000).toISOString(),
     ia_pensando_desde: null, resumen_ia: null, contacto

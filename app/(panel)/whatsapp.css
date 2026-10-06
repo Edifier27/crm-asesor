@@ -206,3 +206,10 @@
 .nota-mic, .burbuja.entrante .nota-mic { color: #25D366; }
 .nota-mic.escuchado, .burbuja.entrante .nota-mic.escuchado { color: #53BDEB; }
 .marca-escuchado { color: #53BDEB; font-weight: 600; margin-right: 3px; }
+
+/* Celular: la conversación ocupa exactamente la pantalla (cabecera arriba, barra de escribir abajo, mensajes con scroll en el medio) */
+@media (max-width: 760px) {
+  .app > .conversacion { flex: 1 1 0; min-height: 0; height: 100%; }
+  .conversacion .mensajes { flex: 1 1 0; min-height: 0; }
+  .conv-cabecera, .redactor-zona { flex: 0 0 auto; }
+}
