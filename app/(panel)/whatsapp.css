@@ -288,3 +288,13 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
   .conv-cabecera .conv-detalle { display: block; font-size: 12.5px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .conv-origen { display: none; }
 }
+
+/* Cabecera del chat: versiones cortas en el celu para que entren nombre y teléfono */
+.ventana-corto, .ficha-icono { display: none; }
+@media (max-width: 760px) {
+  .ventana-largo, .ficha-texto { display: none; }
+  .ventana-corto { display: inline; }
+  .conv-cabecera .ventana { max-width: none; flex: 0 0 auto; }
+  .ficha-icono { display: block; }
+  .conv-cabecera .boton-ficha { width: 36px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; min-height: 36px; }
+}

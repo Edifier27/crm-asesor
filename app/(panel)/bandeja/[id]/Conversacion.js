@@ -266,13 +266,13 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
             <span>Cliente <strong>{cliente.texto}</strong></span>
           </span>
         )}
-        <span className={`ventana ${v.abierta ? 'abierta' : 'cerrada'}`}>{v.texto}</span>
+        <span className={`ventana ${v.abierta ? 'abierta' : 'cerrada'}`} title={v.texto}><span className="ventana-largo">{v.texto}</span><span className="ventana-corto">{v.corto}</span></span>
         <label className="interruptor-ia">
           <input type="checkbox" checked={modo === 'ia'} onChange={(e) => cambiarModo(e.target.checked ? 'ia' : 'humano')} />
           IA asesorando
         </label>
         {modo === 'ia' && <button type="button" className="boton-primario" onClick={() => cambiarModo('humano')}>Tomar conversación</button>}
-        <button type="button" className="boton-secundario boton-ficha" onClick={onFicha}>Ficha</button>
+        <button type="button" className="boton-secundario boton-ficha" onClick={onFicha} aria-label="Ficha del cliente" title="Ficha"><span className="ficha-texto">Ficha</span><svg className="ficha-icono" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="2" /><circle cx="12" cy="10" r="3" /><path d="M7.5 17a5 5 0 0 1 9 0" /></svg></button>
       </header>
 
       <div className="mensajes" ref={zonaMensajes} onScroll={(e) => { const z = e.currentTarget; setLejos(z.scrollHeight - z.scrollTop - z.clientHeight > 300); }}>
