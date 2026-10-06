@@ -13,7 +13,7 @@ const costo = (e) =>
 
 const RESULTADOS = { respondio: 'Respondió', paso_a_humano: 'Pasó a humano', sin_accion: 'Sin acción', error: 'Error', omitida: 'Omitida' };
 
-export default function PanelAsesor({ config: configInicial, conocimientoInicial, ejecuciones, tieneClave, plantillas }) {
+export default function PanelAsesor({ config: configInicial, conocimientoInicial, ejecuciones, tieneClave, plantillas, aprendizajes }) {
   const supabase = createClient();
   const [config, setConfig] = useState(configInicial ?? { activo: true, instrucciones: '', firma: '' });
   const [conocimiento, setConocimiento] = useState(conocimientoInicial);
@@ -135,6 +135,8 @@ export default function PanelAsesor({ config: configInicial, conocimientoInicial
           ))}
         </ul>
       </section>
+
+      {aprendizajes}
 
       {plantillas}
 

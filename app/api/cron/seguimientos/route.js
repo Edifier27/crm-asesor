@@ -5,6 +5,7 @@ import { archivarVencidos, procesarDifusiones } from '@/lib/bases';
 import { purgarDocumentos } from '@/lib/documentos-cliente';
 import { medirUso } from '@/lib/uso';
 import { reprocesarEventos } from '@/lib/whatsapp/procesar';
+import { aprenderSiToca } from '@/lib/ia/aprendizaje';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
@@ -26,6 +27,9 @@ export async function GET(request) {
     const difusiones = await procesarDifusiones();
     const documentosBorrados = await purgarDocumentos();
     await medirUso(createAdminClient()).catch((e) => console.error('medir_uso', e));
+    // A las 23 h: aprende de los chats del día de Darío y Gaby (queda pendiente de aprobación)
+    const aprendizaje = await aprenderSiToca().catch((e) => { console.error('aprendizaje', e); return null; });
+    if (aprendizaje) console.log('aprendizaje', JSON.stringify(aprendizaje));
     if (documentosBorrados) console.log('documentos_borrados', documentosBorrados);
     if (archivados || difusiones.enviados) console.log('bases', JSON.stringify({ archivados, difusiones }));
     return Response.json({ ...r, archivados, difusiones });

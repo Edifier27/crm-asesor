@@ -383,3 +383,8 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 .tono-opcion > span:last-child { display: flex; flex-direction: column; }
 .tono-opcion.activo { border-color: var(--acento); background: var(--wa-saliente); }
 .tono-play { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--wa-verde); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+
+/* Aprendizaje */
+.aprendizaje-subtitulo { font-size: 15px; margin: 14px 0 6px; color: var(--wa-texto); }
+.aprendizaje-tema { font-size: 12px; font-weight: 600; color: var(--wa-verde-oscuro); text-transform: uppercase; letter-spacing: 0.03em; }
+.aprendizaje-ejemplo { font-style: italic; color: var(--wa-suave); border-left: 3px solid var(--wa-linea); padding-left: 8px; }

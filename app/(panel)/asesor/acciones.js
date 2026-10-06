@@ -96,3 +96,10 @@ export async function guardarUsos(usos) {
   const { error } = await supabase.from('asesor_config').update({ plantillas_uso: usos }).eq('id', true);
   return error ? { error: error.message } : { ok: true };
 }
+
+/** Botón "Analizar ahora": la IA lee los chats nuevos de Darío y Gaby y propone aprendizajes. */
+export async function analizarAprendizaje() {
+  if (!(await conSesion())) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  const { aprender } = await import('@/lib/ia/aprendizaje');
+  return aprender();
+}
