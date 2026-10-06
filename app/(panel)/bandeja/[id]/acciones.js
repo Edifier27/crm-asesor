@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { after } from 'next/server';
 import { createClient, usuarioActual } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { enviarMensaje } from '@/lib/whatsapp/enviar';
+import { enviarMensaje, numeroDeLaCuenta } from '@/lib/whatsapp/enviar';
 import { enviarReaccion } from '@/lib/whatsapp/meta';
 import { responderComoAsesor } from '@/lib/ia/asesor';
 import { BUCKET_DOCUMENTOS, CARTILLAS_ARCHIVOS, PLANES_PDF } from '@/lib/documentos';
@@ -27,6 +27,7 @@ export async function verDocumento(path) {
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
   // Archivos de clientes (los que mandó o le mandaron): bucket privado documentos-clientes
   if (path?.startsWith('clientes/')) {
+    if (!(await esDeMisClientes(supabase, path))) return { error: 'No tenés acceso a este archivo.' };
     const { data, error } = await createAdminClient().storage.from(BUCKET_CLIENTES).createSignedUrl(path.slice('clientes/'.length), 600);
     return error ? { error: error.message } : { url: data.signedUrl };
   }
@@ -37,6 +38,14 @@ export async function verDocumento(path) {
 
 const TELEFONO_DEMO = '54900000000';
 
+// clientes/<contacto_id>/archivo: el contacto tiene que ser de tu cuenta (la base de datos solo te muestra los tuyos)
+async function esDeMisClientes(supabase, path) {
+  const contactoId = path.split('/')[1];
+  if (!/^[0-9a-f-]{36}$/i.test(contactoId ?? '')) return false;
+  const { data } = await supabase.from('contactos').select('id').eq('id', contactoId).maybeSingle();
+  return Boolean(data);
+}
+
 // Simula un mensaje ENTRANTE del lead (solo contactos de demo) para probar la bandeja y la IA sin Meta.
 // Pasa por el mismo camino que el webhook: registrar_mensaje_entrante + asesor IA.
 export async function simularEntrante(conversacionId, texto) {
@@ -44,13 +53,14 @@ export async function simularEntrante(conversacionId, texto) {
   const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
   const { data: conv } = await supabase.from('conversaciones')
-    .select('id, contacto:contactos(telefono, nombre)').eq('id', conversacionId).maybeSingle();
+    .select('id, cuenta, contacto:contactos(telefono, nombre)').eq('id', conversacionId).maybeSingle();
   if (!conv) return { error: 'No tenés acceso a esta conversación.' };
   if (!conv.contacto.telefono.startsWith(TELEFONO_DEMO)) return { error: 'El simulador solo funciona con contactos de demo.' };
   if (!texto?.trim()) return { error: 'Escribí el mensaje del lead.' };
 
   const admin = createAdminClient();
   const { data: mensajeId, error } = await admin.rpc('registrar_mensaje_entrante', {
+    p_cuenta: conv.cuenta,
     p_telefono: conv.contacto.telefono,
     p_nombre: conv.contacto.nombre,
     p_wa_message_id: `sim.${crypto.randomUUID()}`,
@@ -110,7 +120,7 @@ export async function reaccionar(mensajeId, emoji) {
   const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
   const { data: msg } = await supabase.from('mensajes')
-    .select('id, wa_message_id, reacciones, conversacion:conversaciones(ventana_expira_at, contacto:contactos(telefono))')
+    .select('id, wa_message_id, reacciones, conversacion:conversaciones(ventana_expira_at, cuenta, contacto:contactos(telefono))')
     .eq('id', mensajeId).maybeSingle();
   if (!msg) return { error: 'No tenés acceso a este mensaje.' };
   if (!msg.conversacion?.ventana_expira_at || new Date(msg.conversacion.ventana_expira_at) < new Date()) {
@@ -120,7 +130,8 @@ export async function reaccionar(mensajeId, emoji) {
   const nuevo = actual === emoji ? '' : emoji; // tocar la misma reacción la quita
   try {
     if (msg.wa_message_id && !msg.wa_message_id.startsWith('sim.')) {
-      await enviarReaccion(msg.conversacion.contacto.telefono, msg.wa_message_id, nuevo);
+      const desde = await numeroDeLaCuenta(createAdminClient(), msg.conversacion.cuenta);
+      await enviarReaccion({ to: msg.conversacion.contacto.telefono, desde }, msg.wa_message_id, nuevo);
     }
   } catch (e) {
     return { error: e.message };

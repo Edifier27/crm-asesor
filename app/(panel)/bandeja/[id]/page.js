@@ -10,7 +10,7 @@ export default async function ChatPage({ params }) {
   const supabase = await createClient();
 
   // Conversación, mensajes, sesión y datos del equipo, todo a la vez
-  const [{ data: conversacion, error }, { data: mensajes }, { data: sesion }, datos] = await Promise.all([supabase
+  const [{ data: conversacion, error }, { data: mensajes }, { data: sesion }, datos, { data: etiquetas }] = await Promise.all([supabase
     .from('conversaciones')
     .select(`id, modo, ventana_expira_at, resumen_ia, ia_pensando_desde, seguimiento_at, seguimiento_motivo, seguimiento_responsable, seguimiento_cadencia, seguimientos_sin_respuesta, seguimiento_plantillas, consejo_ia,
       contacto:contactos(id, nombre, telefono, email, zona, origen, origen_detalle, etapa_id, relevamiento, notas, cotizacion, temperatura, valor, plan_cotizado, motivo_perdida, venta,
@@ -20,13 +20,14 @@ export default async function ChatPage({ params }) {
     .maybeSingle(),
     supabase.from('mensajes').select(SELECT_MENSAJE).eq('conversacion_id', id).order('creado_at').limit(500),
     supabase.auth.getClaims(),
-    datosDelEquipo()
+    datosDelEquipo(),
+    supabase.from('etiquetas').select('id, nombre, color').order('nombre')
   ]);
   // Un error de base (ej.: falta aplicar una migración) no es "chat inexistente": que se vea
   if (error) throw new Error(`No se pudo cargar la conversación: ${error.message}`);
   if (!conversacion) notFound();
 
-  const { etapas, etiquetas, audios, plantillas, lista, perfiles, respuestas } = datos;
+  const { etapas, audios, plantillas, lista, perfiles, respuestas } = datos;
   const equipo = { yo: sesion?.claims?.sub, nombres: Object.fromEntries(perfiles.map((p) => [p.id, p.nombre])) };
 
   // key: al cambiar de chat se reinicia el estado de los componentes de cliente

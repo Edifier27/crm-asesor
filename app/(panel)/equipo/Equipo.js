@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { cambiarAcceso, invitar, reenviarInvitacion } from './acciones';
+import { cambiarAcceso, conectarNumero, invitar, reenviarInvitacion } from './acciones';
 
 import { LIMITES_FREE, estadoUso, mb } from '@/lib/uso';
 
@@ -10,6 +10,7 @@ export default function Equipo({ miembros: iniciales, yo, uso }) {
   const [miembros, setMiembros] = useState(iniciales);
   const [aviso, setAviso] = useState('');
   const [link, setLink] = useState(null); // { para, url }
+  const [conectando, setConectando] = useState(null); // id del miembro al que se le conecta el número
   const [ocupado, iniciar] = useTransition();
 
   function enviarInvitacion(ev) {
@@ -40,7 +41,7 @@ export default function Equipo({ miembros: iniciales, yo, uso }) {
     <div className="pagina">
       <header className="pagina-cabecera">
         <h1>Equipo</h1>
-        <p>Quiénes usan el CRM. Cada persona elige su propia contraseña desde el link de entrada.</p>
+        <p>Quiénes usan el CRM. Cada persona tiene su propio CRM con su número de WhatsApp: sus chats, contactos y documentos no los ve nadie más.</p>
       </header>
 
       <section className="tarjeta">
@@ -52,9 +53,29 @@ export default function Equipo({ miembros: iniciales, yo, uso }) {
                 {!m.activo && <span className="base-marca">sin acceso</span>}
               </span>
               <span className="selector-detalle">{m.email} · {m.rol === 'admin' ? 'Administrador' : 'Asesor'}{m.ingreso ? '' : ' · todavía no entró'}</span>
+              <span className="selector-detalle">
+                WhatsApp: {m.numero ? `${m.numero.telefono ? '+' + m.numero.telefono : 'ID ' + m.numero.phone_number_id}${m.numero.principal ? ' · recibe los leads de la web' : ''}` : 'sin número conectado (no puede mandar ni recibir)'}
+                {' '}<button type="button" className="boton-link-texto" onClick={() => setConectando(conectando === m.id ? null : m.id)}>{m.numero ? 'Cambiar' : 'Conectar número'}</button>
+              </span>
+              {conectando === m.id && (
+                <form className="equipo-form" onSubmit={(ev) => {
+                  ev.preventDefault();
+                  const f = new FormData(ev.currentTarget);
+                  iniciar(async () => {
+                    const r = await conectarNumero(m.id, { phoneNumberId: f.get('id'), telefono: f.get('telefono') });
+                    if (r.error) return setAviso(r.error);
+                    setMiembros((l) => l.map((x) => (x.id === m.id ? { ...x, numero: r.numero } : x)));
+                    setConectando(null); setAviso('Número conectado');
+                  });
+                }}>
+                  <label className="campo"><span>ID del número en Meta</span><input name="id" inputMode="numeric" placeholder="Ej. 1282278918292068" required /></label>
+                  <label className="campo"><span>Número (para mostrar)</span><input name="telefono" inputMode="tel" placeholder="54911…" /></label>
+                  <button type="submit" className="boton-primario" disabled={ocupado}>Guardar</button>
+                </form>
+              )}
               {m.id !== yo && (
                 <span className="equipo-acciones">
-                  {m.activo && (
+                  {!m.ingreso && m.activo && (
                     <button type="button" className="boton-link-texto" disabled={ocupado}
                       onClick={() => iniciar(async () => { const r = await reenviarInvitacion(m.email); if (r.error) setAviso(r.error); else setLink({ para: m.nombre ?? m.email, url: r.link }); })}>Nuevo link de entrada</button>
                   )}

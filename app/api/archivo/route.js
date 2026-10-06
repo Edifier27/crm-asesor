@@ -24,6 +24,12 @@ export async function GET(request) {
   // Solo miembros activos del equipo
   const { data: perfil } = await supabase.from('perfiles').select('activo').eq('id', data.claims.sub).maybeSingle();
   if (!perfil?.activo) return new Response('Sin acceso', { status: 403 });
+  // Archivos de clientes (clientes/<contacto_id>/…): solo los de tus contactos; la base de datos no te muestra los de otra cuenta
+  if (bucket === BUCKET_CLIENTES) {
+    const contactoId = ruta.split('/')[0];
+    const { data: propio } = /^[0-9a-f-]{36}$/i.test(contactoId) ? await supabase.from('contactos').select('id').eq('id', contactoId).maybeSingle() : { data: null };
+    if (!propio) return new Response('Sin acceso', { status: 403 });
+  }
 
   const { data: firmado, error } = await createAdminClient().storage.from(bucket).createSignedUrl(ruta, VALIDEZ);
   if (error) return new Response('No encontrado', { status: 404 });

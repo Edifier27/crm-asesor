@@ -51,3 +51,21 @@ export async function reenviarInvitacion(email) {
   const { data, error } = await createAdminClient().auth.admin.generateLink({ type: 'recovery', email });
   return error ? { error: error.message } : { ok: true, link: await linkDeEntrada(data.properties, 'recovery') };
 }
+
+/**
+ * Conecta un número de WhatsApp a la cuenta de una persona: lo que entra a ese número va solo a su CRM
+ * y sus mensajes salen por ese número. El ID es el "Identificador del número de teléfono" de Meta
+ * (WhatsApp → Configuración de la API), no el número en sí.
+ */
+export async function conectarNumero(perfilId, { phoneNumberId, telefono }) {
+  if (!(await soyAdmin())) return { error: 'Solo un administrador puede conectar números.' };
+  const id = String(phoneNumberId ?? '').trim();
+  if (!/^d{10,20}$/.test(id)) return { error: 'El ID del número son solo dígitos (lo ves en Meta → WhatsApp → Configuración de la API).' };
+  const tel = String(telefono ?? '').replace(/D/g, '') || null;
+  const admin = createAdminClient();
+  const { data: otro } = await admin.from('numeros_whatsapp').select('cuenta').eq('phone_number_id', id).maybeSingle();
+  if (otro && otro.cuenta !== perfilId) return { error: 'Ese número ya está conectado a otra persona.' };
+  await admin.from('numeros_whatsapp').delete().eq('cuenta', perfilId);
+  const { error } = await admin.from('numeros_whatsapp').insert({ phone_number_id: id, cuenta: perfilId, telefono: tel });
+  return error ? { error: error.message } : { ok: true, numero: { phone_number_id: id, telefono: tel, principal: false } };
+}
