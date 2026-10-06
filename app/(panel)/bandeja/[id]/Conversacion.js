@@ -241,6 +241,39 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
       setAvisoAccion(r.error ?? '');
     }
   };
+  // Pegar una imagen (recorte de pantalla, Ctrl+V) en cualquier parte del chat: vista previa antes de mandar
+  const [pegada, setPegada] = useState(null); // { archivo, url }
+  useEffect(() => {
+    function alPegar(e) {
+      const archivo = Array.from(e.clipboardData?.files ?? []).find((a) => a.type.startsWith('image/'));
+      if (!archivo) return; // texto: se pega normal
+      // En los campos de la ficha (notas, email…) no se intercepta
+      if (e.target.closest?.('.ficha')) return;
+      e.preventDefault();
+      const ext = archivo.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+      const hora = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }).replace(':', '.');
+      const nombrado = new File([archivo], `Imagen ${hora}.${ext}`, { type: archivo.type });
+      setPegada((p) => { if (p) URL.revokeObjectURL(p.url); return { archivo: nombrado, url: URL.createObjectURL(nombrado) }; });
+    }
+    window.addEventListener('paste', alPegar);
+    return () => window.removeEventListener('paste', alPegar);
+  }, []);
+  const cerrarPegada = () => setPegada((p) => { if (p) URL.revokeObjectURL(p.url); return null; });
+  async function usarPegada(destino) {
+    const archivo = pegada.archivo;
+    cerrarPegada();
+    await subirArchivo(archivo, destino);
+  }
+  useEffect(() => {
+    if (!pegada) return;
+    const tecla = (e) => {
+      if (e.key === 'Escape') cerrarPegada();
+      if (e.key === 'Enter' && !e.shiftKey && ventana(expira).abierta) { e.preventDefault(); usarPegada('enviar'); }
+    };
+    window.addEventListener('keydown', tecla);
+    return () => window.removeEventListener('keydown', tecla);
+  });
+
   const cliente = ultimoDelCliente(mensajes);
 
   return (
@@ -248,6 +281,22 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
       onDragEnter={(e) => { if (conArchivos(e)) { e.preventDefault(); setArrastrando(true); } }}
       onDragOver={(e) => { if (conArchivos(e)) e.preventDefault(); }}
       onDrop={(e) => { e.preventDefault(); setArrastrando(false); }}>
+      {pegada && (
+        <div className="pegada-fondo" role="dialog" aria-modal="true" aria-label="Imagen pegada" onClick={(e) => e.target === e.currentTarget && cerrarPegada()}>
+          <div className="pegada">
+            <div className="visor-barra">
+              <span className="visor-nombre">Imagen pegada · {nombreVisible(contacto)}</span>
+              <button type="button" className="visor-cerrar" aria-label="Cancelar" onClick={cerrarPegada}>✕</button>
+            </div>
+            <div className="pegada-imagen"><img src={pegada.url} alt="Imagen pegada" /></div>
+            <div className="pegada-acciones">
+              <button type="button" className="boton-secundario" onClick={() => usarPegada('guardar')}>Guardar en documentación</button>
+              <button type="button" className="boton-primario" disabled={!ventana(expira).abierta} onClick={() => usarPegada('enviar')}
+                title={ventana(expira).abierta ? 'Enter' : 'Pasaron 24 h: WhatsApp no deja mandar archivos'}>Enviar al cliente ➤</button>
+            </div>
+          </div>
+        </div>
+      )}
       {(arrastrando || subiendoArchivo) && (
         <div className="soltar-capa" onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setArrastrando(false); }}>
           {subiendoArchivo ? <div className="soltar-zona">Subiendo…</div> : (
