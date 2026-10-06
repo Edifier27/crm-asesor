@@ -228,3 +228,7 @@
 .grabacion-descartar { flex: 0 0 46px; height: 46px; border: 0; border-radius: 50%; background: #FDE2E6; color: #EA0038; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .grabacion-pausa { flex: 1; height: 46px; border: 0; border-radius: 23px; background: #fff; color: var(--wa-texto); font: inherit; font-size: 15px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; }
 .grabacion-enviar { flex: 0 0 46px; height: 46px; border: 0; border-radius: 50%; background: var(--wa-verde); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+/* La pantalla del CRM no se desplaza entera: solo la lista de mensajes (evita que la barra de escribir quede afuera) */
+html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-behavior: none; }
+.app { overflow: hidden; }

@@ -47,7 +47,7 @@ export default function EnVivo({ conversacion, etapas, onEtapa, onCerrar }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversacion.id]);
 
-  useEffect(() => { fondo.current?.scrollIntoView({ block: 'end' }); }, [mensajes?.length, conversacion.ia_pensando_desde]);
+  useEffect(() => { const z = fondo.current?.parentElement; if (z) z.scrollTop = z.scrollHeight; }, [mensajes?.length, conversacion.ia_pensando_desde]);
 
   async function cambiarModo(nuevo, irAlChat = false) {
     await supabase.from('conversaciones').update({ modo: nuevo }).eq('id', conversacion.id);

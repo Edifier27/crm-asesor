@@ -193,7 +193,9 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversacion.id]);
 
-  useEffect(() => { fondo.current?.scrollIntoView({ block: 'end' }); }, [mensajes.length, locales.length]);
+  // Bajar al último mensaje moviendo SOLO la lista (scrollIntoView movía toda la pantalla en el celu y escondía la barra de escribir)
+  const alFinal = (suave) => { const z = zonaMensajes.current; if (z) z.scrollTo({ top: z.scrollHeight, behavior: suave ? 'smooth' : 'auto' }); };
+  useEffect(() => { alFinal(false); }, [mensajes.length, locales.length]);
 
   async function cambiarModo(nuevo) {
     const anterior = modo;
@@ -296,7 +298,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
         <div ref={fondo} />
       </div>
       {lejos && (
-        <button type="button" className="bajar-al-final" aria-label="Ir al último mensaje" onClick={() => fondo.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })}>
+        <button type="button" className="bajar-al-final" aria-label="Ir al último mensaje" onClick={() => alFinal(true)}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
         </button>
       )}
