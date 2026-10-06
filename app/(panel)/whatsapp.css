@@ -14,7 +14,7 @@
 .buscador { background: var(--wa-barra); border-radius: 8px; height: 36px; color: var(--wa-suave); }
 .buscador input::placeholder { color: var(--wa-suave); }
 .chip-filtro { background: var(--wa-barra); color: #54656F; font-size: 14px; padding: 6px 12px; }
-.chip-filtro.activo { background: #D9FDD3; color: var(--wa-verde-oscuro); font-weight: 600; }
+.chip-filtro.activo { background: var(--wa-saliente); color: var(--wa-verde-oscuro); font-weight: 600; }
 .chat { gap: 14px; padding: 0 0 0 14px; border-bottom: 0; align-items: center; min-height: 72px; }
 .chat:hover { background: #F5F6F6; }
 .chat.activo { background: #F0F2F5; }
@@ -309,3 +309,36 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 @media (hover: none) {
   .burbuja-acciones, .burbuja-flecha { display: none !important; }
 }
+
+/* Colores por persona (perfiles.tema → data-tema en .app). Verde = WhatsApp, sin cambios. */
+.app[data-tema="rosa"] {
+  --acento: #9A5868; --acento-hover: #834957; --riel: #3A2329; --riel-2: #4F3138; --riel-3: #66414A;
+  --wa-verde: #A8677A; --wa-verde-oscuro: #8A4E5E; --wa-saliente: #F2E0E3; --wa-noleido: #A8677A; --tema-fondo: #ECE3E2;
+}
+.app[data-tema="violeta"] {
+  --acento: #6A3FB5; --acento-hover: #58349A; --riel: #2A1A47; --riel-2: #3D2766; --riel-3: #523586;
+  --wa-verde: #7E57C2; --wa-verde-oscuro: #5E35B1; --wa-saliente: #EBE1FF; --wa-noleido: #7E57C2; --tema-fondo: #E7E2EF;
+}
+.app[data-tema="azul"] {
+  --acento: #1565C0; --acento-hover: #0F539F; --riel: #0F2A47; --riel-2: #1A3D63; --riel-3: #275380;
+  --wa-verde: #1E88E5; --wa-verde-oscuro: #1565C0; --wa-saliente: #DCEEFF; --wa-noleido: #1E88E5; --tema-fondo: #E1E7EE;
+}
+.app[data-tema="turquesa"] {
+  --acento: #00838F; --acento-hover: #006D77; --riel: #0D3236; --riel-2: #16494F; --riel-3: #21616A;
+  --wa-verde: #00A3B4; --wa-verde-oscuro: #00838F; --wa-saliente: #D6F5F7; --wa-noleido: #00A3B4; --tema-fondo: #E0EAEA;
+}
+.app[data-tema="coral"] {
+  --acento: #D9542B; --acento-hover: #B94522; --riel: #45201A; --riel-2: #633027; --riel-3: #823F33;
+  --wa-verde: #F06A3F; --wa-verde-oscuro: #C9532C; --wa-saliente: #FFE6DC; --wa-noleido: #F06A3F; --tema-fondo: #EFE5E0;
+}
+.app[data-tema]:not([data-tema="verde"]) :is(.conversacion, .en-vivo-panel, .vacio) { --chat-fondo: var(--tema-fondo); }
+
+/* Mi perfil: elegir color */
+.temas { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-top: 10px; }
+.tema-opcion {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 8px; border-radius: 12px;
+  border: 2px solid var(--wa-linea); background: #fff; font: inherit; font-size: 14px; color: var(--wa-texto); cursor: pointer;
+}
+.tema-opcion.activo { border-color: var(--acento); font-weight: 600; }
+.tema-muestra { width: 44px; height: 44px; border-radius: 50%; box-shadow: inset 0 0 0 1px #0000001a; }
+.link-entrada input { width: 100%; padding: 10px; border: 1px solid var(--wa-linea); border-radius: 8px; font: inherit; font-size: 13px; margin: 8px 0; }

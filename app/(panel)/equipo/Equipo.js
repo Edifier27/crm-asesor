@@ -9,6 +9,7 @@ export default function Equipo({ miembros: iniciales, yo, uso }) {
   const estado = estadoUso(uso);
   const [miembros, setMiembros] = useState(iniciales);
   const [aviso, setAviso] = useState('');
+  const [link, setLink] = useState(null); // { para, url }
   const [ocupado, iniciar] = useTransition();
 
   function enviarInvitacion(ev) {
@@ -21,7 +22,8 @@ export default function Equipo({ miembros: iniciales, yo, uso }) {
       const r = await invitar(datos);
       if (r.error) return setAviso(r.error);
       form.reset();
-      setAviso(`Listo: le llegó un mail a ${datos.email} para elegir su contraseña. Recargá para verla en la lista.`);
+      setLink({ para: datos.nombre || datos.email, url: r.link });
+      setAviso('');
     });
   }
 
@@ -38,7 +40,7 @@ export default function Equipo({ miembros: iniciales, yo, uso }) {
     <div className="pagina">
       <header className="pagina-cabecera">
         <h1>Equipo</h1>
-        <p>Quiénes usan el CRM. Cada persona elige su propia contraseña desde el mail de invitación.</p>
+        <p>Quiénes usan el CRM. Cada persona elige su propia contraseña desde el link de entrada.</p>
       </header>
 
       <section className="tarjeta">
@@ -52,9 +54,9 @@ export default function Equipo({ miembros: iniciales, yo, uso }) {
               <span className="selector-detalle">{m.email} · {m.rol === 'admin' ? 'Administrador' : 'Asesor'}{m.ingreso ? '' : ' · todavía no entró'}</span>
               {m.id !== yo && (
                 <span className="equipo-acciones">
-                  {!m.ingreso && m.activo && (
+                  {m.activo && (
                     <button type="button" className="boton-link-texto" disabled={ocupado}
-                      onClick={() => iniciar(async () => { const r = await reenviarInvitacion(m.email); setAviso(r.error ?? 'Invitación reenviada'); })}>Reenviar invitación</button>
+                      onClick={() => iniciar(async () => { const r = await reenviarInvitacion(m.email); if (r.error) setAviso(r.error); else setLink({ para: m.nombre ?? m.email, url: r.link }); })}>Nuevo link de entrada</button>
                   )}
                   <button type="button" className={`boton-link-texto${m.activo ? ' peligro' : ''}`} disabled={ocupado} onClick={() => acceso(m, !m.activo)}>
                     {m.activo ? 'Quitar acceso' : 'Devolver acceso'}
@@ -94,10 +96,23 @@ export default function Equipo({ miembros: iniciales, yo, uso }) {
               <option value="admin">Administrador: además equipo y configuración</option>
             </select>
           </label>
-          <button type="submit" className="boton-primario" disabled={ocupado}>{ocupado ? 'Invitando…' : 'Enviar invitación'}</button>
+          <button type="submit" className="boton-primario" disabled={ocupado}>{ocupado ? 'Creando…' : 'Crear usuario y link'}</button>
         </form>
         {aviso && <p className="pp-aviso">{aviso}</p>}
       </section>
+
+      {link && (
+        <section className="tarjeta link-entrada">
+          <h2>Link de entrada para {link.para}</h2>
+          <p className="selector-detalle">Mandáselo por WhatsApp. Al abrirlo elige su contraseña y entra. Sirve una sola vez y vence en un rato: si pasa, tocá “Nuevo link de entrada”.</p>
+          <input readOnly value={link.url} onFocus={(e) => e.target.select()} aria-label="Link de entrada" />
+          <span className="equipo-acciones">
+            <button type="button" className="boton-primario" onClick={async () => { await navigator.clipboard.writeText(link.url); setAviso('Link copiado'); }}>Copiar link</button>
+            <a className="boton-secundario" target="_blank" rel="noreferrer"
+              href={`https://wa.me/?text=${encodeURIComponent(`Hola! Entrá acá para elegir tu contraseña del CRM: ${link.url}`)}`}>Abrir WhatsApp</a>
+          </span>
+        </section>
+      )}
     </div>
   );
 }
