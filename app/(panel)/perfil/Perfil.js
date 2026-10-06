@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { guardarPreferencias, leerPreferencias, sonarAviso } from '../componentes/avisos-prefs';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -10,6 +11,13 @@ export default function Perfil({ id, email, nombreInicial, temaInicial }) {
   const router = useRouter();
   const [tema, setTema] = useState(temaInicial);
   const [aviso, setAviso] = useState('');
+  const [avisos, setAvisos] = useState({ sonido: true, cartel: true });
+  const [permiso, setPermiso] = useState('default');
+  useEffect(() => {
+    setAvisos(leerPreferencias());
+    setPermiso(typeof Notification === 'undefined' ? 'no' : Notification.permission);
+  }, []);
+  const cambiarAviso = (campos) => { const p = { ...avisos, ...campos }; setAvisos(p); guardarPreferencias(p); };
 
   async function guardar(campos, previo) {
     const { error } = await createClient().from('perfiles').update(campos).eq('id', id);
@@ -55,6 +63,21 @@ export default function Perfil({ id, email, nombreInicial, temaInicial }) {
           ))}
         </div>
         {aviso && <p className="pp-aviso" role="status">{aviso}</p>}
+      </section>
+
+      <section className="tarjeta">
+        <h2>Avisos de mensajes nuevos</h2>
+        <p className="selector-detalle">Como en WhatsApp: cuando un cliente te escribe aparece un cartel con el mensaje y suena el aviso del CRM. Se configura en cada dispositivo.</p>
+        <label className="check"><input type="checkbox" checked={avisos.cartel} onChange={(e) => cambiarAviso({ cartel: e.target.checked })} /> Mostrar el cartel con el mensaje</label>
+        <label className="check"><input type="checkbox" checked={avisos.sonido} onChange={(e) => cambiarAviso({ sonido: e.target.checked })} /> Sonido</label>
+        <div className="acciones">
+          <button type="button" className="boton-secundario" onClick={sonarAviso}>🔔 Escuchar el sonido</button>
+          {permiso === 'default' && (
+            <button type="button" className="boton-primario" onClick={async () => setPermiso(await Notification.requestPermission())}>Avisarme también con otra ventana abierta</button>
+          )}
+        </div>
+        {permiso === 'granted' && <p className="selector-detalle">✓ Si estás en otra ventana o programa, te llega la notificación de la computadora (con el CRM abierto).</p>}
+        {permiso === 'denied' && <p className="selector-detalle">Las notificaciones están bloqueadas para este sitio: activalas desde el candadito de la barra de direcciones.</p>}
       </section>
 
       <section className="tarjeta">

@@ -3,6 +3,7 @@ import { salir } from '../login/actions';
 import Link from 'next/link';
 import RielLinks from './RielLinks';
 import RielPlegable from './RielPlegable';
+import Avisos from './componentes/Avisos';
 import { estadoUso } from '@/lib/uso';
 import { temaValido } from '@/lib/temas';
 import './panel.css';
@@ -40,6 +41,7 @@ export default async function PanelLayout({ children }) {
         </form>
       </RielPlegable>
       {children}
+      <Avisos />
     </div>
   );
 }

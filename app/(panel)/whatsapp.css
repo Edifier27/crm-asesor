@@ -361,3 +361,20 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 .form-resultados button:hover:not(:disabled) { background: var(--wa-saliente); }
 .form-resultados button:disabled { opacity: 0.55; cursor: not-allowed; }
 .icono-adjunto.formulario { background: #FFF0DC; }
+
+/* Avisos de mensajes nuevos (como WhatsApp Web) */
+.avisos { position: fixed; top: 16px; right: 16px; z-index: 60; display: flex; flex-direction: column; gap: 8px; width: min(360px, calc(100vw - 32px)); }
+.aviso-mensaje {
+  display: flex; align-items: stretch; background: #fff; border-radius: 12px; overflow: hidden;
+  box-shadow: 0 6px 24px rgba(11, 20, 26, 0.18), 0 0 0 1px rgba(11, 20, 26, 0.05); border-left: 4px solid var(--wa-verde);
+  animation: aviso-entra 0.25s ease-out;
+}
+.aviso-cuerpo { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+.aviso-avatar { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--wa-saliente); color: var(--wa-verde-oscuro); font-weight: 600; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.aviso-textos { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.aviso-textos strong { font-size: 15px; color: var(--wa-texto); font-weight: 600; }
+.aviso-textos span { font-size: 14px; color: var(--wa-suave); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.aviso-cerrar { flex: none; width: 34px; border: 0; background: none; color: var(--wa-suave); font-size: 20px; cursor: pointer; }
+.aviso-cerrar:hover { color: var(--wa-texto); }
+@keyframes aviso-entra { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@media (max-width: 760px) { .avisos { top: 8px; right: 8px; left: 8px; width: auto; } }
