@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         Botmaker → AsesorCRM
 // @namespace    botmaker-kommo-dario
-// @version      2.1
+// @version      2.2
 // @description  Botón para cargar el contacto abierto en Botmaker como lead en AsesorCRM
 // @match        https://go.botmaker.com/*
-// @connect      crm-asesor.vercel.app
+// @connect      asesorcrm.com.ar
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
 // @run-at       document-start
@@ -17,7 +17,7 @@
   //  CONFIGURACIÓN
   // ═════════════════════════════════════════════════════════════
 
-  const CRM_URL   = 'https://crm-asesor.vercel.app/api/leads';
+  const CRM_URL   = 'https://asesorcrm.com.ar/api/leads';
   const CRM_CLAVE = 'PEGAR_ACA_LA_LEADS_API_KEY'; // ← la misma que en el script de SGC y en Vercel (LEADS_API_KEY). No la compartas.
 
   // ═════════════════════════════════════════════════════════════

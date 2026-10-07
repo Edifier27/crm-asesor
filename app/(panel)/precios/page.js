@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import Listas from './Listas';
 
-export const metadata = { title: 'Precios · AsesorCRM' };
+export const metadata = { title: 'Precios' };
 
 export default async function PreciosPage() {
   const supabase = await createClient();

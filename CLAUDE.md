@@ -5,13 +5,13 @@ Reemplaza a Kommo. Los leads llegan de dos orígenes: asignados por Swiss Medica
 (formularios). La IA asesora al lead por WhatsApp, elige audios pregrabados y le pasa el lead
 al asesor cuando está listo para cotizar.
 
-Nombre comercial: a definir (candidatos: Afilia, Tilde). Dominio propio: a definir.
+Nombre comercial: AsesorCRM. Dominio propio: asesorcrm.com.ar.
 Idioma de la interfaz y del código de negocio: español rioplatense (voseo).
 
 ## Stack
 - Next.js (App Router, JavaScript) desplegado en Vercel.
   - Proyecto Vercel: `crm-asesor`, equipo `forza-projects`, región de funciones `gru1` (San Pablo).
-  - Las URLs `.vercel.app` tienen Vercel Authentication; el webhook solo será accesible por el dominio propio.
+  - Dominio propio: `asesorcrm.com.ar` (desde 2026-10-07). `crm-asesor.vercel.app` sigue funcionando en paralelo.
 - Supabase (plan gratuito por ahora; Pro más adelante). El cotizador existente ya usa Supabase.
 - WhatsApp Cloud API oficial de Meta (primero con el número de prueba de Meta; la línea real hoy
   está conectada a Kommo y se migra recién cuando el CRM funcione).

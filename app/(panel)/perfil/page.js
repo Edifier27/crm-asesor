@@ -1,7 +1,7 @@
 import { createClient, usuarioActual } from '@/lib/supabase/server';
 import Perfil from './Perfil';
 
-export const metadata = { title: 'Mi perfil · AsesorCRM' };
+export const metadata = { title: 'Mi perfil' };
 
 export default async function PaginaPerfil() {
   const supabase = await createClient();

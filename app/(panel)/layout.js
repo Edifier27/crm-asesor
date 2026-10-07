@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { salir } from '../login/actions';
 import Link from 'next/link';
@@ -11,12 +12,26 @@ import { SALDO_BAJO_USD, saldosIa } from '@/lib/costos';
 import './panel.css';
 import './whatsapp.css';
 
-export default async function PanelLayout({ children }) {
+// Una sola lectura del perfil por pedido: la comparten el título de la pestaña y el layout
+const perfilActual = cache(async () => {
   const supabase = await createClient();
   const { data: sesion } = await supabase.auth.getClaims();
   const user = { id: sesion?.claims?.sub, email: sesion?.claims?.email };
-  const [{ data: perfil }, { data: usoTodos }] = await Promise.all([
-    supabase.from('perfiles').select('*').eq('id', user.id).maybeSingle(),
+  const { data: perfil } = await supabase.from('perfiles').select('*').eq('id', user.id).maybeSingle();
+  return { user, perfil };
+});
+
+/** Pestaña con el nombre de quien está adentro: "AsesorCRM - Chats Gaby" (para no confundir un CRM con otro). */
+export async function generateMetadata() {
+  const { perfil } = await perfilActual();
+  const nombre = (perfil?.nombre ?? '').trim().split(/\s+/)[0];
+  return { title: { template: nombre ? `AsesorCRM - %s ${nombre}` : 'AsesorCRM - %s', default: nombre ? `AsesorCRM - ${nombre}` : 'AsesorCRM' } };
+}
+
+export default async function PanelLayout({ children }) {
+  const supabase = await createClient();
+  const [{ user, perfil }, { data: usoTodos }] = await Promise.all([
+    perfilActual(),
     supabase.from('uso_sistema').select('*').maybeSingle()
   ]);
   const inicial = (perfil?.nombre ?? user.email ?? '?').slice(0, 2).toUpperCase();

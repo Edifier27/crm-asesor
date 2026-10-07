@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         Salesforce → AsesorCRM (Gabriela Lazarte) — Automático REQUEST
 // @namespace    sf-crm-gabriela
-// @version      3.0
+// @version      3.1
 // @description  Automático con reintentos ante cortes de red, pausas variables, anti-duplicado, chequeo de pestaña activa, auto-refresco de la lista. Envía el lead al CRM de Gabriela (antes Kommo)
 // @match        https://swissmedical.lightning.force.com/*
-// @connect      crm-asesor.vercel.app
+// @connect      asesorcrm.com.ar
 // @grant        GM_xmlhttpRequest
 // ==/UserScript==
 
@@ -15,7 +15,7 @@
   //  CONFIGURACIÓN — cuenta de Gabriela Lazarte
   // ═════════════════════════════════════════════════════════════
 
-  const CRM_URL   = 'https://crm-asesor.vercel.app/api/leads';
+  const CRM_URL   = 'https://asesorcrm.com.ar/api/leads';
   const CRM_CLAVE = 'PEGAR_ACA_LA_LEADS_API_KEY'; // ← la misma LEADS_API_KEY de los otros scripts. No la compartas.
   const ASESOR    = 'gabriela.lazarte@gmail.com';  // el lead entra al CRM de esta asesora
 

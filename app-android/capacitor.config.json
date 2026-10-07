@@ -3,7 +3,7 @@
   "appName": "AsesorCRM",
   "webDir": "www",
   "server": {
-    "url": "https://crm-asesor.vercel.app",
+    "url": "https://asesorcrm.com.ar",
     "cleartext": false
   },
   "android": {

@@ -7,7 +7,7 @@ import Aprendizajes from './Aprendizajes';
 
 export const maxDuration = 300; // el botón 'Analizar ahora' puede tardar un par de minutos
 
-export const metadata = { title: 'Asesor IA · AsesorCRM' };
+export const metadata = { title: 'Asesor IA' };
 
 export default async function AsesorPage() {
   const supabase = await createClient();

@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         SGC → AsesorCRM
 // @namespace    dariobettalio
-// @version      3.0
+// @version      3.1
 // @description  Botón para cargar el prospecto abierto en SGC como lead en AsesorCRM
 // @match        https://sgc.swissmedical.com.ar/*
-// @connect      crm-asesor.vercel.app
+// @connect      asesorcrm.com.ar
 // @grant        GM_xmlhttpRequest
 // @run-at       document-start
 // ==/UserScript==
@@ -15,7 +15,7 @@
   // ─────────────────────────────────────────────
   // CONFIGURACIÓN
   // ─────────────────────────────────────────────
-  const CRM_URL   = 'https://crm-asesor.vercel.app/api/leads';
+  const CRM_URL   = 'https://asesorcrm.com.ar/api/leads';
   const CRM_CLAVE = 'PEGAR_ACA_LA_LEADS_API_KEY'; // ← la misma que está en Vercel (LEADS_API_KEY). No la compartas.
 
   let ultimoDetalle = null;

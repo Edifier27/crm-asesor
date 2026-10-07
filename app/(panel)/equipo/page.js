@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import Equipo from './Equipo';
 import { saldosIa } from '@/lib/costos';
 
-export const metadata = { title: 'Equipo · AsesorCRM' };
+export const metadata = { title: 'Equipo' };
 
 export default async function EquipoPage() {
   const supabase = await createClient();
