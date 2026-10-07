@@ -39,8 +39,10 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [], mi
   const supabase = createClient();
   const [plantillas, setPlantillas] = useState(inicial);
   // Cada cuenta de WhatsApp tiene sus plantillas: se ven las de una cuenta por vez (el administrador elige cuál)
-  const [verCuenta, setVerCuenta] = useState(miConexion ?? '');
+  const verCuenta = miConexion ?? '';
   const deLaCuenta = plantillas.filter((p) => (p.conexion ?? '') === verCuenta);
+  // Bloques por cuenta: el administrador ve todas (su cuenta primero), cada asesor solo la suya
+  const grupos = (conexiones.length ? ['', ...conexiones] : [verCuenta]).map((cuenta) => ({ cuenta, plantillas: plantillas.filter((p) => (p.conexion ?? '') === cuenta) }));
   const [usos, setUsos] = useState(usosIniciales ?? {});
   const [editando, setEditando] = useState(null); // id | 'nueva' | null
   const [borrador, setBorrador] = useState({ nombre: '', cuerpo: '' });
@@ -118,7 +120,7 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [], mi
   }
 
   // Resumen de estados
-  const cuenta = (fn) => deLaCuenta.filter(fn).length;
+  const cuenta = (fn) => plantillas.filter(fn).length;
   const resumen = [
     ['ok', `✓ ${cuenta((p) => p.estado_meta === 'APPROVED')} aprobadas`],
     ['espera', `⏳ ${cuenta((p) => ['PENDING', 'IN_APPEAL'].includes(p.estado_meta))} en revisión`],
@@ -178,16 +180,6 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [], mi
       <section className="tarjeta form-audio">
         <div className="selector-cabecera">
           <h2>Plantillas de WhatsApp</h2>
-          {conexiones.length > 0 && (
-            <div className="pp-atajos" role="radiogroup" aria-label="Cuenta de WhatsApp">
-              {['', ...conexiones].map((c) => (
-                <button key={c || 'dario'} type="button" role="radio" aria-checked={verCuenta === c}
-                  className={`chip-filtro${verCuenta === c ? ' activo' : ''}`} onClick={() => setVerCuenta(c)}>
-                  Cuenta de {nombreCuenta(c || null)}
-                </button>
-              ))}
-            </div>
-          )}
           <div className="acciones">
             <button type="button" className="boton-secundario" disabled={ocupado} onClick={traer}>{ocupado ? 'Un momento…' : '↻ Traer plantillas de Meta'}</button>
             {editando !== 'nueva' && <button type="button" className="boton-primario" onClick={() => abrirEditor(null)}>+ Nueva plantilla</button>}
@@ -202,40 +194,45 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [], mi
         </p>
         {aviso && <p className="pp-aviso">{aviso}</p>}
         {editando === 'nueva' && formulario(null)}
-        <ul className="lista-audios">
-          {deLaCuenta.map((p) => {
-            const e = estadoDe(p);
-            return (
-              <li key={p.id} className={`audio${p.activa ? '' : ' inactivo'}`}>
-                {editando === p.id ? formulario(p) : (
-                  <>
-                    <div className="audio-info">
-                      <strong>{p.nombre}</strong><span className="audio-duracion">{p.idioma} · {p.categoria}{conexiones.length ? ` · cuenta de ${nombreCuenta(p.conexion)}` : ''}</span>
-                      <span className={`estado-plantilla ${e.clase}`}>{e.rotulo}{p.motivo_rechazo ? `: ${MOTIVOS[p.motivo_rechazo] ?? p.motivo_rechazo}` : ''}</span>
-                      {!p.activa && p.estado_meta === 'APPROVED' && !p.nota && <span className="etiqueta etiqueta-humano">Desactivada en el CRM</span>}
-                      {p.imagen_path && <ImagenPlantilla path={p.imagen_path} />}
-                      <p>{p.cuerpo}</p>
-                      {botonesDe(p).length > 0 && (
-                        <span className="plantilla-botones">{botonesDe(p).map((b) => <span key={b} className="plantilla-boton">{b}</span>)}</span>
-                      )}
-                      {p.nota && <p className="cuando">{p.nota}</p>}
-                      {p.uso && <p className="cuando"><strong>Para:</strong> {p.uso}</p>}
-                    </div>
-                    <div className="acciones">
-                      {(!p.estado_meta || p.estado_meta === 'REJECTED') && (
-                        <button type="button" className="boton-primario" disabled={ocupado} onClick={() => aprobar(p)}>Enviar a Meta</button>
-                      )}
-                      <button type="button" className="boton-secundario" onClick={() => abrirEditor(p)}>Editar</button>
-                      {p.estado_meta === 'APPROVED' && !p.nota && (
-                        <button type="button" className="boton-secundario" onClick={() => alternar(p)}>{p.activa ? 'Desactivar' : 'Activar'}</button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        {grupos.map((grupo) => (
+          <div key={grupo.cuenta || 'dario'} className="grupo-plantillas">
+            {grupos.length > 1 && <h3 className="grupo-titulo">PLANTILLAS {nombreCuenta(grupo.cuenta || null).toUpperCase().replace('DARÍO', 'DARO').replace('GABY', 'GABI')} <span className="selector-detalle">({grupo.plantillas.length})</span></h3>}
+          <ul className="lista-audios">
+            {grupo.plantillas.map((p) => {
+              const e = estadoDe(p);
+              return (
+                <li key={p.id} className={`audio${p.activa ? '' : ' inactivo'}`}>
+                  {editando === p.id ? formulario(p) : (
+                    <>
+                      <div className="audio-info">
+                        <strong>{p.nombre}</strong><span className="audio-duracion">{p.idioma} · {p.categoria}{conexiones.length ? ` · cuenta de ${nombreCuenta(p.conexion)}` : ''}</span>
+                        <span className={`estado-plantilla ${e.clase}`}>{e.rotulo}{p.motivo_rechazo ? `: ${MOTIVOS[p.motivo_rechazo] ?? p.motivo_rechazo}` : ''}</span>
+                        {!p.activa && p.estado_meta === 'APPROVED' && !p.nota && <span className="etiqueta etiqueta-humano">Desactivada en el CRM</span>}
+                        {p.imagen_path && <ImagenPlantilla path={p.imagen_path} />}
+                        <p>{p.cuerpo}</p>
+                        {botonesDe(p).length > 0 && (
+                          <span className="plantilla-botones">{botonesDe(p).map((b) => <span key={b} className="plantilla-boton">{b}</span>)}</span>
+                        )}
+                        {p.nota && <p className="cuando">{p.nota}</p>}
+                        {p.uso && <p className="cuando"><strong>Para:</strong> {p.uso}</p>}
+                      </div>
+                      <div className="acciones">
+                        {(!p.estado_meta || p.estado_meta === 'REJECTED') && (
+                          <button type="button" className="boton-primario" disabled={ocupado} onClick={() => aprobar(p)}>Enviar a Meta</button>
+                        )}
+                        <button type="button" className="boton-secundario" onClick={() => abrirEditor(p)}>Editar</button>
+                        {p.estado_meta === 'APPROVED' && !p.nota && (
+                          <button type="button" className="boton-secundario" onClick={() => alternar(p)}>{p.activa ? 'Desactivar' : 'Activar'}</button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          </div>
+        ))}
       </section>
 
       {/* Configuración de secuencias y bienvenida: por ahora es de la cuenta principal (Darío) */}

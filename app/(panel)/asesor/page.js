@@ -22,8 +22,8 @@ export default async function AsesorPage() {
   ]);
   const esAdmin = miPerfil?.rol === 'admin';
   const miConexion = miNumero?.conexion ?? null;
-  // Cada asesor ve y maneja solo las plantillas de su cuenta de WhatsApp (Darío las suyas, Gaby las suyas)
-  const conexiones = [];
+  // El administrador ve las plantillas de todas las cuentas, en bloques; cada asesor solo las de su cuenta
+  const conexiones = esAdmin ? todasConexiones : [];
   const [{ data: config }, { data: conocimiento }, { data: ejecuciones }, { data: plantillas }, { data: respuestas }, { data: aprendizajes }, { data: corrida }] = await Promise.all([
     supabase.from('asesor_config').select('*').maybeSingle(),
     supabase.from('conocimiento').select('*').order('titulo'),
@@ -40,7 +40,7 @@ export default async function AsesorPage() {
       tieneClave={Boolean(process.env.ANTHROPIC_API_KEY)}
       aprendizajes={<Aprendizajes inicial={aprendizajes ?? []} ultimaCorrida={corrida} />}
       miPerfil={miPerfil ? { id: miPerfil.id, firma: miPerfil.firma ?? null } : null}
-      plantillas={<><Plantillas inicial={(plantillas ?? []).filter((p) => (p.conexion ?? null) === miConexion)}
+      plantillas={<><Plantillas inicial={esAdmin ? (plantillas ?? []) : (plantillas ?? []).filter((p) => (p.conexion ?? null) === miConexion)}
         usosIniciales={config?.plantillas_uso ?? {}} conexiones={conexiones} miConexion={miConexion} /><RespuestasRapidas inicial={respuestas ?? []} /></>} />
   );
 }
