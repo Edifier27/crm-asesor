@@ -62,6 +62,32 @@ export default function ListaChats({ inicial, iaInicial }) {
     };
   }, [supabase, recargar]);
 
+  // En el celular: tirar la lista hacia abajo la actualiza, como en WhatsApp (en la compu no hace falta: no hay dedo)
+  const tiron = useRef(null);            // dónde empezó el dedo
+  const [bajado, setBajado] = useState(0); // cuánto se estiró (px)
+  const [actualizando, setActualizando] = useState(false);
+  const UMBRAL = 64;
+  function alTocar(e) {
+    if (actualizando || e.currentTarget.scrollTop > 0) { tiron.current = null; return; }
+    tiron.current = e.touches[0].clientY;
+  }
+  function alArrastrar(e) {
+    if (tiron.current === null) return;
+    const dy = e.touches[0].clientY - tiron.current;
+    // Solo cuenta si la lista está arriba de todo y el dedo va hacia abajo; si sube, es un desplazamiento común
+    if (dy <= 0 || e.currentTarget.scrollTop > 0) { if (bajado) setBajado(0); if (dy < 0) tiron.current = null; return; }
+    setBajado(Math.min(96, dy * 0.5));
+  }
+  async function alSoltar() {
+    if (tiron.current === null) return;
+    tiron.current = null;
+    if (bajado < UMBRAL) return setBajado(0);
+    setActualizando(true); setBajado(0);
+    // Un instante mínimo a la vista: si no, con buena señal parece que no hizo nada
+    await Promise.all([recargar(), new Promise((r) => setTimeout(r, 500))]);
+    setActualizando(false);
+  }
+
   const conteos = useMemo(() => ({
     noLeidos: conversaciones.filter((c) => c.no_leidos > 0).length,
     hoy: conversaciones.filter((c) => pasoMio(c)?.hoy).length
@@ -117,7 +143,11 @@ export default function ListaChats({ inicial, iaInicial }) {
         </Deslizable>
       </div>
 
-      <ul className="chats">
+      <div className={`tiron${actualizando ? ' actualizando' : ''}${bajado ? ' tirando' : ''}`} style={{ height: actualizando ? 46 : bajado }} aria-live="polite">
+        <span className="tiron-giro" style={actualizando ? undefined : { transform: `rotate(${bajado * 3}deg)` }} aria-hidden="true" />
+        <span>{actualizando ? 'Actualizando…' : bajado >= UMBRAL ? 'Soltá para actualizar' : 'Tirá para actualizar'}</span>
+      </div>
+      <ul className="chats" onTouchStart={alTocar} onTouchMove={alArrastrar} onTouchEnd={alSoltar} onTouchCancel={alSoltar}>
         {visibles.map((c) => (
           <li key={c.id}>
             <Link href={`/bandeja/${c.id}`} className={`chat${c.id === activo ? ' activo' : ''}`} aria-current={c.id === activo ? 'page' : undefined}>
