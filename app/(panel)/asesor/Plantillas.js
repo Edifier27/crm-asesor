@@ -235,16 +235,17 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [], mi
         ))}
       </section>
 
-      {/* Configuración de secuencias y bienvenida: por ahora es de la cuenta principal (Darío) */}
-      {!miConexion && (
+      {/* Saludo automático y secuencias: cada asesor elige los suyos, entre las plantillas de su cuenta de WhatsApp */}
       <section className="tarjeta form-audio">
         <h2>Qué plantilla usar para cada cosa</h2>
-        <p className="selector-detalle">Si no elegís, se usa la del nombre por defecto. Elegí aprobadas: las demás no salen.</p>
+        <p className="selector-detalle">{miConexion
+          ? 'Elegí entre tus plantillas aprobadas. Lo que dejes sin elegir no se manda: sin saludo elegido, los leads nuevos entran sin mensaje automático.'
+          : 'Si no elegís, se usa la del nombre por defecto. Elegí aprobadas: las demás no salen.'}</p>
         <div className="usos-plantilla">
           {USOS_PLANTILLA.map((u) => (
             <label key={u.clave} className="campo"><span>{u.rotulo}{u.ayuda ? ` · ${u.ayuda}` : ''}</span>
               <select value={usos[u.clave] ?? ''} onChange={(ev) => elegirUso(u.clave, ev.target.value)}>
-                <option value="">Por defecto ({u.defecto})</option>{opciones}
+                <option value="">{u.clave === 'bienvenida_web' ? 'El mismo saludo de arriba' : miConexion || !u.defecto ? 'Sin elegir' : `Por defecto (${u.defecto})`}</option>{opciones}
               </select>
             </label>
           ))}
@@ -256,7 +257,7 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [], mi
                 {s.pasos.map((paso, i) => (
                   <label key={paso} className="campo"><span>{paso}</span>
                     <select value={usos[s.clave]?.[i] ?? ''} onChange={(ev) => elegirUso(s.clave, ev.target.value, i)}>
-                      <option value="">Por defecto ({defecto[i]})</option>{opciones}
+                      <option value="">{miConexion ? 'Sin elegir (ahí termina la secuencia)' : `Por defecto (${defecto[i]})`}</option>{opciones}
                     </select>
                   </label>
                 ))}
@@ -265,7 +266,6 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [], mi
           })}
         </div>
       </section>
-      )}
     </>
   );
 }

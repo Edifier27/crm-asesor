@@ -4,6 +4,7 @@ import PanelAsesor from './PanelAsesor';
 import Plantillas from './Plantillas';
 import RespuestasRapidas from './RespuestasRapidas';
 import Aprendizajes from './Aprendizajes';
+import { usosDe } from '@/lib/plantillas-uso';
 
 export const maxDuration = 300; // el botón 'Analizar ahora' puede tardar un par de minutos
 
@@ -41,6 +42,6 @@ export default async function AsesorPage() {
       aprendizajes={<Aprendizajes inicial={aprendizajes ?? []} ultimaCorrida={corrida} />}
       miPerfil={miPerfil ? { id: miPerfil.id, firma: miPerfil.firma ?? null } : null}
       plantillas={<><Plantillas inicial={esAdmin ? (plantillas ?? []) : (plantillas ?? []).filter((p) => (p.conexion ?? null) === miConexion)}
-        usosIniciales={config?.plantillas_uso ?? {}} conexiones={conexiones} miConexion={miConexion} /><RespuestasRapidas inicial={respuestas ?? []} /></>} />
+        usosIniciales={usosDe(config?.plantillas_uso, miConexion)} conexiones={conexiones} miConexion={miConexion} /><RespuestasRapidas inicial={respuestas ?? []} /></>} />
   );
 }

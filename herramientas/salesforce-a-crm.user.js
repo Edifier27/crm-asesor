@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Salesforce → AsesorCRM (Darío) — Automático CRM
 // @namespace    sf-crm-dario
-// @version      3.4
+// @version      3.5
 // @description  Automático con reintentos ante cortes de red, pausas variables, anti-duplicado, chequeo de pestaña activa, auto-refresco de la lista. Envía el lead al CRM de Darío (antes Kommo)
 // @match        https://swissmedical.lightning.force.com/*
 // @connect      asesorcrm.com.ar
@@ -202,7 +202,7 @@
     } catch (e) {}
   }
 
-  // ÚNICO CAMBIO de lógica: el lead va al CRM de Darío (el del número principal) en vez de a Kommo (sin saludo automático)
+  // ÚNICO CAMBIO de lógica: el lead va al CRM de Darío (el del número principal) en vez de a Kommo (el saludo automático lo manda el CRM)
   function enviarAlCrm(d) {
     const lead = {
       origen: 'swiss_medical',
@@ -210,7 +210,6 @@
       nombre: primerNombre(d.nombre),
       telefono: d.telefono,
       email: d.email,
-      enviarBienvenida: false,
     };
 
     log(`Enviando al CRM: ${d.nombre} / ${d.telefono}`);

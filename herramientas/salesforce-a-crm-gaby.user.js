@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Salesforce → AsesorCRM (Gabriela Lazarte) — Automático CRM
 // @namespace    sf-crm-gabriela
-// @version      3.4
+// @version      3.5
 // @description  Automático con reintentos ante cortes de red, pausas variables, anti-duplicado, chequeo de pestaña activa, auto-refresco de la lista. Envía el lead al CRM de Gabriela (antes Kommo)
 // @match        https://swissmedical.lightning.force.com/*
 // @connect      asesorcrm.com.ar
@@ -203,7 +203,7 @@
     } catch (e) {}
   }
 
-  // ÚNICO CAMBIO de lógica: el lead va al CRM de Gabriela en vez de a Kommo (sin saludo automático)
+  // ÚNICO CAMBIO de lógica: el lead va al CRM de Gabriela en vez de a Kommo (el saludo automático lo manda el CRM)
   function enviarAlCrm(d) {
     const lead = {
       asesor: ASESOR,
@@ -212,7 +212,6 @@
       nombre: primerNombre(d.nombre),
       telefono: d.telefono,
       email: d.email,
-      enviarBienvenida: false,
     };
 
     log(`Enviando al CRM: ${d.nombre} / ${d.telefono}`);

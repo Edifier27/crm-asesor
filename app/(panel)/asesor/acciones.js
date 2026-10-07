@@ -138,7 +138,17 @@ export async function enviarAMeta(id) {
 export async function guardarUsos(usos) {
   const supabase = await conSesion();
   if (!supabase) return { error: 'Tu sesión expiró.' };
-  const { error } = await supabase.from('asesor_config').update({ plantillas_uso: usos }).eq('id', true);
+  // Cada cuenta de WhatsApp guarda lo suyo: la principal arriba y las demás en porConexion.
+  // La cuenta sale de la sesión (el número de quien está logueado), no de lo que manda el navegador.
+  const { data: numero } = await supabase.from('numeros_whatsapp').select('conexion').maybeSingle();
+  const admin = createAdminClient();
+  const { data: config } = await admin.from('asesor_config').select('plantillas_uso').eq('id', true).single();
+  const actual = config?.plantillas_uso ?? {};
+  const { porConexion: _ajeno, ...propios } = usos ?? {};
+  const nuevo = numero?.conexion
+    ? { ...actual, porConexion: { ...(actual.porConexion ?? {}), [numero.conexion]: propios } }
+    : { ...propios, ...(actual.porConexion ? { porConexion: actual.porConexion } : {}) };
+  const { error } = await admin.from('asesor_config').update({ plantillas_uso: nuevo }).eq('id', true);
   return error ? { error: error.message } : { ok: true };
 }
 
