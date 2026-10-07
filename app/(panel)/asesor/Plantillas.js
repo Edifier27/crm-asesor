@@ -33,7 +33,9 @@ const estadoDe = (p) => ESTADOS[p.estado_meta] ?? { rotulo: 'No enviada a Meta',
 
 // Plantillas de WhatsApp: se traen de Meta, se crean desde acá y se elige cuál usar para cada cosa.
 // {{1}} = primer nombre del contacto.
-export default function Plantillas({ inicial, usosIniciales }) {
+const nombreCuenta = (c) => (c ? (c === 'GABY' ? 'Gaby' : c) : 'Darío');
+
+export default function Plantillas({ inicial, usosIniciales, conexiones = [] }) {
   const supabase = createClient();
   const [plantillas, setPlantillas] = useState(inicial);
   const [usos, setUsos] = useState(usosIniciales ?? {});
@@ -73,7 +75,8 @@ export default function Plantillas({ inicial, usosIniciales }) {
       categoria: f.categoria.value,
       cuerpo: f.cuerpo.value.trim(),
       uso: f.uso.value.trim() || null,
-      botones: f.botones.value.split('\n').map((x) => x.trim()).filter(Boolean)
+      botones: f.botones.value.split('\n').map((x) => x.trim()).filter(Boolean),
+      ...(f.conexion ? { conexion: f.conexion.value || null } : {})
     };
     const malos = problemasPlantilla(datos);
     if (malos.length) return setAviso(malos.join(' '));
@@ -130,6 +133,14 @@ export default function Plantillas({ inicial, usosIniciales }) {
             onChange={(e) => setBorrador((b) => ({ ...b, nombre: e.target.value }))} /></label>
         <label className="campo"><span>Idioma</span><input name="idioma" defaultValue={p?.idioma ?? 'es_AR'} /></label>
       </div>
+      {conexiones.length > 0 && (
+        <label className="campo"><span>Cuenta de WhatsApp (cada asesor manda solo las de su cuenta)</span>
+          <select name="conexion" defaultValue={p?.conexion ?? ''}>
+            <option value="">Darío</option>
+            {conexiones.map((c) => <option key={c} value={c}>{nombreCuenta(c)}</option>)}
+          </select>
+        </label>
+      )}
       <label className="campo"><span>Categoría</span>
         <select name="categoria" defaultValue={p?.categoria ?? 'marketing'}>
           <option value="marketing">Marketing (seguimientos, promos, campañas)</option>
@@ -185,7 +196,7 @@ export default function Plantillas({ inicial, usosIniciales }) {
                 {editando === p.id ? formulario(p) : (
                   <>
                     <div className="audio-info">
-                      <strong>{p.nombre}</strong><span className="audio-duracion">{p.idioma} · {p.categoria}</span>
+                      <strong>{p.nombre}</strong><span className="audio-duracion">{p.idioma} · {p.categoria}{conexiones.length ? ` · cuenta de ${nombreCuenta(p.conexion)}` : ''}</span>
                       <span className={`estado-plantilla ${e.clase}`}>{e.rotulo}{p.motivo_rechazo ? `: ${MOTIVOS[p.motivo_rechazo] ?? p.motivo_rechazo}` : ''}</span>
                       {!p.activa && p.estado_meta === 'APPROVED' && !p.nota && <span className="etiqueta etiqueta-humano">Desactivada en el CRM</span>}
                       {p.imagen_path && <ImagenPlantilla path={p.imagen_path} />}

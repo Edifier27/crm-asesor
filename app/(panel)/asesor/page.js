@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import PanelAsesor from './PanelAsesor';
 import Plantillas from './Plantillas';
 import RespuestasRapidas from './RespuestasRapidas';
@@ -10,6 +11,9 @@ export const metadata = { title: 'Asesor IA · AsesorCRM' };
 
 export default async function AsesorPage() {
   const supabase = await createClient();
+  // Conexiones de Meta (cuentas de WhatsApp de otros portfolios, ej. GABY): cada una tiene sus plantillas
+  const { data: numeros } = await createAdminClient().from('numeros_whatsapp').select('conexion');
+  const conexiones = [...new Set((numeros ?? []).map((n) => n.conexion).filter(Boolean))];
   const [{ data: config }, { data: conocimiento }, { data: ejecuciones }, { data: plantillas }, { data: respuestas }, { data: aprendizajes }, { data: corrida }] = await Promise.all([
     supabase.from('asesor_config').select('*').maybeSingle(),
     supabase.from('conocimiento').select('*').order('titulo'),
@@ -25,6 +29,6 @@ export default async function AsesorPage() {
     <PanelAsesor config={config} conocimientoInicial={conocimiento ?? []} ejecuciones={ejecuciones ?? []}
       tieneClave={Boolean(process.env.ANTHROPIC_API_KEY)}
       aprendizajes={<Aprendizajes inicial={aprendizajes ?? []} ultimaCorrida={corrida} />}
-      plantillas={<><Plantillas inicial={plantillas ?? []} usosIniciales={config?.plantillas_uso ?? {}} /><RespuestasRapidas inicial={respuestas ?? []} /></>} />
+      plantillas={<><Plantillas inicial={plantillas ?? []} usosIniciales={config?.plantillas_uso ?? {}} conexiones={conexiones} /><RespuestasRapidas inicial={respuestas ?? []} /></>} />
   );
 }
