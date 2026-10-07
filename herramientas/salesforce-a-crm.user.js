@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Salesforce → AsesorCRM (Gabriela Lazarte) — Automático REQUEST
-// @namespace    sf-crm-gabriela
+// @name         Salesforce → AsesorCRM (Darío) — Automático REQUEST
+// @namespace    sf-crm-dario
 // @version      3.2
-// @description  Automático con reintentos ante cortes de red, pausas variables, anti-duplicado, chequeo de pestaña activa, auto-refresco de la lista. Envía el lead al CRM de Gabriela (antes Kommo)
+// @description  Automático con reintentos ante cortes de red, pausas variables, anti-duplicado, chequeo de pestaña activa, auto-refresco de la lista. Envía el lead al CRM de Darío (antes Kommo)
 // @match        https://swissmedical.lightning.force.com/*
 // @connect      asesorcrm.com.ar
 // @grant        GM_xmlhttpRequest
@@ -12,12 +12,11 @@
   'use strict';
 
   // ═════════════════════════════════════════════════════════════
-  //  CONFIGURACIÓN — cuenta de Gabriela Lazarte
+  //  CONFIGURACIÓN — cuenta de Darío
   // ═════════════════════════════════════════════════════════════
 
   const CRM_URL   = 'https://asesorcrm.com.ar/api/leads';
   const CRM_CLAVE = 'PEGAR_ACA_LA_LEADS_API_KEY'; // ← la misma LEADS_API_KEY de los otros scripts. No la compartas.
-  const ASESOR    = 'gabriela.lazarte@gmail.com';  // el lead entra al CRM de esta asesora
 
   const INTERVALO_REVISION_MS = 2000;
   const RETARDO_MIN_MS = 20000;
@@ -228,10 +227,9 @@
     pendientes.forEach((d) => enviarAlCrm(d));
   }
 
-  // ÚNICO CAMBIO de lógica: el lead va al CRM de Gabriela en vez de a Kommo (sin saludo automático)
+  // ÚNICO CAMBIO de lógica: el lead va al CRM de Darío (el del número principal) en vez de a Kommo (sin saludo automático)
   function enviarAlCrm(d) {
     const lead = {
-      asesor: ASESOR,
       origen: 'swiss_medical',
       origen_detalle: 'Salesforce',
       nombre: primerNombre(d.nombre),
