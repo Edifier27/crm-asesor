@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { CHAT_CERRADO } from '@/lib/consultas';
 import { TEMPERATURAS, cuandoSeguimiento } from '@/lib/formato';
 import { ajustarAHorarioHabil } from '@/lib/horario';
 
@@ -150,7 +151,7 @@ export default function ProximoPaso({ conversacionId, contactoId, inicial, tempe
           <button type="button" className="boton-secundario peligro" onClick={async () => {
             const { data: perdido } = await supabase.from('etapas').select('id').eq('nombre', 'Perdido').single();
             await supabase.from('contactos').update({ etapa_id: perdido.id, motivo_perdida: 'no_responde', temperatura: 'frio' }).eq('id', contactoId);
-            await guardar({ seguimiento_at: null, seguimiento_motivo: null, seguimiento_cadencia: null });
+            await guardar(CHAT_CERRADO); // sale de Mis chats y no le quedan seguimientos
             setAviso('Marcado como perdido: no responde.');
           }}>Marcar perdido · No responde</button>
           <button type="button" className="boton-secundario" onClick={async () => {

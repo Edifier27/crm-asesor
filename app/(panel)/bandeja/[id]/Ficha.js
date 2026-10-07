@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { CHAT_CERRADO } from '@/lib/consultas';
 import { corregirTelefono } from './acciones';
 import { COLORES_ETIQUETA, MOTIVOS_PERDIDA, colorEtiqueta, cuitLindo, nombreVisible } from '@/lib/formato';
 import Cotizacion from './Cotizacion';
@@ -103,7 +104,11 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
             const id = Number(e.target.value);
             // Pasar a Perdido pide el motivo (sirve para el reporte de pérdidas)
             if (etapas.find((x) => x.id === id)?.nombre === 'Perdido') setPerdiendo(id);
-            else { setPerdiendo(null); guardar({ etapa_id: id }); }
+            else {
+              setPerdiendo(null); guardar({ etapa_id: id });
+              // Sale de Perdido (se marcó por error o se recuperó): el chat vuelve a Mis chats
+              if (etapaActual?.nombre === 'Perdido') supabase.from('conversaciones').update({ modo: 'humano' }).eq('id', conversacion.id).eq('modo', 'pausada').then(() => {});
+            }
           }}>
           {etapas.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
         </select>
@@ -114,7 +119,8 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
               {Object.entries(MOTIVOS_PERDIDA).map(([k, r]) => (
                 <button key={k} type="button" className="chip-filtro" onClick={async () => {
                   await guardar({ etapa_id: perdiendo, motivo_perdida: k });
-                  await supabase.from('conversaciones').update({ seguimiento_at: null, seguimiento_motivo: null }).eq('id', conversacion.id);
+                  // Perdido: el chat se cierra y sale de Mis chats, aunque haya quedado sin contestar
+                  await supabase.from('conversaciones').update(CHAT_CERRADO).eq('id', conversacion.id);
                   setPerdiendo(null);
                 }}>{r}</button>
               ))}

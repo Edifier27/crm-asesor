@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { SELECT_EMBUDO } from '@/lib/consultas';
+import { CHAT_CERRADO, SELECT_EMBUDO } from '@/lib/consultas';
 import { MOTIVOS_PERDIDA, TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, pesosCorto } from '@/lib/formato';
 import EnVivo from './EnVivo';
 import { eliminarLead } from './acciones';
@@ -74,9 +74,13 @@ export default function Tablero({ etapas, inicial }) {
     const destino = etapas.find((e) => e.id === etapaId);
     if (destino?.nombre === 'Perdido' && !motivo) { setPerdiendo({ conv, etapaId }); return; }
     const previo = conv.contacto.etapa_id;
+    const saleDePerdido = etapas.find((e) => e.id === previo)?.nombre === 'Perdido';
     setConversaciones((l) => l.map((c) => (c.id === conv.id ? { ...c, contacto: { ...c.contacto, etapa_id: etapaId } } : c)));
     const { error } = await supabase.from('contactos').update({ etapa_id: etapaId, ...(motivo ? { motivo_perdida: motivo } : {}) }).eq('id', conv.contacto.id);
-    if (!error && motivo) await supabase.from('conversaciones').update({ seguimiento_at: null, seguimiento_motivo: null }).eq('id', conv.id);
+    // Perdido: el chat se cierra y sale de Mis chats, aunque haya quedado sin contestar
+    if (!error && motivo) await supabase.from('conversaciones').update(CHAT_CERRADO).eq('id', conv.id);
+    // Sale de Perdido (se marcó por error o se recuperó): el chat vuelve a Mis chats
+    if (!error && !motivo && saleDePerdido) await supabase.from('conversaciones').update({ modo: 'humano' }).eq('id', conv.id).eq('modo', 'pausada');
     if (error) setConversaciones((l) => l.map((c) => (c.id === conv.id ? { ...c, contacto: { ...c.contacto, etapa_id: previo } } : c)));
   }
 

@@ -230,6 +230,13 @@
 .grabacion-descartar { flex: 0 0 46px; height: 46px; border: 0; border-radius: 50%; background: #FDE2E6; color: #EA0038; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .grabacion-pausa { flex: 1; height: 46px; border: 0; border-radius: 23px; background: #fff; color: var(--wa-texto); font: inherit; font-size: 15px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; }
 .grabacion-enviar { flex: 0 0 46px; height: 46px; border: 0; border-radius: 50%; background: var(--wa-verde); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+/* Dictado: micrófono violeta (el color de la IA) con una T; lo hablado queda escrito en el cuadro */
+.redactor .boton-dictar { position: relative; color: var(--ia); }
+.boton-dictar .dictar-t { position: absolute; top: 5px; right: 4px; min-width: 14px; height: 14px; border-radius: 4px; background: var(--ia); color: #fff; font-size: 10px; font-weight: 800; line-height: 14px; text-align: center; }
+.boton-dictar.ocupado { animation: latido 1.2s infinite; }
+.grabacion-enviar.dictado { background: var(--ia); }
+.grabacion-dictado { flex: 0 0 auto; font-size: 12px; font-weight: 600; color: var(--ia); white-space: nowrap; }
+@media (max-width: 520px) { .grabacion-dictado { display: none; } }
 
 /* La pantalla del CRM no se desplaza entera: solo la lista de mensajes (evita que la barra de escribir quede afuera) */
 html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-behavior: none; }

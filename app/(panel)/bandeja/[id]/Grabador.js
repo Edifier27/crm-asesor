@@ -15,8 +15,9 @@ const reloj = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
  * Graba en OGG/Opus (opus-recorder) para que al cliente le llegue como NOTA DE VOZ de WhatsApp.
  * onListo({ blob, extension, mime, duracion }) recibe el audio grabado (lo sube y envía la conversación).
  * onEstado(grabando) avisa al redactor para que esconda el resto de la barra.
+ * dictado: mismo panel, pero lo grabado no se manda: el redactor lo pasa a texto (botón con la "T"). ocupado: pasándolo a texto.
  */
-export default function Grabador({ deshabilitado, onListo, onError, onEstado }) {
+export default function Grabador({ deshabilitado, onListo, onError, onEstado, dictado = false, ocupado = false }) {
   const [estado, setEstado] = useState('quieto'); // quieto | grabando | pausado
   const [segundos, setSegundos] = useState(0);
   const [niveles, setNiveles] = useState([]);
@@ -152,12 +153,13 @@ export default function Grabador({ deshabilitado, onListo, onError, onEstado }) 
   if (estado !== 'quieto') {
     const barras = [...Array(Math.max(0, BARRAS - niveles.length)).fill(0), ...niveles];
     return (
-      <div className="panel-grabacion" role="group" aria-label="Grabando audio">
+      <div className="panel-grabacion" role="group" aria-label={dictado ? 'Dictando' : 'Grabando audio'}>
         <div className="grabacion-fila">
           <span className={`grabando-tiempo${estado === 'pausado' ? ' pausado' : ''}`}><span className="punto-rec" />{reloj(segundos)}</span>
           <span className="grabacion-onda" aria-hidden="true">
             {barras.map((n, i) => <span key={i} style={{ height: `${Math.max(8, Math.round(n * 100))}%` }} className={n ? '' : 'vacia'} />)}
           </span>
+          {dictado && <span className="grabacion-dictado">Dictado: se escribe, no se manda audio</span>}
         </div>
         <div className="grabacion-fila">
           <button type="button" className="grabacion-descartar" onClick={cancelar} aria-label="Descartar audio" title="Descartar">
@@ -168,11 +170,27 @@ export default function Grabador({ deshabilitado, onListo, onError, onEstado }) 
               ? <><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>Pausar</>
               : <><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2z" /></svg>Reanudar</>}
           </button>
-          <button type="button" className="grabacion-enviar" onClick={detener} aria-label="Enviar audio">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4l17.45-7.48a1 1 0 0 0 0-1.84L3.4 3.6a.99.99 0 0 0-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .71.73 1.2 1.39.91z" /></svg>
-          </button>
+          {dictado ? (
+            <button type="button" className="grabacion-enviar dictado" onClick={detener} aria-label="Pasar a texto" title="Pasar a texto">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+            </button>
+          ) : (
+            <button type="button" className="grabacion-enviar" onClick={detener} aria-label="Enviar audio">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4l17.45-7.48a1 1 0 0 0 0-1.84L3.4 3.6a.99.99 0 0 0-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .71.73 1.2 1.39.91z" /></svg>
+            </button>
+          )}
         </div>
       </div>
+    );
+  }
+
+  if (dictado) {
+    return (
+      <button type="button" className={`boton-enviar boton-dictar${ocupado ? ' ocupado' : ''}`} onClick={empezar} disabled={deshabilitado || ocupado}
+        aria-label="Dictar: hablá y se escribe" title={ocupado ? 'Pasando tu voz a texto…' : 'Dictar: hablá y se escribe (no manda audio)'}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2z" /></svg>
+        <span className="dictar-t" aria-hidden="true">T</span>
+      </button>
     );
   }
 

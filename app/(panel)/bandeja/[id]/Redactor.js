@@ -16,7 +16,8 @@ const esTactil = () => typeof window !== 'undefined' && window.matchMedia('(hove
  */
 export default function Redactor({ conversacion, ventanaAbierta, audios, formularios = [], plantillas, modoPrueba, respondiendo, corrigiendo, onLimpiar, onEnviar, respuestas = [], onAdjuntar }) {
   const archivoRef = useRef(null);
-  const [grabando, setGrabando] = useState(false);
+  const [grabando, setGrabando] = useState(null); // 'audio' (nota de voz) | 'dictado' | null
+  const [dictando, setDictando] = useState(false); // pasando lo dictado a texto
   const [texto, setTexto] = useState('');
   const [panel, setPanel] = useState(null); // 'audios' | 'plantillas' | 'formularios' | 'emojis' | null
   const [buscaFormulario, setBuscaFormulario] = useState('');
@@ -64,6 +65,23 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, formula
     // Como WhatsApp: al enviar se cierran los emojis (y el resto de los paneles)
     setPanel(null);
     if (!esTactil()) campo.current?.focus();
+  }
+
+  // Dictado: lo que se habló vuelve como texto al cuadro, para revisarlo y mandarlo (no sale ningún audio)
+  async function dictar(audio) {
+    setError(''); setDictando(true);
+    try {
+      const r = await fetch('/api/dictado', { method: 'POST', headers: { 'Content-Type': audio.mime }, body: audio.blob });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'No se pudo pasar el audio a texto. Probá de nuevo.');
+      if (!d.texto) { setError('No se entendió lo que dijiste. Probá de nuevo.'); return; }
+      setTexto((t) => (t.trim() ? `${t.trimEnd()} ${d.texto}` : d.texto));
+      requestAnimationFrame(() => campo.current?.focus());
+    } catch (e) {
+      setError(e instanceof TypeError ? 'Sin conexión: no se pudo pasar el audio a texto.' : e.message);
+    } finally {
+      setDictando(false);
+    }
   }
 
   function insertarEmoji(e) {
@@ -204,7 +222,7 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, formula
         <label className="redactor-campo">
           <span className="oculto">Mensaje</span>
           <textarea ref={campo} rows={1} value={texto} disabled={!ventanaAbierta || corrigiendoAhora}
-            placeholder={!ventanaAbierta ? 'Pasaron 24 h: mandá una plantilla con el +' : corrigiendo ? 'Escribí el texto corregido' : 'Escribe un mensaje'}
+            placeholder={!ventanaAbierta ? 'Pasaron 24 h: mandá una plantilla con el +' : dictando ? 'Pasando tu voz a texto…' : corrigiendo ? 'Escribí el texto corregido' : 'Escribe un mensaje'}
             onChange={(e) => { setTexto(e.target.value); setElegida(0); }}
             onFocus={() => { if (esTactil() && panel === 'emojis') setPanel(null); }}
             onKeyDown={(e) => {
@@ -218,17 +236,22 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, formula
             }} />
         </label>
         {/* Como en WhatsApp: con texto, enviar; sin texto, grabar audio */}
-        {texto.trim() || corrigiendo ? (
+        {grabando !== 'dictado' && (texto.trim() || corrigiendo ? (
           <button type="button" className="boton-enviar" disabled={!ventanaAbierta || corrigiendoAhora || !texto.trim()} onClick={enviarTexto} aria-label="Enviar">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4l17.45-7.48a1 1 0 0 0 0-1.84L3.4 3.6a.99.99 0 0 0-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .71.73 1.2 1.39.91z" /></svg>
           </button>
         ) : (
-          <Grabador deshabilitado={!ventanaAbierta} onError={setError} onEstado={setGrabando}
+          <Grabador deshabilitado={!ventanaAbierta || dictando} onError={setError} onEstado={(g) => setGrabando(g ? 'audio' : null)}
             onListo={(audio) => {
               onEnviar({ tipo: 'grabacion', respondeA: respondiendo?.id ?? null },
                 { tipo: 'audio', urlLocal: URL.createObjectURL(audio.blob), texto: null }, { audio });
               onLimpiar?.();
             }} />
+        ))}
+        {/* Dictado (micrófono con la T): se habla y queda escrito en el cuadro; no manda audio */}
+        {grabando !== 'audio' && (
+          <Grabador dictado ocupado={dictando} deshabilitado={!ventanaAbierta || corrigiendoAhora} onError={setError}
+            onEstado={(g) => setGrabando(g ? 'dictado' : null)} onListo={dictar} />
         )}
       </div>
     </footer>
