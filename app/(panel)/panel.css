@@ -367,7 +367,24 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .embudo-cabecera p { margin: 2px 0 0; }
 .embudo-buscador { flex: 1; min-width: 200px; max-width: 360px; }
 .columnas { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 14px 20px 20px; overflow-x: auto; align-items: stretch; }
-.columna { flex: 0 0 272px; display: flex; flex-direction: column; min-height: 0; background: #E9ECEB; border-radius: 12px; transition: background 0.15s; }
+.columna { flex: 0 0 var(--ancho, 272px); position: relative; display: flex; flex-direction: column; min-height: 0; background: #E9ECEB; border-radius: 12px; transition: background 0.15s; }
+/* Columnas a gusto: el botón « de la cabecera la pliega a una tirita; el borde derecho se arrastra para cambiar el ancho */
+.columna-plegar { flex: 0 0 22px; width: 22px; height: 22px; border: 0; border-radius: 6px; background: transparent; color: var(--texto-suave); display: grid; place-items: center; cursor: pointer; opacity: 0.55; }
+.columna-plegar:hover, .columna-plegar:focus-visible { opacity: 1; background: var(--gris-chip); }
+.columnas .columna.plegada { flex-basis: 46px; }
+.columna-tirita { flex: 1; min-height: 0; width: 100%; border: 0; border-top: 4px solid var(--borde); border-radius: 12px; background: transparent; font: inherit; color: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 0; overflow: hidden; }
+.columna-tirita:hover { background: #DDE2E0; }
+.columna-tirita-nombre { writing-mode: vertical-rl; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.columna-borde { position: absolute; top: 0; right: -9px; width: 12px; height: 100%; cursor: col-resize; touch-action: none; z-index: 1; }
+.columna-borde::after { content: ''; position: absolute; top: 14px; bottom: 14px; left: 5px; width: 2px; border-radius: 2px; background: transparent; transition: background 0.15s; }
+.columna-borde:hover::after, .columna-borde:active::after { background: var(--acento); }
+@media (hover: none) { .columna-borde { display: none; } }
+/* Fila que se corre de costado con el mouse (filtros de Mis chats y del Embudo) */
+.deslizable { position: relative; min-width: 0; max-width: 100%; }
+.deslizable-flecha { position: absolute; top: 50%; transform: translateY(-50%); z-index: 1; width: 26px; height: 26px; border: 1px solid var(--linea); border-radius: 50%; background: #fff; color: var(--texto); display: none; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 1px 4px #00000026; }
+.deslizable-flecha.izq { left: -4px; }
+.deslizable-flecha.der { right: -4px; }
+@media (hover: hover) { .deslizable-flecha { display: flex; } .deslizable > .filtros { cursor: grab; } .deslizable > .filtros:active { cursor: grabbing; } }
 .columna.sobre { background: #D5EEEA; outline: 2px dashed var(--acento); outline-offset: -2px; }
 .columna-cabecera {
   display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; font-weight: 700; font-size: 13px;

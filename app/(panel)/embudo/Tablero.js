@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { CHAT_CERRADO, SELECT_EMBUDO } from '@/lib/consultas';
 import { MOTIVOS_PERDIDA, TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, pesosCorto } from '@/lib/formato';
 import EnVivo from './EnVivo';
+import Deslizable from '../componentes/Deslizable';
 import { eliminarLead } from './acciones';
 
 const SIN_TEXTO = { audio: 'Audio de voz', imagen: 'Imagen', documento: 'Documento', ubicacion: 'Ubicación', plantilla: 'Plantilla', otro: 'Mensaje' };
@@ -24,6 +25,35 @@ export default function Tablero({ etapas, inicial }) {
   const [perdiendo, setPerdiendo] = useState(null); // { conv, etapaId } esperando motivo de pérdida
   const [eliminando, setEliminando] = useState(null); // { conv, enCurso, error } esperando confirmación
   const temporizador = useRef();
+  // Columnas a gusto de cada uno (se recuerda en este navegador): plegadas a una tirita o con otro ancho
+  const [columnas, setColumnas] = useState({}); // etapaId → { plegada?: boolean, ancho?: px }
+  const columnasCargadas = useRef(false);
+  const ajuste = useRef(null); // { id, x, ancho } mientras se arrastra el borde de una columna
+  useEffect(() => {
+    try { setColumnas(JSON.parse(localStorage.getItem('embudo-columnas') || '{}')); } catch {}
+    columnasCargadas.current = true;
+  }, []);
+  useEffect(() => {
+    if (columnasCargadas.current) try { localStorage.setItem('embudo-columnas', JSON.stringify(columnas)); } catch {}
+  }, [columnas]);
+  const plegar = (id, plegada) => setColumnas((c) => ({ ...c, [id]: { ...c[id], plegada } }));
+  function empezarAjuste(e, id) {
+    if (e.button !== 0) return;
+    e.stopPropagation(); e.preventDefault(); // que no arrastre el tablero
+    ajuste.current = { id, x: e.clientX, ancho: e.currentTarget.parentElement.getBoundingClientRect().width };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+  }
+  function moverAjuste(e) {
+    const a = ajuste.current;
+    if (!a) return;
+    const ancho = Math.round(Math.min(560, Math.max(190, a.ancho + e.clientX - a.x)));
+    setColumnas((c) => ({ ...c, [a.id]: { ...c[a.id], ancho } }));
+  }
+  function terminarAjuste(e) {
+    if (!ajuste.current) return;
+    ajuste.current = null;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+  }
   // Arrastrar el fondo del tablero para moverlo de costado (como Kommo/Trello). Las tarjetas se siguen arrastrando aparte.
   const tablero = useRef(null);
   const paneo = useRef(null);
@@ -137,7 +167,7 @@ export default function Tablero({ etapas, inicial }) {
           <span className="oculto">Buscar</span>
           <input type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar lead" />
         </label>
-        <div className="filtros">
+        <Deslizable className="filtros">
           {[['todos', 'Todos'], ['ia', 'Atiende la IA'], ['humano', 'Atendés vos'], ['vencidos', `Vencidos${vencidos ? ` ${vencidos}` : ''}`], ['sin_paso', 'Sin próximo paso']].map(([v, r]) => (
             <button key={v} type="button" className={`chip-filtro${modo === v ? ' activo' : ''}`} aria-pressed={modo === v} onClick={() => setModo(v)}>{r}</button>
           ))}
@@ -149,13 +179,16 @@ export default function Tablero({ etapas, inicial }) {
               <span className="punto-temp" style={{ background: t.color }} />{t.rotulo}
             </button>
           ))}
-        </div>
+        </Deslizable>
       </header>
 
       <div className={`columnas${paneando ? ' paneando' : ''}`} ref={tablero}
         onPointerDown={empezarPaneo} onPointerMove={moverPaneo} onPointerUp={terminarPaneo} onPointerCancel={terminarPaneo}>
-        {etapas.map((etapa) => (
-          <section key={etapa.id} className={`columna${sobre === etapa.id ? ' sobre' : ''}`} aria-label={etapa.nombre}
+        {etapas.map((etapa) => {
+          const plegada = Boolean(columnas[etapa.id]?.plegada);
+          return (
+          <section key={etapa.id} className={`columna${sobre === etapa.id ? ' sobre' : ''}${plegada ? ' plegada' : ''}`} aria-label={etapa.nombre}
+            style={!plegada && columnas[etapa.id]?.ancho ? { '--ancho': `${columnas[etapa.id].ancho}px` } : undefined}
             onDragOver={(e) => { if (arrastrando) { e.preventDefault(); setSobre(etapa.id); } }}
             onDragLeave={() => setSobre((s) => (s === etapa.id ? null : s))}
             onDrop={(e) => {
@@ -164,6 +197,13 @@ export default function Tablero({ etapas, inicial }) {
               if (conv) moverEtapa(conv, etapa.id);
               setArrastrando(null);
             }}>
+            {plegada ? (
+              <button type="button" className="columna-tirita" style={{ borderTopColor: etapa.color }} onClick={() => plegar(etapa.id, false)}
+                aria-label={`Agrandar la columna ${etapa.nombre}`} title={`${etapa.nombre}: tocá para agrandarla`}>
+                <span className="columna-cantidad">{porEtapa[etapa.id]?.length ?? 0}</span>
+                <span className="columna-tirita-nombre">{etapa.nombre}</span>
+              </button>
+            ) : (<>
             <header className="columna-cabecera" style={{ borderTopColor: etapa.color }}>
               <span>{etapa.nombre}</span>
               <span className="columna-datos">
@@ -177,6 +217,10 @@ export default function Tablero({ etapas, inicial }) {
                   </span>
                 )}
                 <span className="columna-cantidad">{porEtapa[etapa.id]?.length ?? 0}</span>
+                <button type="button" className="columna-plegar" onClick={() => plegar(etapa.id, true)}
+                  aria-label={`Achicar la columna ${etapa.nombre}`} title="Achicar la columna">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M11 6l-6 6 6 6M19 6l-6 6 6 6" /></svg>
+                </button>
               </span>
             </header>
             <div className="columna-tarjetas">
@@ -234,8 +278,14 @@ export default function Tablero({ etapas, inicial }) {
                 );
               })}
             </div>
+            {/* Borde derecho: arrastrarlo cambia el ancho; doble clic vuelve al ancho de siempre */}
+            <div className="columna-borde" role="separator" aria-orientation="vertical" title="Arrastrá para cambiar el ancho (doble clic: ancho normal)"
+              onPointerDown={(e) => empezarAjuste(e, etapa.id)} onPointerMove={moverAjuste} onPointerUp={terminarAjuste} onPointerCancel={terminarAjuste}
+              onDoubleClick={() => setColumnas((c) => ({ ...c, [etapa.id]: { ...c[etapa.id], ancho: undefined } }))} />
+            </>)}
           </section>
-        ))}
+          );
+        })}
       </div>
 
       {perdiendo && (

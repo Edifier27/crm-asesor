@@ -8,6 +8,7 @@ import Ficha from '../(panel)/bandeja/[id]/Ficha';
 import RielLinks from '../(panel)/RielLinks';
 import VisorArchivo from '../(panel)/componentes/VisorArchivo';
 import ReproductorGlobal from '../(panel)/componentes/ReproductorGlobal';
+import Tablero from '../(panel)/embudo/Tablero';
 
 // Tono de prueba (WAV) para escuchar la nota de voz sin servidor
 function tono(segundos = 6) {
@@ -23,12 +24,27 @@ function tono(segundos = 6) {
 const hace = (min) => new Date(Date.now() - min * 60_000).toISOString();
 const contacto = { id: '11111111-1111-1111-1111-111111111111', nombre: 'Lucía Fernández', telefono: '5491122334455', origen: 'web', etiquetas: [] };
 
+// /vista-previa?embudo → el tablero del Embudo con leads de ejemplo
+const ETAPAS_EJEMPLO = [['Nuevo', '#64748B'], ['En conversación', '#0B6E5F'], ['PrepagaYa', '#E8002D'], ['Botmaker', '#DB2777'], ['Salesforce', '#0176D3'],
+  ['Datos completos', '#0E7490'], ['Cotizado', '#7C3AED'], ['Por cerrar', '#B45309'], ['Falta de cobro', '#C2410C'], ['Ganado', '#15803D'], ['Perdido', '#B91C1C']]
+  .map(([nombre, color], i) => ({ id: i + 1, nombre, orden: i + 1, color }));
+const leadEjemplo = (n, nombre, etapa_id, modo = 'ia') => ({
+  id: `conv-${n}`, modo, ultimo_mensaje_at: hace(n * 17), ultimo_mensaje_texto: 'Hola, quería consultar por un plan para mi familia', no_leidos: 0,
+  ia_pensando_desde: null, resumen_ia: null, seguimiento_at: null, seguimiento_motivo: null, seguimiento_responsable: 'ia',
+  contacto: { id: `c-${n}`, nombre, telefono: `54911223344${10 + n}`, etapa_id, zona: 'AMBA', origen: 'web', temperatura: n % 3 === 0 ? 'caliente' : null, valor: 0, plan_cotizado: null, relevamiento: {}, etiquetas: [] }
+});
+const LEADS_EJEMPLO = [leadEjemplo(1, 'Carla Ruiz', 1), leadEjemplo(2, 'Martín Sosa', 1), leadEjemplo(3, 'Ana Paz', 2, 'humano'), leadEjemplo(4, 'Julián Vera', 3),
+  leadEjemplo(5, 'Sol Ibáñez', 6), leadEjemplo(6, 'Pedro Gil', 7, 'humano'), leadEjemplo(7, 'Rocío Luna', 11, 'pausada')];
+
 export default function VistaPrevia() {
+  const [embudo, setEmbudo] = useState(false);
+  useEffect(() => { setEmbudo(new URLSearchParams(location.search).has('embudo')); }, []);
   const [audio, setAudio] = useState(null);
   const [visor, setVisor] = useState(false);
   const [conChat, setConChat] = useState(true); // probar la barrita: window.__salirDelChat()
   useEffect(() => { window.__salirDelChat = () => setConChat(false); }, []);
   useEffect(() => { setAudio(tono()); setVisor(new URLSearchParams(location.search).has('visor')); }, []);
+  if (embudo) return <div className="app"><Tablero etapas={ETAPAS_EJEMPLO} inicial={LEADS_EJEMPLO} /></div>;
   if (!audio) return null;
 
   const mensajes = [

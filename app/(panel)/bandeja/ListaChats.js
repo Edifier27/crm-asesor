@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import NuevoLead from './NuevoLead';
+import Deslizable from '../componentes/Deslizable';
 import GestorEtiquetas from './GestorEtiquetas';
 import { SELECT_LISTA } from '@/lib/consultas';
 import { TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible } from '@/lib/formato';
@@ -107,13 +108,13 @@ export default function ListaChats({ inicial, iaInicial }) {
           <span className="oculto">Buscar</span>
           <input type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar nombre, teléfono o etiqueta" />
         </label>
-        <div className="filtros">
+        <Deslizable className="filtros">
           <Filtro valor="todos">Todos</Filtro>
           <Filtro valor="hoy">Para hoy{conteos.hoy ? ` ${conteos.hoy}` : ''}</Filtro>
           <Filtro valor="no_leidos">No leídos{conteos.noLeidos ? ` ${conteos.noLeidos}` : ''}</Filtro>
           {etiquetas.map((e) => <Filtro key={e.id} valor={`et:${e.id}`}>{e.nombre}</Filtro>)}
           <GestorEtiquetas onFiltrar={(id) => setFiltro(`et:${id}`)} />
-        </div>
+        </Deslizable>
       </div>
 
       <ul className="chats">
