@@ -88,6 +88,35 @@ export default function ListaChats({ inicial, iaInicial }) {
     setActualizando(false);
   }
 
+  // En la compu la lista se acomoda a gusto, igual que las columnas del Embudo: se arrastra el borde derecho para
+  // cambiarle el ancho, o se achica a una tirita con las fotos. Se recuerda en este navegador. En el celular no aplica.
+  const [panel, setPanel] = useState({}); // { ancho?: px, achicada?: boolean }
+  const panelCargado = useRef(false);
+  const ajuste = useRef(null);
+  useEffect(() => {
+    try { setPanel(JSON.parse(localStorage.getItem('lista-chats') || '{}')); } catch {}
+    panelCargado.current = true;
+  }, []);
+  useEffect(() => {
+    if (panelCargado.current) try { localStorage.setItem('lista-chats', JSON.stringify(panel)); } catch {}
+  }, [panel]);
+  function empezarAjuste(e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    ajuste.current = { x: e.clientX, ancho: e.currentTarget.parentElement.getBoundingClientRect().width };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+  }
+  function moverAjuste(e) {
+    if (!ajuste.current) return;
+    const ancho = Math.round(Math.min(560, Math.max(250, ajuste.current.ancho + e.clientX - ajuste.current.x)));
+    setPanel((p) => ({ ...p, ancho }));
+  }
+  function terminarAjuste(e) {
+    if (!ajuste.current) return;
+    ajuste.current = null;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+  }
+
   const conteos = useMemo(() => ({
     noLeidos: conversaciones.filter((c) => c.no_leidos > 0).length,
     hoy: conversaciones.filter((c) => pasoMio(c)?.hoy).length
@@ -120,13 +149,20 @@ export default function ListaChats({ inicial, iaInicial }) {
   );
 
   return (
-    <section className={`lista${activo ? ' con-chat' : ''}`} aria-label="Lista de chats">
+    <section className={`lista${activo ? ' con-chat' : ''}${panel.achicada ? ' achicada' : panel.ancho && panel.ancho < 330 ? ' angosta' : ''}`} aria-label="Lista de chats"
+      style={!panel.achicada && panel.ancho ? { '--ancho-lista': `${panel.ancho}px` } : undefined}>
       <div className="lista-cabecera">
         <div className="lista-titulo">
           <h1>Mis chats</h1>
           <span className="lista-titulo-acciones">
             <Link href="/embudo" className="pastilla-ia" title="Ver en el Embudo">IA atendiendo {enIA}</Link>
             <NuevoLead />
+            <button type="button" className="lista-achicar" onClick={() => setPanel((p) => ({ ...p, achicada: !p.achicada }))}
+              aria-label={panel.achicada ? 'Agrandar la lista de chats' : 'Achicar la lista de chats'} title={panel.achicada ? 'Agrandar la lista' : 'Achicar la lista'}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                {panel.achicada ? <path d="M13 6l6 6-6 6M5 6l6 6-6 6" /> : <path d="M11 6l-6 6 6 6M19 6l-6 6 6 6" />}
+              </svg>
+            </button>
           </span>
         </div>
         <label className="buscador">
@@ -150,7 +186,8 @@ export default function ListaChats({ inicial, iaInicial }) {
       <ul className="chats" onTouchStart={alTocar} onTouchMove={alArrastrar} onTouchEnd={alSoltar} onTouchCancel={alSoltar}>
         {visibles.map((c) => (
           <li key={c.id}>
-            <Link href={`/bandeja/${c.id}`} className={`chat${c.id === activo ? ' activo' : ''}`} aria-current={c.id === activo ? 'page' : undefined}>
+            <Link href={`/bandeja/${c.id}`} className={`chat${c.id === activo ? ' activo' : ''}${c.no_leidos > 0 ? ' sin-leer' : ''}`} aria-current={c.id === activo ? 'page' : undefined}
+              title={panel.achicada ? nombreVisible(c.contacto) : undefined}>
               <span className="avatar" style={colorAvatar(c.contacto?.telefono)}>{iniciales(c.contacto)}</span>
               <span className="chat-cuerpo">
                 <span className="chat-fila">
@@ -182,6 +219,12 @@ export default function ListaChats({ inicial, iaInicial }) {
           <li className="lista-vacia">{conversaciones.length ? 'Ningún chat coincide con el filtro.' : <>No tenés chats para atender. La IA está atendiendo {enIA} en el <Link href="/embudo">Embudo</Link>.</>}</li>
         )}
       </ul>
+      {/* Borde derecho: arrastrarlo cambia el ancho de la lista; doble clic vuelve al ancho de siempre */}
+      {!panel.achicada && (
+        <div className="lista-borde" role="separator" aria-orientation="vertical" title="Arrastrá para cambiar el ancho (doble clic: ancho normal)"
+          onPointerDown={empezarAjuste} onPointerMove={moverAjuste} onPointerUp={terminarAjuste} onPointerCancel={terminarAjuste}
+          onDoubleClick={() => setPanel((p) => ({ ...p, ancho: undefined }))} />
+      )}
     </section>
   );
 }

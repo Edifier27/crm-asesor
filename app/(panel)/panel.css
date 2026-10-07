@@ -72,6 +72,27 @@
 .chip-filtro.activo { background: var(--acento); color: #fff; font-weight: 600; }
 
 .chats { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+/* Lista de chats a gusto (solo en la compu): borde derecho arrastrable y botón « para dejarla en una tirita con las fotos */
+.lista-achicar, .lista-borde { display: none; }
+@media (min-width: 761px) {
+  .lista { position: relative; flex: 0 1 var(--ancho-lista, 360px); min-width: min(250px, var(--ancho-lista, 300px)); }
+  .lista-achicar { display: grid; place-items: center; flex: 0 0 28px; width: 28px; height: 28px; border: 0; border-radius: 8px; background: transparent; color: var(--texto-suave); cursor: pointer; }
+  .lista-achicar:hover, .lista-achicar:focus-visible { background: var(--gris-chip); color: var(--texto); }
+  .lista-borde { display: block; position: absolute; top: 0; right: -5px; width: 10px; height: 100%; cursor: col-resize; z-index: 5; touch-action: none; }
+  .lista-borde::after { content: ''; position: absolute; top: 0; bottom: 0; left: 4px; width: 2px; background: transparent; transition: background 0.15s; }
+  .lista-borde:hover::after, .lista-borde:active::after { background: var(--acento); }
+  /* Angosta: el cartelito de la IA no entra al lado del título */
+  .lista.angosta .pastilla-ia { display: none; }
+  .lista-titulo h1 { white-space: nowrap; }
+  /* Achicada: solo las fotos, con un punto en los que tienen mensajes sin leer */
+  .lista.achicada { flex: 0 0 78px; min-width: 78px; }
+  .lista.achicada .lista-cabecera { padding: 12px 0 8px; align-items: center; }
+  .lista.achicada .lista-titulo { justify-content: center; }
+  .lista.achicada .lista-titulo h1, .lista.achicada .pastilla-ia, .lista.achicada .boton-nuevo,
+  .lista.achicada .buscador, .lista.achicada .deslizable, .lista.achicada .chat-cuerpo, .lista.achicada .lista-vacia { display: none; }
+  .lista.achicada .chat { justify-content: center; padding: 0; gap: 0; position: relative; }
+  .lista.achicada .chat.sin-leer::after { content: ''; position: absolute; top: 12px; right: 12px; width: 12px; height: 12px; border-radius: 50%; background: var(--acento); border: 2px solid #fff; }
+}
 /* Tirar para actualizar (celular): el cartel aparece arriba de la lista mientras se estira */
 .tiron { flex: 0 0 auto; height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 13px; color: var(--texto-suave); transition: height 0.2s ease; }
 .tiron.tirando { transition: none; }
@@ -220,6 +241,15 @@
   padding: 20px; display: flex; flex-direction: column; gap: 18px;
 }
 .ficha-cabecera { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+/* Ficha de ancho a gusto: solo cuando va al costado del chat (pantalla grande); más chico es un panel que se abre encima */
+.ficha-borde { display: none; }
+@media (min-width: 1181px) {
+  .ficha { flex-basis: var(--ancho-ficha, 320px); }
+  .ficha-borde { display: block; flex: 0 0 0; position: relative; z-index: 5; }
+  .ficha-borde::before { content: ''; position: absolute; top: 0; bottom: 0; left: -5px; width: 10px; cursor: col-resize; touch-action: none; }
+  .ficha-borde::after { content: ''; position: absolute; top: 0; bottom: 0; left: -1px; width: 2px; background: transparent; transition: background 0.15s; pointer-events: none; }
+  .ficha-borde:hover::after, .ficha-borde:active::after { background: var(--acento); }
+}
 .ficha-rotulo { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--texto-suave); }
 .ficha-aviso { flex: 1; text-align: right; font-size: 12px; color: var(--acento); }
 .campo { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--texto-suave); }

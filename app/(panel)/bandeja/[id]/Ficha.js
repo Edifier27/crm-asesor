@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { CHAT_CERRADO } from '@/lib/consultas';
@@ -24,6 +24,37 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
   const [creando, setCreando] = useState(false);
   const [colorNueva, setColorNueva] = useState(COLORES_ETIQUETA[0]);
   const [perdiendo, setPerdiendo] = useState(null); // etapa Perdido pendiente de motivo
+
+  // Ancho de la ficha a gusto (pantalla grande): se arrastra su borde izquierdo y se recuerda en este navegador.
+  // Va en la raíz de la página y no en este componente, así no pega un salto cada vez que se cambia de chat.
+  const ajuste = useRef(null);
+  const ponerAncho = (px) => (px ? document.documentElement.style.setProperty('--ancho-ficha', `${px}px`) : document.documentElement.style.removeProperty('--ancho-ficha'));
+  useEffect(() => {
+    try { const guardado = Number(localStorage.getItem('ficha-ancho')); if (guardado) ponerAncho(guardado); } catch {}
+  }, []);
+  function empezarAjuste(e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    ajuste.current = { x: e.clientX, ancho: e.currentTarget.nextElementSibling.getBoundingClientRect().width };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+  }
+  function moverAjuste(e) {
+    const a = ajuste.current;
+    if (!a) return;
+    a.ultimo = Math.round(Math.min(620, Math.max(280, a.ancho + a.x - e.clientX))); // hacia la izquierda se agranda
+    ponerAncho(a.ultimo);
+  }
+  function terminarAjuste(e) {
+    const a = ajuste.current;
+    if (!a) return;
+    ajuste.current = null;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+    try { if (a.ultimo) localStorage.setItem('ficha-ancho', String(a.ultimo)); } catch {}
+  }
+  function anchoNormal() {
+    ponerAncho(null);
+    try { localStorage.removeItem('ficha-ancho'); } catch {}
+  }
 
   const avisar = (texto) => { setAviso(texto); setTimeout(() => setAviso(''), 2000); };
   // DNI leído por la IA en la documentación: precarga el link de pago
@@ -62,6 +93,10 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
   const disponibles = catalogo.filter((e) => !etiquetas.some((x) => x.id === e.id));
 
   return (
+    <>
+    {/* Borde izquierdo de la ficha: arrastrarlo cambia el ancho; doble clic vuelve al ancho de siempre */}
+    <div className="ficha-borde" role="separator" aria-orientation="vertical" title="Arrastrá para cambiar el ancho (doble clic: ancho normal)"
+      onPointerDown={empezarAjuste} onPointerMove={moverAjuste} onPointerUp={terminarAjuste} onPointerCancel={terminarAjuste} onDoubleClick={anchoNormal} />
     <aside className={`ficha${abierta ? ' abierta' : ''}`} aria-label="Ficha del lead">
       <div className="ficha-cabecera">
         {/* Flechita para volver al chat (a la izquierda), título al medio */}
@@ -227,5 +262,6 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
       <Cotizacion key={JSON.stringify(contacto.cotizacion?.sueldos ?? [])} conversacionId={conversacion.id} contacto={contacto} lista={lista} audios={audios}
         onContacto={(campos) => setContacto((c) => ({ ...c, ...campos }))} />
     </aside>
+    </>
   );
 }
