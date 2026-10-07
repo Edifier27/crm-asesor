@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Salesforce → AsesorCRM (Gabriela Lazarte) — Automático REQUEST
+// @name         Salesforce → AsesorCRM (Gabriela Lazarte) — Automático CRM
 // @namespace    sf-crm-gabriela
-// @version      3.2
+// @version      3.4
 // @description  Automático con reintentos ante cortes de red, pausas variables, anti-duplicado, chequeo de pestaña activa, auto-refresco de la lista. Envía el lead al CRM de Gabriela (antes Kommo)
 // @match        https://swissmedical.lightning.force.com/*
 // @connect      asesorcrm.com.ar
@@ -182,16 +182,10 @@
     };
   }
 
-  // Registro propio del CRM: el de la época de Kommo ('sfKommoEnviados') frenaba teléfonos que nunca llegaron al CRM
-  const CLAVE_ENVIADOS = 'sfCrmEnviados';
-  // Envíos que el CRM no confirmó: quedan guardados y se reintentan solos, así no se pierde ningún lead
-  const CLAVE_PENDIENTES = 'sfCrmPendientes';
-  const REINTENTAR_PENDIENTES_MS = 3 * 60 * 1000;
-
   function yaFueEnviado(telefono) {
     if (!telefono) return false;
     try {
-      const registro = JSON.parse(localStorage.getItem(CLAVE_ENVIADOS) || '{}');
+      const registro = JSON.parse(localStorage.getItem('sfKommoEnviados') || '{}');
       return !!registro[telefono];
     } catch (e) { return false; }
   }
@@ -199,33 +193,14 @@
   function marcarComoEnviado(telefono) {
     if (!telefono) return;
     try {
-      const registro = JSON.parse(localStorage.getItem(CLAVE_ENVIADOS) || '{}');
+      const registro = JSON.parse(localStorage.getItem('sfKommoEnviados') || '{}');
       registro[telefono] = Date.now();
       const LIMITE = 7 * 24 * 60 * 60 * 1000;
       for (const k in registro) {
         if (Date.now() - registro[k] > LIMITE) delete registro[k];
       }
-      localStorage.setItem(CLAVE_ENVIADOS, JSON.stringify(registro));
+      localStorage.setItem('sfKommoEnviados', JSON.stringify(registro));
     } catch (e) {}
-  }
-
-  function leerPendientes() {
-    try { return JSON.parse(localStorage.getItem(CLAVE_PENDIENTES) || '[]'); } catch (e) { return []; }
-  }
-
-  function guardarPendiente(d, pendiente) {
-    try {
-      const resto = leerPendientes().filter((p) => p.telefono !== d.telefono);
-      if (pendiente) resto.push({ nombre: d.nombre, telefono: d.telefono, email: d.email });
-      localStorage.setItem(CLAVE_PENDIENTES, JSON.stringify(resto));
-    } catch (e) {}
-  }
-
-  function reintentarPendientes() {
-    const pendientes = leerPendientes();
-    if (!pendientes.length) return;
-    log(`Reintentando ${pendientes.length} envío(s) que el CRM no había confirmado…`);
-    pendientes.forEach((d) => enviarAlCrm(d));
   }
 
   // ÚNICO CAMBIO de lógica: el lead va al CRM de Gabriela en vez de a Kommo (sin saludo automático)
@@ -242,45 +217,33 @@
 
     log(`Enviando al CRM: ${d.nombre} / ${d.telefono}`);
 
-    // No confirmado (sin red, CRM caído, clave mal): queda guardado y se reintenta solo cada 3 minutos
-    const quedaPendiente = (motivo, aviso) => {
-      guardarPendiente(d, true);
-      log(`✗ ${motivo} — ${d.nombre} (${d.telefono}) queda pendiente y se reintenta solo`);
-      avisar(`${aviso} — ${d.nombre} queda pendiente, se reintenta solo`, '#c00', 30000);
-    };
-
     GM_xmlhttpRequest({
       method: 'POST',
       url: CRM_URL,
-      timeout: 30000,
       headers: { 'x-api-key': CRM_CLAVE, 'Content-Type': 'application/json' },
       data: JSON.stringify(lead),
       onload: (r) => {
         let resp = {};
         try { resp = JSON.parse(r.responseText); } catch (e) {}
         if (r.status >= 200 && r.status < 300) {
-          // Recién acá se da por enviado: antes se marcaba al mandarlo y, si fallaba, no se volvía a intentar
-          marcarComoEnviado(d.telefono);
-          guardarPendiente(d, false);
           log(`✓ CRM respondió OK para ${d.nombre}${resp.nuevo === false ? ' (ya estaba: se sumó a su chat)' : ''}`);
           avisar(`✓ ${d.nombre} cargado en el CRM`, '#0a0');
         } else if (r.status === 401) {
-          quedaPendiente(`CRM 401: ${r.responseText}`, 'Clave del CRM incorrecta: revisá CRM_CLAVE en el script');
-        } else if (r.status >= 500) {
-          quedaPendiente(`CRM error ${r.status}: ${r.responseText}`, `El CRM respondió ${r.status}`);
+          log(`✗ CRM 401 para ${d.nombre}: ${r.responseText}`);
+          avisar('Clave del CRM incorrecta: revisá CRM_CLAVE en el script', '#c00');
         } else {
-          // El CRM lo rechazó (ej.: teléfono falso): reintentar no lo arregla, hay que cargarlo a mano
-          guardarPendiente(d, false);
-          log(`✗ CRM rechazó a ${d.nombre} (${d.telefono}) con ${r.status}: ${r.responseText}`);
-          avisar(`El CRM no aceptó a ${d.nombre} (${d.telefono}): ${resp.error || `error ${r.status}`} — cargalo a mano`, '#c00', 60000);
+          log(`✗ CRM error ${r.status} para ${d.nombre}: ${r.responseText}`);
+          avisar(`Error ${r.status}: ${resp.error || 'ver consola'}`, '#c00');
         }
       },
-      onerror: (e) => quedaPendiente(`Error de red: ${JSON.stringify(e)}`, 'No pude conectar con el CRM'),
-      ontimeout: () => quedaPendiente('El CRM no respondió en 30 s', 'El CRM no respondió'),
+      onerror: (e) => {
+        log(`✗ Error de red enviando ${d.nombre}: ${JSON.stringify(e)}`);
+        avisar('Error de red — ver consola', '#c00');
+      },
     });
   }
 
-  function avisar(texto, color, ms = 6000) {
+  function avisar(texto, color) {
     const t = document.createElement('div');
     t.textContent = texto;
     Object.assign(t.style, {
@@ -290,7 +253,7 @@
       boxShadow: '0 2px 8px rgba(0,0,0,.3)', maxWidth: '320px',
     });
     document.body.appendChild(t);
-    setTimeout(() => t.remove(), ms);
+    setTimeout(() => t.remove(), 6000);
   }
 
   function esperar(ms) {
@@ -433,6 +396,7 @@
         }
         marcarPaso('Paso 7/7: enviando al CRM y cerrando pestaña…');
         enviarAlCrm(d);
+        marcarComoEnviado(d.telefono);
 
         await esperar(retardoAleatorio());
         const btnCerrar = buscarBotonCerrarPorNombre(d.nombre);
@@ -459,7 +423,4 @@
   crearIndicador();
   setInterval(() => conTiempoLibre(procesarSiguienteLead), INTERVALO_REVISION_MS);
   setInterval(() => conTiempoLibre(refrescarLista), REFRESCAR_INTERVALO_MS);
-  // Lo que quedó sin confirmar (de esta sesión o de una anterior) se vuelve a mandar
-  setTimeout(reintentarPendientes, 15000);
-  setInterval(reintentarPendientes, REINTENTAR_PENDIENTES_MS);
 })();
