@@ -3,7 +3,7 @@
 import VisorArchivo from '../../componentes/VisorArchivo';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { zonaPorCaracteristica } from '@/lib/caracteristicas';
-import { audiosDelPlan } from '@/lib/audios-plan';
+import { ZONAS_AUDIO, audiosDelPlan, zonaDeAudio } from '@/lib/audios-plan';
 import { createClient } from '@/lib/supabase/client';
 import { CAMPANIAS, ZONA_ROTULO, campaniaSugerida, cotizar, ordenarPlanes, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
 import { PROVINCIAS, datosProvincia, provinciaDesdeTexto } from '@/lib/provincias';
@@ -96,6 +96,8 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
   }, [contacto.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const datosProv = datosProvincia(provincia);
   const zona = datosProv?.zona ?? contacto.zona ?? caracteristica?.zona ?? 'AMBA';
+  // Zona puntual para los audios (GBA Norte, Córdoba…): sale de la localidad y la provincia de la ficha
+  const zonaAudio = zonaDeAudio({ zonaPrecios: zona, provincia, localidad: contacto.relevamiento?.localidad });
   const porCaracteristica = !contacto.relevamiento?.provincia && !contacto.relevamiento?.localidad && caracteristica
     && (!provincia || provincia === caracteristica.provincia);
   const [modalidad, setModalidad] = useState(guardada.modalidad ?? 'directo');
@@ -441,16 +443,17 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
               <span className="selector-detalle">El {planDocsActivo} no se comercializa en esta provincia (S1 y SMG02 son solo AMBA).</span>
             )}
           </div>
-          {audiosDelPlan(audios, planDocsActivo, zona).map((a) => (
+          {audiosDelPlan(audios, planDocsActivo, zona, zonaAudio).map((a) => (
             <div key={a.id} className="doc-fila">
-              <span className="doc-nombre">🎤 {a.titulo}{a.duracion_seg ? ` · ${Math.floor(a.duracion_seg / 60)}:${String(a.duracion_seg % 60).padStart(2, '0')}` : ''}</span>
+              <span className="doc-nombre">🎤 {a.titulo}{a.duracion_seg ? ` · ${Math.floor(a.duracion_seg / 60)}:${String(a.duracion_seg % 60).padStart(2, '0')}` : ''}
+                {a.zona && a.zona !== 'todas' && <span className="selector-detalle"> · {a.zona === zonaAudio ? ZONAS_AUDIO[a.zona] : 'genérico'}</span>}</span>
               <button type="button" className="boton-secundario" onClick={() => escuchar(a)}>{sonando === a.id ? 'Pausar' : 'Escuchar'}</button>
               <button type="button" className="boton-primario" disabled={enviando} onClick={() => enviarAudio(a, planDocsActivo)}>Enviar audio</button>
             </div>
           ))}
-          {audiosDelPlan(audios, planDocsActivo, zona).length === 0 && (
+          {audiosDelPlan(audios, planDocsActivo, zona, zonaAudio).length === 0 && (
             <div className="doc-fila">
-              <span className="selector-detalle">Sin audio para el {planDocsActivo}. <a className="boton-link-texto" href="/audios">Grabalo en la Biblioteca de audios</a> y asignale este plan.</span>
+              <span className="selector-detalle">Sin audio para el {planDocsActivo}{zonaAudio ? ` en ${ZONAS_AUDIO[zonaAudio]}` : ''}. <a className="boton-link-texto" href="/audios">Grabalo en la Biblioteca de audios</a> y asignale este plan.</span>
             </div>
           )}
         </div>

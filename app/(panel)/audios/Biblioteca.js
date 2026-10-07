@@ -206,7 +206,8 @@ export default function Biblioteca({ inicial, pedidosIniciales = [] }) {
         <label className="campo"><span>Zona</span>
           <select value={zona} onChange={(e) => setZona(e.target.value)}>
             {Object.entries(ZONAS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select></label>
+          </select>
+          <span className="selector-detalle">Al lead se le ofrece el audio de su zona; si no hay, el genérico. Para un «genérico S2» o «genérico SMG20»: zona Genérico interior y ese plan tildado arriba.</span></label>
         <label className="campo"><span>Descripción (opcional)</span>
           <input name="descripcion" maxLength={200} placeholder="Qué explica el audio" /></label>
         <label className="campo"><span>Cuándo usarlo (para la IA)</span>
