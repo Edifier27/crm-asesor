@@ -21,7 +21,7 @@ export async function crearLead(_previo, formData) {
       origen_detalle: formData.get('origen_detalle'),
       mensaje: formData.get('mensaje'),
       enviarBienvenida: formData.get('bienvenida') === 'on'
-    });
+    }, { cuentaId: user.id });
   } catch (e) {
     return { error: e.message };
   }
