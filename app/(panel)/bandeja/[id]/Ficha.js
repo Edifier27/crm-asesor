@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { COLORES_ETIQUETA, MOTIVOS_PERDIDA, colorEtiqueta, nombreVisible } from '@/lib/formato';
+import { COLORES_ETIQUETA, MOTIVOS_PERDIDA, colorEtiqueta, cuitLindo, nombreVisible } from '@/lib/formato';
 import Cotizacion from './Cotizacion';
 import ProximoPaso from './ProximoPaso';
 import Venta from './Venta';
@@ -173,6 +173,11 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
       <dl className="datos">
         <div><dt>Origen</dt><dd>{ORIGENES[contacto.origen]}{contacto.origen_detalle ? ` · ${contacto.origen_detalle}` : ''}</dd></div>
         {contacto.relevamiento?.situacion && <div><dt>Situación</dt><dd>{contacto.relevamiento.situacion}</dd></div>}
+        {[['empleador', 'Empleador'], ['empleador_conyuge', 'Empleador cónyuge']].map(([clave, rotulo]) => {
+          const e = contacto.relevamiento?.[clave];
+          if (!e?.razon_social && !e?.cuit) return null;
+          return <div key={clave}><dt>{rotulo}</dt><dd>{e.razon_social ?? 'Sin razón social'}{e.cuit ? ` · CUIT ${cuitLindo(e.cuit)}` : ''}</dd></div>;
+        })}
       </dl>
 
       <label className="campo">

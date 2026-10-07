@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { pesos } from '@/lib/cotizador';
-import { DOCUMENTOS_REQUERIDOS, TIPOS_DOCUMENTO } from '@/lib/formato';
+import { cuitLindo, DOCUMENTOS_REQUERIDOS, TIPOS_DOCUMENTO } from '@/lib/formato';
 import { tipoDeModalidad } from '@/lib/venta';
 import { borrarDocumento, clasificarDocumento, registrarDocumento, releerDocumento, renombrarDocumento, verDocumentoCliente } from './acciones';
 import VisorArchivo, { muestraPdf, tipoArchivo } from '../../componentes/VisorArchivo';
@@ -14,7 +14,7 @@ const cubre = { dni_frente: ['dni_frente', 'dni_completo'], dni_dorso: ['dni_dor
 function resumen(d) {
   const x = d.datos ?? {};
   if (d.tipo?.startsWith('dni')) return [x.nombre_completo, x.dni && `DNI ${Number(x.dni).toLocaleString('es-AR')}`, x.fecha_nacimiento && `nac. ${x.fecha_nacimiento.split('-').reverse().join('/')}`];
-  if (d.tipo === 'recibo') return [x.sueldo_bruto && `bruto ${pesos(x.sueldo_bruto)}`, x.empleador, x.periodo, x.obra_social_actual && `OS ${x.obra_social_actual}`];
+  if (d.tipo === 'recibo') return [x.sueldo_bruto && `bruto ${pesos(x.sueldo_bruto)}`, x.empleador && `${x.empleador}${x.cuit_empleador ? ` (CUIT ${cuitLindo(x.cuit_empleador)})` : ''}`, x.periodo, x.obra_social_actual && `OS ${x.obra_social_actual}`];
   if (d.tipo === 'opcion_cambio') return [x.obra_social_actual && x.obra_social_destino ? `${x.obra_social_actual} → ${x.obra_social_destino}` : x.obra_social_destino, x.firmada === false ? 'sin firma' : x.firmada ? 'firmada' : null];
   return [d.nombre_archivo];
 }
