@@ -12,7 +12,7 @@ import { linkBienvenida, mensajeCobro } from '@/lib/venta';
 import { enHorasHabiles } from '@/lib/horario';
 import { ventana } from '@/lib/formato';
 import { alVolverDeLaBase } from '@/lib/bases';
-import { alEntrarMensaje, modoIa, programarSecuencia } from '@/lib/secuencias';
+import { alEntrarMensaje, esperarSiEstaEnAuditoria, modoIa, pasarAAuditoriaMedica, programarSecuencia } from '@/lib/secuencias';
 import { BUCKET_CLIENTES, leerDocumento, renombrarMensaje } from '@/lib/documentos-cliente';
 import { etiquetaDocumento } from '@/lib/formato';
 import { plantillaPara } from '@/lib/plantillas-uso';
@@ -101,9 +101,11 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
     documento = { path: documento.path, nombre: documento.nombre, caption: documento.caption }; // el bucket lo decide el servidor
   }
   // Formulario de la biblioteca: se manda como documento desde el bucket "formularios"
+  let pideAuditoria = false; // formulario de auditoría médica: con mandarlo ya se le pidió la documentación
   if (tipo === 'formulario') {
-    const { data: f } = await supabase.from('formularios').select('id, nombre, path').eq('id', formularioId).maybeSingle();
+    const { data: f } = await supabase.from('formularios').select('id, nombre, path, auditoria_medica').eq('id', formularioId).maybeSingle();
     if (!f) return { error: 'Formulario inexistente.' };
+    pideAuditoria = Boolean(f.auditoria_medica);
     if (!ventana(conv.ventana_expira_at).abierta) return { error: 'Pasaron más de 24 h desde el último mensaje del cliente: WhatsApp no deja mandar archivos, solo plantillas.' };
     tipo = 'documento';
     documento = { path: f.path, nombre: nombreArchivo(f.nombre, f.path), bucket: BUCKET_FORMULARIOS };
@@ -117,12 +119,16 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
       conversacionId, tipo: tipo === 'grabacion' ? 'audio' : tipo, texto, audioId, plantillaId, documento, grabacion, archivo, respondeA,
       autor: 'asesor', perfilId: user.id
     });
-    // La secuencia de plantillas se programa después de responder, para que el envío se sienta instantáneo
+    // Se le mandó un formulario de auditoría médica: el lead pasa a esa columna del Embudo
+    const etapaId = pideAuditoria ? await pasarAAuditoriaMedica(createAdminClient(), conv.contacto_id) : null;
+    // Lo que sigue se hace después de responder, para que el envío se sienta instantáneo:
+    // en auditoría médica el chat sale de Mis chats y espera en su columna; en el resto se programa la secuencia de plantillas
     after(async () => {
       const admin = createAdminClient();
+      if (await esperarSiEstaEnAuditoria(admin, conversacionId)) return;
       if ((await modoIa(admin)) === 'copiloto') await programarSecuencia(admin, conversacionId);
     });
-    return { ok: true, id: r.id, simulado: r.simulado };
+    return { ok: true, id: r.id, simulado: r.simulado, ...(etapaId ? { etapaId } : {}) };
   } catch (e) {
     return { error: e.message };
   }

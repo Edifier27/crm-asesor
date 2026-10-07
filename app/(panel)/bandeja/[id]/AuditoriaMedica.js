@@ -12,12 +12,13 @@ import { PREFIJO_FORMULARIOS } from '@/lib/formularios';
  * Abre un pop-up con los formularios marcados como "de auditoría médica" en la sección Formularios (resumen de
  * historia clínica, certificado de buena salud…): se toca uno y se le manda al cliente por WhatsApp.
  */
-export default function AuditoriaMedica({ conversacion, formularios = [] }) {
+export default function AuditoriaMedica({ conversacion, formularios = [], onContacto }) {
   const dialogo = useRef(null);
   const [expira, setExpira] = useState(conversacion.ventana_expira_at);
   const [enviados, setEnviados] = useState({}); // media_path → cuándo se le mandó a este cliente
   const [error, setError] = useState('');
   const [cual, setCual] = useState(null);
+  const [movido, setMovido] = useState(false); // con este envío el lead pasó a la columna Auditoría médica
   const [enviando, iniciar] = useTransition();
 
   const deAM = formularios.filter((f) => f.auditoria_medica);
@@ -48,6 +49,7 @@ export default function AuditoriaMedica({ conversacion, formularios = [] }) {
       setCual(null);
       if (r?.error) return setError(r.error);
       setEnviados((e) => ({ ...e, [ruta(f)]: new Date().toISOString() }));
+      if (r.etapaId) { setMovido(true); onContacto?.({ etapa_id: r.etapaId }); }
     });
   }
 
@@ -67,6 +69,7 @@ export default function AuditoriaMedica({ conversacion, formularios = [] }) {
           <p className="aviso-error" role="alert">Pasaron más de 24 h desde su último mensaje: WhatsApp no deja mandar archivos. Mandale primero una plantilla y, cuando conteste, volvé acá.</p>
         )}
         {error && <p className="aviso-error" role="alert">{error}</p>}
+        {movido && <p className="am-movido" role="status">Listo: pasó a la columna Auditoría médica. Sale de Mis chats y vuelve cuando conteste.</p>}
 
         <ul className="am-lista">
           {deAM.map((f) => (
@@ -88,6 +91,9 @@ export default function AuditoriaMedica({ conversacion, formularios = [] }) {
           <p className="selector-vacio">
             Todavía no hay formularios de auditoría médica. Subilos en <Link href="/formularios">Formularios</Link> y tildá «Es de auditoría médica».
           </p>
+        )}
+        {deAM.length > 0 && !movido && (
+          <p className="selector-detalle">Al mandar un formulario, el lead pasa a la columna Auditoría médica y sale de Mis chats hasta que conteste.</p>
         )}
       </dialog>
     </div>

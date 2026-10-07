@@ -257,7 +257,7 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
           onBlur={(e) => e.target.value !== (contacto.notas ?? '') && guardar({ notas: e.target.value || null })} />
       </label>
 
-      <AuditoriaMedica conversacion={conversacion} formularios={formularios} />
+      <AuditoriaMedica conversacion={conversacion} formularios={formularios} onContacto={(campos) => setContacto((c) => ({ ...c, ...campos }))} />
 
       <Cotizacion key={JSON.stringify(contacto.cotizacion?.sueldos ?? [])} conversacionId={conversacion.id} contacto={contacto} lista={lista} audios={audios}
         onContacto={(campos) => setContacto((c) => ({ ...c, ...campos }))} />

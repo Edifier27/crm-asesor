@@ -354,6 +354,7 @@
 .am-formulario:disabled { opacity: 0.55; cursor: default; }
 .am-formulario-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .am-enviado { font-size: 12px; font-weight: 600; color: #15803D; }
+.am-movido { background: #E7F6EC; color: #15663A; border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 600; }
 .am-accion { flex: 0 0 auto; font-size: 13px; font-weight: 700; color: #0E6A7A; }
 .am-ver { align-self: center; font-size: 13px; color: var(--texto-suave); padding: 0 4px; }
 .etiqueta-am { margin-left: 8px; background: #ECF7F9; color: #0E6A7A; }
@@ -553,7 +554,14 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .tarjeta-paso.vencido { color: #B91C1C; }
 .tarjeta-paso.sin-paso { color: #B91C1C; font-weight: 500; opacity: 0.8; }
 .tarjeta-paso-motivo { font-weight: 400; color: var(--texto-suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.tarjeta-lead .tarjeta-paso { overflow: hidden; white-space: nowrap; }
+/* En la tarjeta del embudo el próximo paso se apila en hasta 2 renglones (antes iba en uno solo, sin cortar, y ensanchaba
+   toda la columna hasta el largo del texto: por eso no se podía achicar) */
+.columna, .tarjeta-lead { min-width: 0; }
+.tarjeta-lead .tarjeta-paso { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; white-space: normal; line-height: 1.35; }
+.tarjeta-lead .tarjeta-paso svg { display: inline; vertical-align: -2px; margin-right: 4px; }
+.tarjeta-lead .tarjeta-paso-motivo { white-space: normal; }
+.tarjeta-lead .tarjeta-nombre, .tarjeta-lead .chat-etiquetas { min-width: 0; }
+.tarjeta-lead .chat-etiquetas { flex-wrap: wrap; }
 .tarjeta-valor { font-size: 12px; font-weight: 700; color: var(--acento); }
 .columna-datos { display: flex; align-items: center; gap: 6px; }
 .columna-valor { font-size: 12px; font-weight: 700; color: var(--acento); }

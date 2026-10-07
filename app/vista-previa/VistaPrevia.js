@@ -33,7 +33,10 @@ const leadEjemplo = (n, nombre, etapa_id, modo = 'ia') => ({
   ia_pensando_desde: null, resumen_ia: null, seguimiento_at: null, seguimiento_motivo: null, seguimiento_responsable: 'ia',
   contacto: { id: `c-${n}`, nombre, telefono: `54911223344${10 + n}`, etapa_id, zona: 'AMBA', origen: 'web', temperatura: n % 3 === 0 ? 'caliente' : null, valor: 0, plan_cotizado: null, relevamiento: {}, etiquetas: [] }
 });
-const LEADS_EJEMPLO = [leadEjemplo(1, 'Carla Ruiz', 1), leadEjemplo(2, 'Martín Sosa', 1), leadEjemplo(3, 'Ana Paz', 2, 'humano'), leadEjemplo(4, 'Julián Vera', 3),
+// Uno con un próximo paso bien largo: es lo que antes ensanchaba la columna entera
+const conPasoLargo = (l) => ({ ...l, seguimiento_at: hace(540), seguimiento_responsable: 'asesor',
+  seguimiento_motivo: 'Responderle ahora: pagó 377.000 por 4 estudios de audición en consultorio de otorrino de cartilla. Mirar la imagen, averiguar con qué plan o copago cuenta y si el prestador factura esos estudios' });
+const LEADS_EJEMPLO = [leadEjemplo(1, 'Carla Ruiz', 1), leadEjemplo(2, 'Martín Sosa', 1), conPasoLargo(leadEjemplo(3, 'Ana Paz', 2, 'humano')), leadEjemplo(4, 'Julián Vera', 3),
   leadEjemplo(5, 'Sol Ibáñez', 6), leadEjemplo(6, 'Pedro Gil', 7, 'humano'), leadEjemplo(7, 'Rocío Luna', 11, 'pausada')];
 
 export default function VistaPrevia() {
