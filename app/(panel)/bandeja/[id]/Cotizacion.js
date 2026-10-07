@@ -4,7 +4,7 @@ import VisorArchivo from '../../componentes/VisorArchivo';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { zonaPorCaracteristica } from '@/lib/caracteristicas';
 import { createClient } from '@/lib/supabase/client';
-import { CAMPANIAS, ZONA_ROTULO, cotizar, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
+import { CAMPANIAS, ZONA_ROTULO, campaniaSugerida, cotizar, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
 import { PROVINCIAS, datosProvincia, provinciaDesdeTexto } from '@/lib/provincias';
 import { REGIONES, TIERS, cartillaDe, planPdf, regionSugerida, tierDePlan } from '@/lib/documentos';
 import { fechaCorta, hora } from '@/lib/formato';
@@ -34,6 +34,9 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
   const [provincia, setProvincia] = useState(() =>
     contacto.relevamiento?.provincia ?? provinciaDesdeTexto(contacto.relevamiento?.localidad) ?? caracteristica?.provincia ?? null);
   const elegidaAMano = useRef(false);
+  const miembrosAMano = useRef(false);
+  // Ficha en vivo: lo que la IA va guardando (situación laboral, localidad, grupo) actualiza el cotizador
+  const [relVivo, setRelVivo] = useState(contacto.relevamiento ?? {});
   const modalidadAMano = useRef(false);
   const sueldosAMano = useRef(false);
   // Cuando el cliente dice su zona ("CABA", "GBA Sur", "Neuquén") la IA la guarda en la ficha: el precio se actualiza solo
@@ -42,6 +45,9 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'contactos', filter: `id=eq.${contacto.id}` }, ({ new: c }) => {
         const p = c.relevamiento?.provincia;
         if (p && !elegidaAMano.current) setProvincia(p);
+        if (c.relevamiento) setRelVivo(c.relevamiento);
+        const grupo = miembrosDesdeRelevamiento(c.relevamiento?.integrantes);
+        if (grupo.length && !miembrosAMano.current) setMiembros(grupo);
         // El cliente dijo su sueldo bruto (la IA lo guardó): pasa a derivación con ese sueldo
         const cot = c.cotizacion ?? {};
         if (cot.modalidad && !modalidadAMano.current) setModalidad(cot.modalidad);
@@ -55,7 +61,13 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
   const porCaracteristica = !contacto.relevamiento?.provincia && !contacto.relevamiento?.localidad && caracteristica
     && (!provincia || provincia === caracteristica.provincia);
   const [modalidad, setModalidad] = useState(guardada.modalidad ?? 'directo');
-  const [campania, setCampania] = useState(guardada.campania ?? 'individual50');
+  // La promoción la elige el CRM según el perfil (Nordelta, monotributo, familia/derivación), salvo que la cambies a mano
+  const [campaniaElegida, setCampaniaElegida] = useState(guardada.campania_manual ? guardada.campania : null);
+  const campaniaAMano = useRef(Boolean(guardada.campania_manual));
+  const textoZona = [relVivo?.localidad, relVivo?.intereses, contacto.origen_detalle].filter(Boolean).join(' ');
+  const campania = campaniaElegida ?? campaniaSugerida({
+    textoZona, situacion: relVivo?.situacion ?? '', modalidad, miembros: miembros.filter((m) => m.edad !== '')
+  });
   const [sueldos, setSueldos] = useState(guardada.sueldos ?? ['', '']);
   const [enviadas, setEnviadas] = useState(guardada.enviadas ?? []);   // historial de lo enviado al lead
   const [elegidos, setElegidos] = useState([]);
@@ -83,7 +95,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
     return m;
   }, [enviadas]);
 
-  const cotizacionGuardada = (sig) => ({ modalidad: sig.modalidad, campania: sig.campania, sueldos: sig.sueldos, enviadas: sig.enviadas });
+  const cotizacionGuardada = (sig) => ({ modalidad: sig.modalidad, campania: sig.campania, campania_manual: campaniaAMano.current, sueldos: sig.sueldos, enviadas: sig.enviadas });
 
   // Guarda grupo, zona y parámetros en la ficha (agrupado para no escribir en cada tecla)
   function persistir(cambios) {
@@ -115,7 +127,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
   const cambiar = (setter, clave) => (valor) => { setter(valor); persistir({ [clave]: valor }); };
   const setMiembro = (i, campos) => {
     const nuevos = miembros.map((m, j) => (j === i ? { ...m, ...campos } : m));
-    setMiembros(nuevos); persistir({ miembros: nuevos });
+    miembrosAMano.current = true; setMiembros(nuevos); persistir({ miembros: nuevos });
   };
 
   function enviarCotizacion() {
@@ -213,11 +225,11 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
             <label className="check"><input type="checkbox" checked={m.esHijo} onChange={(e) => setMiembro(i, { esHijo: e.target.checked })} /> Hijo/a</label>
             {miembros.length > 1 && (
               <button type="button" className="boton-icono" aria-label="Quitar integrante"
-                onClick={() => { const n = miembros.filter((_, j) => j !== i); setMiembros(n); persistir({ miembros: n }); }}>×</button>
+                onClick={() => { const n = miembros.filter((_, j) => j !== i); miembrosAMano.current = true; setMiembros(n); persistir({ miembros: n }); }}>×</button>
             )}
           </div>
         ))}
-        <button type="button" className="boton-secundario" onClick={() => setMiembros([...miembros, { edad: '', esHijo: miembros.length > 1 }])}>+ Integrante</button>
+        <button type="button" className="boton-secundario" onClick={() => { miembrosAMano.current = true; setMiembros([...miembros, { edad: '', esHijo: miembros.length > 1 }]); }}>+ Integrante</button>
       </div>
 
       <div className="campos-dobles">
@@ -261,7 +273,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
       <div className="cot-campanias" role="group" aria-label="Campaña">
         {CAMPANIAS.map((c) => (
           <button key={c.id} type="button" title={c.detalle} aria-pressed={campania === c.id}
-            className={`chip-filtro${campania === c.id ? ' activo' : ''}`} onClick={() => cambiar(setCampania, 'campania')(c.id)}>
+            className={`chip-filtro${campania === c.id ? ' activo' : ''}`} onClick={() => { campaniaAMano.current = true; cambiar(setCampaniaElegida, 'campania')(c.id); }}>
             {c.rotulo}
           </button>
         ))}
