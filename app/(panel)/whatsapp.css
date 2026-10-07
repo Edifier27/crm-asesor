@@ -421,7 +421,19 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 /* Imagen pegada con Ctrl+V: vista previa antes de mandar */
 .pegada-fondo { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(17, 27, 33, 0.6); }
 .pegada { width: min(720px, 100%); max-height: 100%; display: flex; flex-direction: column; background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
-.pegada-imagen { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; background: var(--wa-barra); padding: 12px; }
+.pegada-imagen { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; background: var(--wa-barra); padding: 12px; }
+/* Lapicito: el lienzo va justo encima de la imagen; lo dibujado se manda junto con ella */
+.pegada-lienzo { position: absolute; pointer-events: none; border-radius: 6px; }
+.pegada-lienzo.marcando { pointer-events: auto; cursor: crosshair; touch-action: none; }
+.pegada-lapiz { display: grid; place-items: center; margin-right: 6px; }
+.pegada-lapiz.activo { background: var(--wa-verde); color: #fff; }
+.pegada-herramientas { display: flex; align-items: center; gap: 6px; margin-right: 8px; }
+.pegada-color { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; background: var(--color); box-shadow: 0 0 0 1px #C4CBCE; cursor: pointer; padding: 0; }
+.pegada-color.activo { box-shadow: 0 0 0 2px var(--wa-texto); }
+.pegada-herramienta { border: 0; background: transparent; color: var(--wa-texto); font: inherit; font-size: 13px; font-weight: 600; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+.pegada-herramienta:hover:not(:disabled) { background: rgba(11, 20, 26, 0.06); }
+.pegada-herramienta:disabled { opacity: 0.4; cursor: default; }
+.pegada-ayuda { margin-right: auto; align-self: center; font-size: 13px; color: var(--wa-suave); }
 .pegada-imagen img { max-width: 100%; max-height: calc(100vh - 220px); object-fit: contain; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
 .pegada-acciones { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--wa-linea); }
 

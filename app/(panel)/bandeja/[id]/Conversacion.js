@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import ImagenPegada from './ImagenPegada';
 import { SELECT_MENSAJE } from '@/lib/consultas';
 import Redactor from './Redactor';
 import Simulador from './Simulador';
@@ -259,20 +260,11 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
     return () => window.removeEventListener('paste', alPegar);
   }, []);
   const cerrarPegada = () => setPegada((p) => { if (p) URL.revokeObjectURL(p.url); return null; });
-  async function usarPegada(destino) {
-    const archivo = pegada.archivo;
+  // archivo: la imagen tal como quedó en la vista previa (con las marcas del lapicito, si las hizo)
+  async function usarPegada(archivo, destino) {
     cerrarPegada();
     await subirArchivo(archivo, destino);
   }
-  useEffect(() => {
-    if (!pegada) return;
-    const tecla = (e) => {
-      if (e.key === 'Escape') cerrarPegada();
-      if (e.key === 'Enter' && !e.shiftKey && ventana(expira).abierta) { e.preventDefault(); usarPegada('enviar'); }
-    };
-    window.addEventListener('keydown', tecla);
-    return () => window.removeEventListener('keydown', tecla);
-  });
 
   const cliente = ultimoDelCliente(mensajes);
 
@@ -282,20 +274,8 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
       onDragOver={(e) => { if (conArchivos(e)) e.preventDefault(); }}
       onDrop={(e) => { e.preventDefault(); setArrastrando(false); }}>
       {pegada && (
-        <div className="pegada-fondo" role="dialog" aria-modal="true" aria-label="Imagen pegada" onClick={(e) => e.target === e.currentTarget && cerrarPegada()}>
-          <div className="pegada">
-            <div className="visor-barra">
-              <span className="visor-nombre">Imagen pegada · {nombreVisible(contacto)}</span>
-              <button type="button" className="visor-cerrar" aria-label="Cancelar" onClick={cerrarPegada}>✕</button>
-            </div>
-            <div className="pegada-imagen"><img src={pegada.url} alt="Imagen pegada" /></div>
-            <div className="pegada-acciones">
-              <button type="button" className="boton-secundario" onClick={() => usarPegada('guardar')}>Guardar en documentación</button>
-              <button type="button" className="boton-primario" disabled={!ventana(expira).abierta} onClick={() => usarPegada('enviar')}
-                title={ventana(expira).abierta ? 'Enter' : 'Pasaron 24 h: WhatsApp no deja mandar archivos'}>Enviar al cliente ➤</button>
-            </div>
-          </div>
-        </div>
+        <ImagenPegada key={pegada.url} pegada={pegada} titulo={`Imagen pegada · ${nombreVisible(contacto)}`}
+          puedeEnviar={ventana(expira).abierta} onCerrar={cerrarPegada} onUsar={usarPegada} />
       )}
       {(arrastrando || subiendoArchivo) && (
         <div className="soltar-capa" onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setArrastrando(false); }}>

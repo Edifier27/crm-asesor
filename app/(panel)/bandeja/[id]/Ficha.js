@@ -86,6 +86,13 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
         inicial={(conversacion.contacto.documentos ?? []).sort((a, b) => a.creado_at.localeCompare(b.creado_at))}
         onContacto={(campos) => setContacto((c) => ({ ...c, ...campos }))} />
 
+      {/* El mail va pegado a la documentación (los DNI), arriba del nombre: es lo que se copia para dar el alta */}
+      <label className="campo">
+        <span>Email</span>
+        <input type="email" defaultValue={contacto.email ?? ''} placeholder="Sin email"
+          onBlur={(e) => e.target.value.trim() !== (contacto.email ?? '') && guardar({ email: e.target.value.trim() || null })} />
+      </label>
+
       <label className="campo">
         <span>Nombre</span>
         <input defaultValue={contacto.nombre ?? ''} placeholder={nombreVisible(contacto)}
@@ -208,12 +215,6 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
           </div>
         </form>
       )}
-
-      <label className="campo">
-        <span>Email</span>
-        <input type="email" defaultValue={contacto.email ?? ''} placeholder="Sin email"
-          onBlur={(e) => e.target.value.trim() !== (contacto.email ?? '') && guardar({ email: e.target.value.trim() || null })} />
-      </label>
 
       <label className="campo">
         <span>Notas</span>
