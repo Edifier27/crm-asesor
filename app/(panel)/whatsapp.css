@@ -448,3 +448,8 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 /* Botones de respuesta de una plantilla (como se ven en WhatsApp) */
 .plantilla-botones { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
 .plantilla-boton { padding: 5px 12px; border-radius: 999px; border: 1px solid var(--wa-linea); background: #fff; color: #027EB5; font-size: 13px; font-weight: 500; }
+
+/* Carrusel de planes: se arrastra con el mouse */
+.carrusel { cursor: grab; user-select: none; }
+.carrusel.arrastrando { cursor: grabbing; scroll-snap-type: none; }
+.carrusel.arrastrando .plan { pointer-events: none; }

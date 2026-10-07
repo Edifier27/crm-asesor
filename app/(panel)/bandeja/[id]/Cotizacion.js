@@ -4,11 +4,46 @@ import VisorArchivo from '../../componentes/VisorArchivo';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { zonaPorCaracteristica } from '@/lib/caracteristicas';
 import { createClient } from '@/lib/supabase/client';
-import { CAMPANIAS, ZONA_ROTULO, campaniaSugerida, cotizar, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
+import { CAMPANIAS, ZONA_ROTULO, campaniaSugerida, cotizar, ordenarPlanes, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
 import { PROVINCIAS, datosProvincia, provinciaDesdeTexto } from '@/lib/provincias';
 import { REGIONES, TIERS, cartillaDe, planPdf, regionSugerida, tierDePlan } from '@/lib/documentos';
 import { fechaCorta, hora } from '@/lib/formato';
 import { enviarDesdeBandeja, verDocumento } from './acciones';
+
+// Carrusel de planes: agarrarlo con el mouse ("manito") y arrastrar para moverse, como en el celular
+function useArrastre() {
+  const estado = useRef(null);
+  return {
+    onPointerDown: (e) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0 || e.target.closest('input, label, button, select')) return;
+      estado.current = { x: e.clientX, scroll: e.currentTarget.scrollLeft, movio: false, id: e.pointerId };
+    },
+    onPointerMove: (e) => {
+      const s = estado.current;
+      if (!s) return;
+      const dx = e.clientX - s.x;
+      if (!s.movio && Math.abs(dx) > 5) {
+        s.movio = true;
+        e.currentTarget.setPointerCapture(s.id);
+        e.currentTarget.classList.add('arrastrando');
+      }
+      if (s.movio) e.currentTarget.scrollLeft = s.scroll - dx;
+    },
+    onPointerUp: (e) => {
+      const s = estado.current;
+      estado.current = null;
+      e.currentTarget.classList.remove('arrastrando');
+      // Si arrastró, el soltar no cuenta como clic sobre un plan
+      if (s?.movio) {
+        const el = e.currentTarget;
+        const frenar = (c) => { c.stopPropagation(); c.preventDefault(); };
+        el.addEventListener('click', frenar, { capture: true, once: true });
+        setTimeout(() => el.removeEventListener('click', frenar, { capture: true }), 0);
+      }
+    },
+    onPointerCancel: (e) => { estado.current = null; e.currentTarget.classList.remove('arrastrando'); }
+  };
+}
 
 const cuando = (iso) => `${fechaCorta(iso) === hora(iso) ? 'Hoy' : fechaCorta(iso)} ${hora(iso)}`;
 const rotuloCampania = (id) => CAMPANIAS.find((c) => c.id === id)?.rotulo ?? id;
@@ -34,6 +69,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
   const [provincia, setProvincia] = useState(() =>
     contacto.relevamiento?.provincia ?? provinciaDesdeTexto(contacto.relevamiento?.localidad) ?? caracteristica?.provincia ?? null);
   const elegidaAMano = useRef(false);
+  const arrastre = useArrastre();
   const miembrosAMano = useRef(false);
   // Ficha en vivo: lo que la IA va guardando (situación laboral, localidad, grupo) actualiza el cotizador
   const [relVivo, setRelVivo] = useState(contacto.relevamiento ?? {});
@@ -79,7 +115,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
 
   const validos = miembros.filter((m) => m.edad !== '' && Number(m.edad) >= 0 && Number(m.edad) < 100).map((m) => ({ edad: Number(m.edad), esHijo: m.esHijo }));
   const resultados = useMemo(
-    () => cotizar(lista, { miembros: validos, zona, modalidad, campania, sueldos: sueldos.map(Number) }),
+    () => ordenarPlanes(cotizar(lista, { miembros: validos, zona, modalidad, campania, sueldos: sueldos.map(Number) }), zona),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [lista, JSON.stringify(validos), zona, modalidad, campania, JSON.stringify(sueldos)]
   );
@@ -282,7 +318,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
       {resultados.length === 0 ? (
         <p className="selector-detalle">Cargá al menos una edad para cotizar.</p>
       ) : (
-        <div className="carrusel" aria-label="Planes cotizados">
+        <div className="carrusel" aria-label="Planes cotizados" {...arrastre}>
           {resultados.map((r) => {
             const elegido = elegidos.includes(r.plan);
             return (
