@@ -388,6 +388,13 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 @keyframes destello-ia { 0%, 40% { box-shadow: 0 0 0 3px #7C3AED66; } 100% { box-shadow: 0 1px 2px #0000000d; } }
 @keyframes destello-lead { 0%, 40% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--acento) 40%, transparent); } 100% { box-shadow: 0 1px 2px #0000000d; } }
 .tarjeta-fila { display: flex; align-items: center; gap: 8px; }
+/* Tachito de la tarjeta: aparece al pasar el mouse (en el celular queda siempre a la vista) */
+.tarjeta-eliminar { flex: 0 0 auto; display: grid; place-items: center; width: 24px; height: 24px; margin: -4px -4px -4px -2px; border-radius: 6px; color: var(--texto-suave); cursor: pointer; opacity: 0; transition: opacity 0.15s, background 0.15s, color 0.15s; }
+.tarjeta-lead:hover .tarjeta-eliminar, .tarjeta-eliminar:focus-visible { opacity: 1; }
+.tarjeta-eliminar:hover, .tarjeta-eliminar:focus-visible { background: #FBE3E3; color: #8B1E1E; }
+@media (hover: none) { .tarjeta-eliminar { opacity: 0.6; } }
+.dialogo-botones { display: flex; justify-content: flex-end; gap: 8px; }
+.boton-primario.peligro, .boton-primario.peligro:hover { background: #B42318; }
 .avatar.avatar-chico { flex: 0 0 30px; width: 30px; height: 30px; font-size: 11px; }
 .tarjeta-nombre { flex: 1; min-width: 0; font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tarjeta-ultimo { font-size: 13px; color: var(--texto-suave); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; }

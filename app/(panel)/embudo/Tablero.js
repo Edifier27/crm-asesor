@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { SELECT_EMBUDO } from '@/lib/consultas';
 import { MOTIVOS_PERDIDA, TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, pesosCorto } from '@/lib/formato';
 import EnVivo from './EnVivo';
+import { eliminarLead } from './acciones';
 
 const SIN_TEXTO = { audio: 'Audio de voz', imagen: 'Imagen', documento: 'Documento', ubicacion: 'Ubicación', plantilla: 'Plantilla', otro: 'Mensaje' };
 const resumenUltimo = (t) => (t ? SIN_TEXTO[t.match(/^\[(\w+)\]$/)?.[1]] ?? t : 'Sin mensajes');
@@ -21,6 +22,7 @@ export default function Tablero({ etapas, inicial }) {
   const [arrastrando, setArrastrando] = useState(null);
   const [sobre, setSobre] = useState(null);
   const [perdiendo, setPerdiendo] = useState(null); // { conv, etapaId } esperando motivo de pérdida
+  const [eliminando, setEliminando] = useState(null); // { conv, enCurso, error } esperando confirmación
   const temporizador = useRef();
   // Arrastrar el fondo del tablero para moverlo de costado (como Kommo/Trello). Las tarjetas se siguen arrastrando aparte.
   const tablero = useRef(null);
@@ -76,6 +78,16 @@ export default function Tablero({ etapas, inicial }) {
     const { error } = await supabase.from('contactos').update({ etapa_id: etapaId, ...(motivo ? { motivo_perdida: motivo } : {}) }).eq('id', conv.contacto.id);
     if (!error && motivo) await supabase.from('conversaciones').update({ seguimiento_at: null, seguimiento_motivo: null }).eq('id', conv.id);
     if (error) setConversaciones((l) => l.map((c) => (c.id === conv.id ? { ...c, contacto: { ...c.contacto, etapa_id: previo } } : c)));
+  }
+
+  async function eliminar() {
+    const { conv } = eliminando;
+    setEliminando({ conv, enCurso: true });
+    const r = await eliminarLead(conv.contacto.id);
+    if (r.error) return setEliminando({ conv, error: r.error });
+    if (abierta === conv.id) setAbierta(null);
+    setConversaciones((l) => l.filter((c) => c.id !== conv.id));
+    setEliminando(null);
   }
 
   const visibles = useMemo(() => {
@@ -185,6 +197,12 @@ export default function Tablero({ etapas, inicial }) {
                         {nombreVisible(c.contacto)}
                       </span>
                       <span className="chat-hora">{fechaCorta(c.ultimo_mensaje_at)}</span>
+                      {/* span y no button: la tarjeta ya es un botón */}
+                      <span role="button" tabIndex={0} className="tarjeta-eliminar" title="Eliminar lead" aria-label={`Eliminar a ${nombreVisible(c.contacto)}`}
+                        onClick={(e) => { e.stopPropagation(); setEliminando({ conv: c }); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setEliminando({ conv: c }); } }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M6 6l1 14h10l1-14" /><path d="M10 11v5M14 11v5" /></svg>
+                      </span>
                     </span>
                     <span className="tarjeta-ultimo">{vivo ? <em className="en-vivo"><span className="punto-vivo" />IA escribiendo…</em> : resumenUltimo(c.ultimo_mensaje_texto)}</span>
                     {paso ? (
@@ -226,6 +244,20 @@ export default function Tablero({ etapas, inicial }) {
               ))}
             </div>
             <button type="button" className="boton-secundario" onClick={() => setPerdiendo(null)}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {eliminando && (
+        <div className="velo velo-centro" onClick={() => !eliminando.enCurso && setEliminando(null)}>
+          <div className="dialogo-chico" role="dialog" aria-label="Eliminar lead" onClick={(e) => e.stopPropagation()}>
+            <h2>¿Eliminar a {nombreVisible(eliminando.conv.contacto)}?</h2>
+            <p className="selector-detalle">Se borra el lead con todo su chat, sus etiquetas y sus documentos. No se puede deshacer.</p>
+            {eliminando.error && <p className="aviso-error" role="alert">{eliminando.error}</p>}
+            <div className="dialogo-botones">
+              <button type="button" className="boton-secundario" disabled={eliminando.enCurso} onClick={() => setEliminando(null)}>Cancelar</button>
+              <button type="button" className="boton-primario peligro" disabled={eliminando.enCurso} onClick={eliminar}>{eliminando.enCurso ? 'Eliminando…' : 'Sí, eliminar'}</button>
+            </div>
           </div>
         </div>
       )}
