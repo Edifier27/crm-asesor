@@ -299,6 +299,22 @@
 .campos-dobles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .campo select { font: inherit; font-size: 14px; font-weight: 400; color: var(--texto); padding: 8px 10px; border: 1px solid var(--borde); border-radius: 8px; background: #fff; width: 100%; }
 .check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+/* Auditoría médica: botoncito "AM +" de la ficha y su pop-up con los formularios para mandar */
+.am-boton { align-self: flex-start; border: 1px dashed #7FB8C4; border-radius: 999px; background: #ECF7F9; color: #0E6A7A; font: inherit; font-size: 12px; font-weight: 700; padding: 4px 12px; cursor: pointer; }
+.am-boton:hover, .am-boton:focus-visible { background: #D8EFF3; border-style: solid; }
+.dialogo-am { display: none; flex-direction: column; gap: 12px; }
+.dialogo-am[open] { display: flex; }
+.dialogo-am > p { margin: 0; }
+.am-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.am-lista li { display: flex; align-items: stretch; gap: 6px; }
+.am-formulario { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; text-align: left; border: 1px solid var(--linea); border-radius: 12px; background: #fff; color: inherit; font: inherit; padding: 10px 12px; cursor: pointer; }
+.am-formulario:hover:not(:disabled) { border-color: #7FB8C4; background: #F4FBFC; }
+.am-formulario:disabled { opacity: 0.55; cursor: default; }
+.am-formulario-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.am-enviado { font-size: 12px; font-weight: 600; color: #15803D; }
+.am-accion { flex: 0 0 auto; font-size: 13px; font-weight: 700; color: #0E6A7A; }
+.am-ver { align-self: center; font-size: 13px; color: var(--texto-suave); padding: 0 4px; }
+.etiqueta-am { margin-left: 8px; background: #ECF7F9; color: #0E6A7A; }
 .check input { accent-color: var(--acento); width: 16px; height: 16px; }
 .texto-largo { white-space: pre-wrap; }
 .tabla-scroll { overflow-x: auto; margin-top: 8px; }

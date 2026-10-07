@@ -95,7 +95,8 @@ export default function Formularios({ inicial }) {
       if (errSubida) throw errSubida;
       const nombre = form.nombre.value.trim() || archivo.name.replace(/\.[^.]+$/, '');
       const { data, error: errFila } = await supabase.from('formularios').insert({
-        nombre, descripcion: form.descripcion.value.trim() || null, path, mime: archivo.type || null, tamano: archivo.size
+        nombre, descripcion: form.descripcion.value.trim() || null, path, mime: archivo.type || null, tamano: archivo.size,
+        ...(form.am.checked ? { auditoria_medica: true } : {})
       }).select().single();
       if (errFila) { await supabase.storage.from(BUCKET_FORMULARIOS).remove([path]); throw errFila; }
       setFormularios((l) => [...l, data].sort((a, b) => a.nombre.localeCompare(b.nombre)));
@@ -149,10 +150,14 @@ export default function Formularios({ inicial }) {
                 <form className="form-audio" onSubmit={(ev) => {
                   ev.preventDefault();
                   const x = ev.currentTarget;
-                  actualizar(f.id, { nombre: x.nombre.value.trim(), descripcion: x.descripcion.value.trim() || null });
+                  actualizar(f.id, {
+                    nombre: x.nombre.value.trim(), descripcion: x.descripcion.value.trim() || null,
+                    ...(x.am.checked !== Boolean(f.auditoria_medica) ? { auditoria_medica: x.am.checked } : {})
+                  });
                 }}>
                   <label className="campo"><span>Nombre (así le llega al cliente)</span><input name="nombre" defaultValue={f.nombre} required maxLength={120} /></label>
                   <label className="campo"><span>Para qué sirve</span><input name="descripcion" defaultValue={f.descripcion ?? ''} maxLength={200} /></label>
+                  <label className="check"><input type="checkbox" name="am" defaultChecked={Boolean(f.auditoria_medica)} /> Es de auditoría médica (aparece en el botón AM de la ficha)</label>
                   <div className="acciones">
                     <button type="submit" className="boton-primario">Guardar</button>
                     <button type="button" className="boton-secundario" onClick={() => setEditando(null)}>Cancelar</button>
@@ -163,7 +168,7 @@ export default function Formularios({ inicial }) {
                   <div className="formulario-info">
                     <span className="formulario-icono" aria-hidden="true">{/\.(jpe?g|png)$/i.test(f.path) ? '🖼️' : '📋'}</span>
                     <div>
-                      <strong>{f.nombre}</strong>
+                      <strong>{f.nombre}{f.auditoria_medica && <span className="etiqueta etiqueta-am" title="Aparece en el botón AM de la ficha">AM</span>}</strong>
                       <span className="selector-detalle">
                         {[f.descripcion, f.path.split('.').pop().toUpperCase(), tamano(f.tamano), f.envios ? `enviado ${f.envios} ${f.envios === 1 ? 'vez' : 'veces'}` : null].filter(Boolean).join(' · ')}
                       </span>
@@ -196,6 +201,7 @@ export default function Formularios({ inicial }) {
           <input name="nombre" maxLength={120} placeholder="Ej.: Certificado de buena salud" /></label>
         <label className="campo"><span>Para qué sirve (opcional)</span>
           <input name="descripcion" maxLength={200} placeholder="Ej.: lo firma el médico de cabecera, para menores de 1 año" /></label>
+        <label className="check"><input type="checkbox" name="am" /> Es de auditoría médica (aparece en el botón AM de la ficha)</label>
         {error && <p className="aviso-error" role="alert">{error}</p>}
         <button type="submit" className="boton-primario" disabled={subiendo}>{subiendo ? 'Subiendo…' : 'Subir formulario'}</button>
       </form>

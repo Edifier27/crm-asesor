@@ -6,7 +6,7 @@ export const metadata = { title: 'Formularios' };
 export default async function FormulariosPage() {
   const supabase = await createClient();
   const { data: formularios } = await supabase.from('formularios')
-    .select('id, nombre, descripcion, path, mime, tamano, envios, creado_at')
+    .select('*')
     .order('nombre');
   return <Formularios inicial={formularios ?? []} />;
 }

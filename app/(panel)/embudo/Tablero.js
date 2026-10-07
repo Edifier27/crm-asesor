@@ -231,7 +231,7 @@ export default function Tablero({ etapas, inicial }) {
                 // Con grupo (edades) y zona el cotizador ya tiene precio: el asesor solo tiene que enviarlo
                 const etapaNombre = etapas.find((e) => e.id === c.contacto?.etapa_id)?.nombre;
                 const cotizable = Boolean(c.contacto?.zona) && (c.contacto?.relevamiento?.integrantes ?? []).some((i) => Number.isFinite(Number(i.edad)) && i.edad !== null)
-                  && !['Cotizado', 'Por cerrar', 'Falta de cobro', 'Ganado', 'Perdido'].includes(etapaNombre);
+                  && !['Cotizado', 'Por cerrar', 'Auditoría médica', 'Falta de cobro', 'Ganado', 'Perdido'].includes(etapaNombre);
                 return (
                   <button key={c.id} type="button" draggable
                     className={`tarjeta-lead${abierta === c.id ? ' abierta' : ''}${actividad[c.id] ? ` destello-${actividad[c.id]}` : ''}${arrastrando === c.id ? ' arrastrada' : ''}`}

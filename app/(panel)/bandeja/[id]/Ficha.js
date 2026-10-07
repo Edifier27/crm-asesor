@@ -10,10 +10,11 @@ import Cotizacion from './Cotizacion';
 import ProximoPaso from './ProximoPaso';
 import Venta from './Venta';
 import Documentacion from './Documentacion';
+import AuditoriaMedica from './AuditoriaMedica';
 
 const ORIGENES = { swiss_medical: 'Swiss Medical', web: 'Web', whatsapp: 'WhatsApp', manual: 'Manual' };
 
-export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, audios = [], abierta, onCerrar }) {
+export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, audios = [], formularios = [], abierta, onCerrar }) {
   const supabase = createClient();
   const router = useRouter();
   const [contacto, setContacto] = useState(conversacion.contacto);
@@ -219,6 +220,8 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
         <textarea rows={4} defaultValue={contacto.notas ?? ''} placeholder="Notas internas (el lead no las ve)"
           onBlur={(e) => e.target.value !== (contacto.notas ?? '') && guardar({ notas: e.target.value || null })} />
       </label>
+
+      <AuditoriaMedica conversacion={conversacion} formularios={formularios} />
 
       <Cotizacion key={JSON.stringify(contacto.cotizacion?.sueldos ?? [])} conversacionId={conversacion.id} contacto={contacto} lista={lista} audios={audios}
         onContacto={(campos) => setContacto((c) => ({ ...c, ...campos }))} />
