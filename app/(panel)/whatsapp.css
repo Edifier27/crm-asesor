@@ -462,3 +462,8 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 .grabado-listo audio { flex: 1; min-width: 240px; }
 .guion { background: var(--wa-saliente); border-radius: 8px; padding: 8px 10px; font-size: 14px; line-height: 1.45; }
 .pedidos-audio { border: 2px solid var(--wa-verde); }
+
+/* Cotizador: el plan elegido se marca con un tilde (se elige tocándolo) */
+.plan { position: relative; }
+.plan.elegido { border-color: var(--acento); box-shadow: 0 0 0 1px var(--acento); background: var(--wa-saliente); }
+.plan-tilde { position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border-radius: 50%; background: var(--acento); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }

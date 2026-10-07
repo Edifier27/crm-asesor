@@ -123,6 +123,17 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
   );
   const region = regionSugerida(zona, contacto.relevamiento?.localidad, provincia);
   const planDocsActivo = planDocs ?? resultados[0]?.plan ?? null;
+  // Tocar un plan lo suma a la cotización (y muestra su folleto, cartilla y audio); tocarlo de nuevo lo saca
+  function alternarPlan(plan) {
+    if (elegidos.includes(plan)) {
+      const resto = elegidos.filter((p) => p !== plan);
+      setElegidos(resto);
+      if (planDocs === plan) setPlanDocs(resto.at(-1) ?? null);
+    } else {
+      setElegidos([...elegidos, plan]);
+      setPlanDocs(plan);
+    }
+  }
 
   // Última vez que se envió cada plan (cotización o folleto)
   const ultimoEnvio = useMemo(() => {
@@ -346,17 +357,15 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
             const elegido = elegidos.includes(r.plan);
             return (
               <article key={r.plan} className={`plan${elegido ? ' elegido' : ''}${planDocsActivo === r.plan ? ' con-detalle' : ''}`}
-                onClick={(e) => { if (!e.target.closest('button, label, input')) setPlanDocs(r.plan); }}>
+                role="button" tabIndex={0} aria-pressed={elegido} title={elegido ? 'Tocá para sacarlo de la cotización' : 'Tocá para sumarlo a la cotización'}
+                onClick={(e) => { if (!e.target.closest('button, label, input')) alternarPlan(r.plan); }}
+                onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); alternarPlan(r.plan); } }}>
+                {elegido && <span className="plan-tilde" aria-hidden="true">✓</span>}
                 <span className="plan-nombre">{r.plan}</span>
                 {ultimoEnvio[r.plan] && <span className="plan-enviado">Enviado {cuando(ultimoEnvio[r.plan])}</span>}
                 {r.lista !== r.conDescuento && <span className="plan-lista">{pesos(r.lista)}</span>}
                 {r.aporte > 0 && <span className="plan-desc">Aporte −{pesos(r.aporte)}</span>}
                 <span className="plan-final">{pesos(r.final)}<small> /mes</small></span>
-                <label className="check">
-                  <input type="checkbox" checked={elegido}
-                    onChange={(e) => setElegidos(e.target.checked ? [...elegidos, r.plan] : elegidos.filter((p) => p !== r.plan))} />
-                  Incluir
-                </label>
                 <button type="button" className={`plan-docs${desplegado === r.plan ? ' activo' : ''}`} aria-expanded={desplegado === r.plan}
                   onClick={() => { setDesplegado(desplegado === r.plan ? null : r.plan); setPlanDocs(r.plan); }}>
                   {desplegado === r.plan ? 'Ocultar cotización' : 'Ver cotización'}
