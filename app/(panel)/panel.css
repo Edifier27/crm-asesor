@@ -279,10 +279,15 @@
 @media (max-width: 1180px) {
   .boton-ficha, .boton-cerrar-ficha { display: flex; align-items: center; }
   .ficha {
-    position: fixed; top: 0; right: 0; bottom: 0; width: min(360px, 100vw); z-index: 20;
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(var(--ancho-ficha, 360px), 100vw); z-index: 20;
     box-shadow: -8px 0 24px #0000001f; transform: translateX(100%); transition: transform 0.2s ease; visibility: hidden;
   }
   .ficha.abierta { transform: none; visibility: visible; }
+}
+/* Tablet: con la ficha abierta encima del chat, su borde izquierdo también se arrastra (en el celular no: ocupa toda la pantalla) */
+@media (min-width: 761px) and (max-width: 1180px) {
+  .ficha-borde:has(+ .ficha.abierta) { display: block; position: fixed; top: 0; bottom: 0; right: min(var(--ancho-ficha, 360px), 100vw); width: 0; z-index: 21; }
+  .ficha-borde:has(+ .ficha.abierta)::before { content: ''; position: absolute; top: 0; bottom: 0; left: -5px; width: 10px; cursor: col-resize; touch-action: none; }
 }
 
 /* Celular: una columna por vez */
@@ -486,10 +491,17 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 /* Panel en vivo */
 .velo { position: fixed; inset: 0; background: #11302C33; z-index: 30; }
 .en-vivo-panel {
-  position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 100vw); z-index: 31; background: var(--chat-fondo);
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(var(--ancho-envivo, 460px), 100vw); z-index: 31; background: var(--chat-fondo);
   display: flex; flex-direction: column; box-shadow: -10px 0 30px #0000002a; animation: entrar 0.18s ease-out;
 }
 @keyframes entrar { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+/* Borde arrastrable de un panel (componente BordeAjustable): en el celular no hace falta, los paneles ocupan la pantalla */
+.borde-ajustable { position: absolute; top: 0; bottom: 0; width: 10px; cursor: col-resize; touch-action: none; z-index: 6; }
+.borde-ajustable.izquierdo { left: -5px; }
+.borde-ajustable.derecho { right: -5px; }
+.borde-ajustable::after { content: ''; position: absolute; top: 0; bottom: 0; left: 4px; width: 2px; background: transparent; transition: background 0.15s; }
+.borde-ajustable:hover::after, .borde-ajustable:active::after { background: var(--acento); }
+@media (max-width: 760px) { .borde-ajustable { display: none; } }
 .en-vivo-cabecera { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #fff; border-bottom: 1px solid var(--linea); }
 .en-vivo-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; background: #fff; border-bottom: 1px solid var(--linea); }
 .en-vivo-acciones select { margin-left: auto; font: inherit; font-size: 13px; padding: 7px 9px; border: 1px solid var(--borde); border-radius: 8px; background: #fff; }

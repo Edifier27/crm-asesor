@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { SELECT_MENSAJE } from '@/lib/consultas';
 import { colorAvatar, cuandoSeguimiento, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo, ultimoDelCliente } from '@/lib/formato';
 import Burbuja from '../componentes/Burbuja';
+import BordeAjustable from '../componentes/BordeAjustable';
 import Simulador from '../bandeja/[id]/Simulador';
 
 const escribiendo = (desde) => Boolean(desde) && Date.now() - new Date(desde) < 120_000;
@@ -58,6 +59,8 @@ export default function EnVivo({ conversacion, etapas, onEtapa, onCerrar }) {
     <>
       <div className="velo" onClick={onCerrar} aria-hidden="true" />
       <aside className="en-vivo-panel" aria-label={`Conversación con ${nombreVisible(contacto)}`}>
+        {/* El panel se agranda o se achica arrastrando su borde izquierdo */}
+        <BordeAjustable variable="--ancho-envivo" clave="envivo-ancho" min={340} max={900} />
         <header className="en-vivo-cabecera">
           <span className="avatar avatar-chico" style={colorAvatar(contacto.telefono)}>{iniciales(contacto)}</span>
           <div className="conv-quien">
