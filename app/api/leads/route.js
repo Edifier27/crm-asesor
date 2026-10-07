@@ -66,7 +66,7 @@ export async function POST(request) {
     if (datos.redirigir && /^https?:\/\//.test(datos.redirigir) && !tipo.includes('application/json')) {
       return Response.redirect(datos.redirigir, 303);
     }
-    return json({ ok: true, nuevo: r.nuevo }, 200, headers);
+    return json({ ok: true, nuevo: r.nuevo, ...(r.telefonoARevisar ? { telefonoARevisar: true } : {}) }, 200, headers);
   } catch (e) {
     console.error('leads_ingreso', e);
     return json({ error: e.message }, 422, headers);

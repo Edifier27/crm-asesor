@@ -318,7 +318,9 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
         <span className="avatar" style={colorAvatar(contacto.telefono)}>{iniciales(contacto)}</span>
         <div className="conv-quien">
           <span className="conv-nombre">{nombreVisible(contacto)}</span>
-          <span className="conv-detalle"><a className="conv-telefono" href={`tel:+${contacto.telefono}`} title="Llamar">{telefonoLindo(contacto.telefono)}</a><span className="conv-origen"> · {ORIGENES[contacto.origen]}{contacto.origen_detalle ? ` (${contacto.origen_detalle})` : ''}</span></span>
+          <span className="conv-detalle">{contacto.telefono
+            ? <a className="conv-telefono" href={`tel:+${contacto.telefono}`} title="Llamar">{telefonoLindo(contacto.telefono)}</a>
+            : <span className="conv-telefono-revisar" title="Corregilo en la ficha para poder escribirle">⚠️ Teléfono a revisar</span>}<span className="conv-origen"> · {ORIGENES[contacto.origen]}{contacto.origen_detalle ? ` (${contacto.origen_detalle})` : ''}</span></span>
         </div>
         {cliente && (
           <span className={`minutero ${cliente.nivel}`} title="Último mensaje del cliente">
@@ -363,7 +365,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
         </button>
       )}
 
-      {contacto.telefono.startsWith('54900000000') && <Simulador conversacionId={conversacion.id} />}
+      {contacto.telefono?.startsWith('54900000000') && <Simulador conversacionId={conversacion.id} />}
       {avisoAccion && <p className="aviso-error" role="alert">{avisoAccion}</p>}
       <Redactor conversacion={conversacion} ventanaAbierta={v.abierta} audios={audios} formularios={formularios} plantillas={plantillas} modoPrueba={modoPrueba}
         respondiendo={respondiendo} corrigiendo={corrigiendo} onLimpiar={() => { setRespondiendo(null); setCorrigiendo(null); }}

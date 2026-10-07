@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { corregirTelefono } from './acciones';
 import { COLORES_ETIQUETA, MOTIVOS_PERDIDA, colorEtiqueta, cuitLindo, nombreVisible } from '@/lib/formato';
 import Cotizacion from './Cotizacion';
 import ProximoPaso from './ProximoPaso';
@@ -12,6 +14,7 @@ const ORIGENES = { swiss_medical: 'Swiss Medical', web: 'Web', whatsapp: 'WhatsA
 
 export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, audios = [], abierta, onCerrar }) {
   const supabase = createClient();
+  const router = useRouter();
   const [contacto, setContacto] = useState(conversacion.contacto);
   const [etiquetas, setEtiquetas] = useState(conversacion.contacto.etiquetas.map((e) => e.etiqueta).filter(Boolean));
   const [catalogo, setCatalogo] = useState(todasEtiquetas);
@@ -179,6 +182,25 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
           return <div key={clave}><dt>{rotulo}</dt><dd>{e.razon_social ?? 'Sin razón social'}{e.cuit ? ` · CUIT ${cuitLindo(e.cuit)}` : ''}</dd></div>;
         })}
       </dl>
+
+      {!contacto.telefono && (
+        <form className="campo telefono-a-revisar" onSubmit={async (ev) => {
+          ev.preventDefault();
+          const r = await corregirTelefono(contacto.id, ev.currentTarget.elements.telefono.value);
+          if (r.error) return avisar(r.error);
+          setContacto((c) => ({ ...c, telefono: r.telefono }));
+          if (r.etiquetaQuitada) setEtiquetas((l) => l.filter((e) => e.id !== r.etiquetaQuitada));
+          avisar('Teléfono corregido');
+          router.refresh();
+        }}>
+          <span>Teléfono a revisar</span>
+          <small>Llegó así: “{contacto.telefono_original || 'sin dato'}”. Corregilo para poder escribirle.</small>
+          <div className="telefono-corregir">
+            <input name="telefono" inputMode="tel" defaultValue={contacto.telefono_original ?? ''} placeholder="Ej. 11 2233-4455" aria-label="Teléfono corregido" />
+            <button type="submit" className="boton-secundario">Corregir</button>
+          </div>
+        </form>
+      )}
 
       <label className="campo">
         <span>Email</span>

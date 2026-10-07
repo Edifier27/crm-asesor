@@ -115,7 +115,7 @@ export default function EnVivo({ conversacion, etapas, onEtapa, onCerrar }) {
           <div ref={fondo} />
         </div>
 
-        {contacto.telefono.startsWith('54900000000') && <Simulador conversacionId={conversacion.id} />}
+        {contacto.telefono?.startsWith('54900000000') && <Simulador conversacionId={conversacion.id} />}
       </aside>
     </>
   );

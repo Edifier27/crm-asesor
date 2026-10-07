@@ -17,6 +17,7 @@ import { BUCKET_CLIENTES, leerDocumento, renombrarMensaje } from '@/lib/document
 import { etiquetaDocumento } from '@/lib/formato';
 import { plantillaPara } from '@/lib/plantillas-uso';
 import { BUCKET_FORMULARIOS, nombreArchivo } from '@/lib/formularios';
+import { analizarTelefono } from '@/lib/telefono';
 
 // Solo se pueden ver/enviar los PDF del catálogo (planes y cartillas)
 const DOCUMENTOS_VALIDOS = new Set([...Object.values(PLANES_PDF).map((p) => p.path), ...CARTILLAS_ARCHIVOS.map((c) => c.path)]);
@@ -56,7 +57,7 @@ export async function simularEntrante(conversacionId, texto) {
   const { data: conv } = await supabase.from('conversaciones')
     .select('id, cuenta, contacto:contactos(telefono, nombre)').eq('id', conversacionId).maybeSingle();
   if (!conv) return { error: 'No tenés acceso a esta conversación.' };
-  if (!conv.contacto.telefono.startsWith(TELEFONO_DEMO)) return { error: 'El simulador solo funciona con contactos de demo.' };
+  if (!conv.contacto.telefono?.startsWith(TELEFONO_DEMO)) return { error: 'El simulador solo funciona con contactos de demo.' };
   if (!texto?.trim()) return { error: 'Escribí el mensaje del lead.' };
 
   const admin = createAdminClient();
@@ -342,4 +343,36 @@ export async function releerDocumento(id) {
   await leerDocumento(id);
   const { data: doc } = await createAdminClient().from('documentos_cliente').select('*').eq('id', id).single();
   return { ok: true, doc };
+}
+
+/**
+ * Corrige el teléfono de un lead que entró "a revisar": se normaliza, se chequea que no esté repetido en la
+ * cuenta y recién ahí se le puede escribir. Sirve también para cambiar el teléfono de cualquier contacto.
+ */
+export async function corregirTelefono(contactoId, valor) {
+  const supabase = await createClient();
+  const user = await usuarioActual(supabase);
+  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  const r = analizarTelefono(valor);
+  if (r.estado !== 'ok') return { error: `Ese teléfono no sirve (${r.motivo}). Escribilo con código de área, por ejemplo 11 2233-4455.` };
+
+  // RLS: solo encuentra el contacto si es de la cuenta de quien corrige
+  const { data: contacto } = await supabase.from('contactos').select('id, cuenta, telefono').eq('id', contactoId).maybeSingle();
+  if (!contacto) return { error: 'Contacto inexistente.' };
+  if (contacto.telefono === r.telefono) return { ok: true, telefono: r.telefono };
+  const { data: otro } = await supabase.from('contactos').select('id, nombre').eq('cuenta', contacto.cuenta).eq('telefono', r.telefono).neq('id', contactoId).maybeSingle();
+  if (otro) return { error: `Ese teléfono ya es de otro contacto${otro.nombre ? ` (${otro.nombre})` : ''}.` };
+
+  const { error } = await supabase.from('contactos').update({ telefono: r.telefono }).eq('id', contactoId);
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+
+  const admin = createAdminClient();
+  const { data: tag } = await admin.from('etiquetas').select('id').eq('cuenta', contacto.cuenta).eq('nombre', 'Teléfono a revisar').maybeSingle();
+  if (tag) await admin.from('contacto_etiquetas').delete().match({ contacto_id: contactoId, etiqueta_id: tag.id });
+  const { data: conv } = await admin.from('conversaciones').select('id').eq('contacto_id', contactoId).maybeSingle();
+  if (conv) {
+    await admin.from('mensajes').insert({ conversacion_id: conv.id, direccion: 'saliente', autor: 'sistema', tipo: 'texto', estado: 'enviado',
+      texto: `Teléfono corregido: ${r.telefono}. Ya se le puede escribir.` });
+  }
+  return { ok: true, telefono: r.telefono, etiquetaQuitada: tag?.id ?? null };
 }
