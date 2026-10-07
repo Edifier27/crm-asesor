@@ -13,7 +13,7 @@ const costo = (e) =>
 
 const RESULTADOS = { respondio: 'Respondió', paso_a_humano: 'Pasó a humano', sin_accion: 'Sin acción', error: 'Error', omitida: 'Omitida' };
 
-export default function PanelAsesor({ config: configInicial, conocimientoInicial, ejecuciones, tieneClave, plantillas, aprendizajes }) {
+export default function PanelAsesor({ config: configInicial, conocimientoInicial, ejecuciones, tieneClave, plantillas, aprendizajes, miPerfil }) {
   const supabase = createClient();
   const [config, setConfig] = useState(configInicial ?? { activo: true, instrucciones: '', firma: '' });
   const [conocimiento, setConocimiento] = useState(conocimientoInicial);
@@ -98,9 +98,14 @@ export default function PanelAsesor({ config: configInicial, conocimientoInicial
             ? 'Copiloto: la IA no conversa. Ordena la ficha, te deja la tarea con un consejo y manda solo plantillas aprobadas a quien no responde.'
             : 'Automático: la IA asesora y conversa con los leads.'}</span>
         </div>
-        <label className="campo"><span>Cómo se presenta</span>
-          <input defaultValue={config.firma ?? ''} placeholder="tu asesor de Swiss Medical"
-            onBlur={(e) => e.target.value !== (config.firma ?? '') && guardarConfig({ firma: e.target.value })} /></label>
+        <label className="campo"><span>Cómo te presentás (tu firma: la usa la IA en tus chats)</span>
+          <input defaultValue={miPerfil?.firma ?? config.firma ?? ''} placeholder="Ej.: Gabriela, asesora de Swiss Medical"
+            onBlur={async (e) => {
+              // La firma es de cada asesor (la tuya en tus chats, la de Gaby en los de ella)
+              if (!miPerfil?.id || e.target.value === (miPerfil?.firma ?? '')) return;
+              const { error } = await supabase.from('perfiles').update({ firma: e.target.value.trim() || null }).eq('id', miPerfil.id);
+              if (error) alert('No se pudo guardar: ' + error.message);
+            }} /></label>
         <label className="campo"><span>Indicaciones extra (tono, cosas a evitar, prioridades)</span>
           <textarea rows={4} defaultValue={config.instrucciones ?? ''} placeholder="Ej.: si preguntan por planes sin copago, mencioná que hay opciones y pasá a humano."
             onBlur={(e) => e.target.value !== (config.instrucciones ?? '') && guardarConfig({ instrucciones: e.target.value })} /></label>

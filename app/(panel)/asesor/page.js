@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, usuarioActual } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import PanelAsesor from './PanelAsesor';
 import Plantillas from './Plantillas';
@@ -13,7 +13,17 @@ export default async function AsesorPage() {
   const supabase = await createClient();
   // Conexiones de Meta (cuentas de WhatsApp de otros portfolios, ej. GABY): cada una tiene sus plantillas
   const { data: numeros } = await createAdminClient().from('numeros_whatsapp').select('conexion');
-  const conexiones = [...new Set((numeros ?? []).map((n) => n.conexion).filter(Boolean))];
+  const todasConexiones = [...new Set((numeros ?? []).map((n) => n.conexion).filter(Boolean))];
+  // Quién mira: su perfil (firma) y la cuenta de WhatsApp de su número. El administrador puede ver las plantillas de todas.
+  const user = await usuarioActual(supabase);
+  const [{ data: miPerfil }, { data: miNumero }] = await Promise.all([
+    supabase.from('perfiles').select('*').eq('id', user.id).maybeSingle(),
+    supabase.from('numeros_whatsapp').select('conexion').maybeSingle()
+  ]);
+  const esAdmin = miPerfil?.rol === 'admin';
+  const miConexion = miNumero?.conexion ?? null;
+  // Cada asesor ve y maneja solo las plantillas de su cuenta de WhatsApp (Darío las suyas, Gaby las suyas)
+  const conexiones = [];
   const [{ data: config }, { data: conocimiento }, { data: ejecuciones }, { data: plantillas }, { data: respuestas }, { data: aprendizajes }, { data: corrida }] = await Promise.all([
     supabase.from('asesor_config').select('*').maybeSingle(),
     supabase.from('conocimiento').select('*').order('titulo'),
@@ -29,6 +39,8 @@ export default async function AsesorPage() {
     <PanelAsesor config={config} conocimientoInicial={conocimiento ?? []} ejecuciones={ejecuciones ?? []}
       tieneClave={Boolean(process.env.ANTHROPIC_API_KEY)}
       aprendizajes={<Aprendizajes inicial={aprendizajes ?? []} ultimaCorrida={corrida} />}
-      plantillas={<><Plantillas inicial={plantillas ?? []} usosIniciales={config?.plantillas_uso ?? {}} conexiones={conexiones} /><RespuestasRapidas inicial={respuestas ?? []} /></>} />
+      miPerfil={miPerfil ? { id: miPerfil.id, firma: miPerfil.firma ?? null } : null}
+      plantillas={<><Plantillas inicial={(plantillas ?? []).filter((p) => (p.conexion ?? null) === miConexion)}
+        usosIniciales={config?.plantillas_uso ?? {}} conexiones={conexiones} miConexion={miConexion} /><RespuestasRapidas inicial={respuestas ?? []} /></>} />
   );
 }

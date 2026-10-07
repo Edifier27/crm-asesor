@@ -35,9 +35,12 @@ const estadoDe = (p) => ESTADOS[p.estado_meta] ?? { rotulo: 'No enviada a Meta',
 // {{1}} = primer nombre del contacto.
 const nombreCuenta = (c) => (c ? (c === 'GABY' ? 'Gaby' : c) : 'Darío');
 
-export default function Plantillas({ inicial, usosIniciales, conexiones = [] }) {
+export default function Plantillas({ inicial, usosIniciales, conexiones = [], miConexion = null }) {
   const supabase = createClient();
   const [plantillas, setPlantillas] = useState(inicial);
+  // Cada cuenta de WhatsApp tiene sus plantillas: se ven las de una cuenta por vez (el administrador elige cuál)
+  const [verCuenta, setVerCuenta] = useState(miConexion ?? '');
+  const deLaCuenta = plantillas.filter((p) => (p.conexion ?? '') === verCuenta);
   const [usos, setUsos] = useState(usosIniciales ?? {});
   const [editando, setEditando] = useState(null); // id | 'nueva' | null
   const [borrador, setBorrador] = useState({ nombre: '', cuerpo: '' });
@@ -76,7 +79,8 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [] }) 
       cuerpo: f.cuerpo.value.trim(),
       uso: f.uso.value.trim() || null,
       botones: f.botones.value.split('\n').map((x) => x.trim()).filter(Boolean),
-      ...(f.conexion ? { conexion: f.conexion.value || null } : {})
+      // La plantilla es de la cuenta de quien la crea
+      ...(id === 'nueva' ? { conexion: f.conexion ? (f.conexion.value || null) : (miConexion ?? null) } : {})
     };
     const malos = problemasPlantilla(datos);
     if (malos.length) return setAviso(malos.join(' '));
@@ -114,7 +118,7 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [] }) 
   }
 
   // Resumen de estados
-  const cuenta = (fn) => plantillas.filter(fn).length;
+  const cuenta = (fn) => deLaCuenta.filter(fn).length;
   const resumen = [
     ['ok', `✓ ${cuenta((p) => p.estado_meta === 'APPROVED')} aprobadas`],
     ['espera', `⏳ ${cuenta((p) => ['PENDING', 'IN_APPEAL'].includes(p.estado_meta))} en revisión`],
@@ -135,7 +139,7 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [] }) 
       </div>
       {conexiones.length > 0 && (
         <label className="campo"><span>Cuenta de WhatsApp (cada asesor manda solo las de su cuenta)</span>
-          <select name="conexion" defaultValue={p?.conexion ?? ''}>
+          <select name="conexion" defaultValue={p?.conexion ?? verCuenta}>
             <option value="">Darío</option>
             {conexiones.map((c) => <option key={c} value={c}>{nombreCuenta(c)}</option>)}
           </select>
@@ -165,7 +169,7 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [] }) 
     </form>
   );
 
-  const opciones = plantillas.map((p) => (
+  const opciones = deLaCuenta.map((p) => (
     <option key={p.id} value={p.nombre}>{p.nombre}{p.estado_meta === 'APPROVED' ? '' : ` (${estadoDe(p).rotulo.toLowerCase()})`}</option>
   ));
 
@@ -174,6 +178,16 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [] }) 
       <section className="tarjeta form-audio">
         <div className="selector-cabecera">
           <h2>Plantillas de WhatsApp</h2>
+          {conexiones.length > 0 && (
+            <div className="pp-atajos" role="radiogroup" aria-label="Cuenta de WhatsApp">
+              {['', ...conexiones].map((c) => (
+                <button key={c || 'dario'} type="button" role="radio" aria-checked={verCuenta === c}
+                  className={`chip-filtro${verCuenta === c ? ' activo' : ''}`} onClick={() => setVerCuenta(c)}>
+                  Cuenta de {nombreCuenta(c || null)}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="acciones">
             <button type="button" className="boton-secundario" disabled={ocupado} onClick={traer}>{ocupado ? 'Un momento…' : '↻ Traer plantillas de Meta'}</button>
             {editando !== 'nueva' && <button type="button" className="boton-primario" onClick={() => abrirEditor(null)}>+ Nueva plantilla</button>}
@@ -189,7 +203,7 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [] }) 
         {aviso && <p className="pp-aviso">{aviso}</p>}
         {editando === 'nueva' && formulario(null)}
         <ul className="lista-audios">
-          {plantillas.map((p) => {
+          {deLaCuenta.map((p) => {
             const e = estadoDe(p);
             return (
               <li key={p.id} className={`audio${p.activa ? '' : ' inactivo'}`}>
@@ -224,6 +238,8 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [] }) 
         </ul>
       </section>
 
+      {/* Configuración de secuencias y bienvenida: por ahora es de la cuenta principal (Darío) */}
+      {!miConexion && (
       <section className="tarjeta form-audio">
         <h2>Qué plantilla usar para cada cosa</h2>
         <p className="selector-detalle">Si no elegís, se usa la del nombre por defecto. Elegí aprobadas: las demás no salen.</p>
@@ -252,6 +268,7 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [] }) 
           })}
         </div>
       </section>
+      )}
     </>
   );
 }
