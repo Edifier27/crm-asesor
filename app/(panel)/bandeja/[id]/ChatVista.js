@@ -10,7 +10,7 @@ export default function ChatVista({ conversacion, mensajesIniciales, etapas, eti
     <>
       <Conversacion conversacion={conversacion} mensajesIniciales={mensajesIniciales}
         onFicha={() => setFichaAbierta((v) => !v)} audios={audios} formularios={formularios} plantillas={plantillas} modoPrueba={modoPrueba} equipo={equipo} respuestasIniciales={respuestas} />
-      <Ficha conversacion={conversacion} etapas={etapas} todasEtiquetas={etiquetas} lista={lista}
+      <Ficha conversacion={conversacion} etapas={etapas} todasEtiquetas={etiquetas} lista={lista} audios={audios}
         abierta={fichaAbierta} onCerrar={() => setFichaAbierta(false)} />
     </>
   );

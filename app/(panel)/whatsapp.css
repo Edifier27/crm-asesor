@@ -453,3 +453,12 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 .carrusel { cursor: grab; user-select: none; }
 .carrusel.arrastrando { cursor: grabbing; scroll-snap-type: none; }
 .carrusel.arrastrando .plan { pointer-events: none; }
+
+/* Biblioteca de audios: grabador, planes y pedidos de la IA */
+.planes-audio { display: flex; flex-wrap: wrap; gap: 6px; }
+.grabador-biblioteca { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--wa-barra); }
+.grabador-biblioteca .panel-grabacion { flex: 1; }
+.grabado-listo { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.grabado-listo audio { flex: 1; min-width: 240px; }
+.guion { background: var(--wa-saliente); border-radius: 8px; padding: 8px 10px; font-size: 14px; line-height: 1.45; }
+.pedidos-audio { border: 2px solid var(--wa-verde); }

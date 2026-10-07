@@ -10,7 +10,7 @@ import Documentacion from './Documentacion';
 
 const ORIGENES = { swiss_medical: 'Swiss Medical', web: 'Web', whatsapp: 'WhatsApp', manual: 'Manual' };
 
-export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, abierta, onCerrar }) {
+export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, audios = [], abierta, onCerrar }) {
   const supabase = createClient();
   const [contacto, setContacto] = useState(conversacion.contacto);
   const [etiquetas, setEtiquetas] = useState(conversacion.contacto.etiquetas.map((e) => e.etiqueta).filter(Boolean));
@@ -187,7 +187,7 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, abi
           onBlur={(e) => e.target.value !== (contacto.notas ?? '') && guardar({ notas: e.target.value || null })} />
       </label>
 
-      <Cotizacion key={JSON.stringify(contacto.cotizacion?.sueldos ?? [])} conversacionId={conversacion.id} contacto={contacto} lista={lista}
+      <Cotizacion key={JSON.stringify(contacto.cotizacion?.sueldos ?? [])} conversacionId={conversacion.id} contacto={contacto} lista={lista} audios={audios}
         onContacto={(campos) => setContacto((c) => ({ ...c, ...campos }))} />
     </aside>
   );

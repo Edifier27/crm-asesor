@@ -5,8 +5,10 @@ export const metadata = { title: 'Audios · AsesorCRM' };
 
 export default async function AudiosPage() {
   const supabase = await createClient();
-  const { data: audios } = await supabase.from('audios')
-    .select('id, titulo, descripcion, cuando_usar, storage_path, duracion_seg, activo, creado_at')
-    .order('creado_at', { ascending: false });
-  return <Biblioteca inicial={audios ?? []} />;
+  const [{ data: audios }, { data: pedidos }] = await Promise.all([
+    supabase.from('audios').select('*').order('creado_at', { ascending: false }),
+    // Audios que pide la IA (detectados por el modo aprendizaje)
+    supabase.from('audios_pedidos').select('*').eq('estado', 'pendiente').order('creado_at', { ascending: false })
+  ]);
+  return <Biblioteca inicial={audios ?? []} pedidosIniciales={pedidos ?? []} />;
 }

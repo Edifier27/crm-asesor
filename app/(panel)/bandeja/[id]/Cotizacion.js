@@ -3,6 +3,7 @@
 import VisorArchivo from '../../componentes/VisorArchivo';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { zonaPorCaracteristica } from '@/lib/caracteristicas';
+import { audiosDelPlan } from '@/lib/audios-plan';
 import { createClient } from '@/lib/supabase/client';
 import { CAMPANIAS, ZONA_ROTULO, campaniaSugerida, cotizar, ordenarPlanes, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
 import { PROVINCIAS, datosProvincia, provinciaDesdeTexto } from '@/lib/provincias';
@@ -53,10 +54,11 @@ function describirEnvio(e) {
     return `Cotización: ${e.planes.map((p) => `${p.plan} ${pesos(p.final)}`).join(' · ')} (${e.modalidad === 'derivacion' ? 'derivación de aportes' : rotuloCampania(e.campania)})`;
   }
   if (e.tipo === 'plan') return `Folleto del plan ${e.plan} (PDF)`;
+  if (e.tipo === 'audio') return `Audio del plan ${e.plan}: ${e.titulo}`;
   return `Cartilla ${TIERS[e.tier]} · ${REGIONES[e.region]} (plan ${e.plan})`;
 }
 
-export default function Cotizacion({ conversacionId, contacto, onContacto, lista }) {
+export default function Cotizacion({ conversacionId, contacto, onContacto, lista, audios = [] }) {
   const supabase = createClient();
   const guardada = contacto.cotizacion ?? {};
   const [miembros, setMiembros] = useState(() => {
@@ -208,6 +210,27 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
       const r = await enviarDesdeBandeja(conversacionId, { tipo: 'documento', documento: { path: doc.path, nombre: doc.nombre, caption } });
       setAviso(r.error ?? `${entrada.tipo === 'plan' ? 'Plan' : 'Cartilla'} enviado`);
       if (!r.error) await registrar(entrada);
+    });
+  }
+
+  // Audio grabado del plan (Biblioteca de audios): se escucha acá y se manda como nota de voz
+  const escucha = useRef(null);
+  const [sonando, setSonando] = useState(null);
+  async function escuchar(a) {
+    if (sonando === a.id) { escucha.current?.pause(); setSonando(null); return; }
+    escucha.current?.pause();
+    const { data } = await supabase.storage.from('audios').createSignedUrl(a.storage_path, 600);
+    if (!data) return;
+    const el = new Audio(data.signedUrl);
+    el.onended = () => setSonando(null);
+    escucha.current = el; setSonando(a.id); el.play().catch(() => setSonando(null));
+  }
+  function enviarAudio(a, plan) {
+    setAviso('');
+    iniciar(async () => {
+      const r = await enviarDesdeBandeja(conversacionId, { tipo: 'audio', audioId: a.id });
+      setAviso(r.error ?? 'Audio enviado');
+      if (!r.error) await registrar({ tipo: 'audio', plan, titulo: a.titulo });
     });
   }
 
@@ -409,6 +432,18 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
               <span className="selector-detalle">El {planDocsActivo} no se comercializa en esta provincia (S1 y SMG02 son solo AMBA).</span>
             )}
           </div>
+          {audiosDelPlan(audios, planDocsActivo, zona).map((a) => (
+            <div key={a.id} className="doc-fila">
+              <span className="doc-nombre">🎤 {a.titulo}{a.duracion_seg ? ` · ${Math.floor(a.duracion_seg / 60)}:${String(a.duracion_seg % 60).padStart(2, '0')}` : ''}</span>
+              <button type="button" className="boton-secundario" onClick={() => escuchar(a)}>{sonando === a.id ? 'Pausar' : 'Escuchar'}</button>
+              <button type="button" className="boton-primario" disabled={enviando} onClick={() => enviarAudio(a, planDocsActivo)}>Enviar audio</button>
+            </div>
+          ))}
+          {audiosDelPlan(audios, planDocsActivo, zona).length === 0 && (
+            <div className="doc-fila">
+              <span className="selector-detalle">Sin audio para el {planDocsActivo}. <a className="boton-link-texto" href="/audios">Grabalo en la Biblioteca de audios</a> y asignale este plan.</span>
+            </div>
+          )}
         </div>
       )}
 
