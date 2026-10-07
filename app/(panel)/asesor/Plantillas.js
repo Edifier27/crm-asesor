@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { PASOS_SECUENCIA, USOS_PLANTILLA, problemasPlantilla, secuenciaPara } from '@/lib/plantillas-uso';
 import { enviarAMeta, guardarUsos, sincronizarPlantillas } from './acciones';
@@ -17,6 +17,15 @@ const MOTIVOS = {
   INVALID_FORMAT: 'formato inválido', TAG_CONTENT_MISMATCH: 'la categoría no coincide con el texto', ABUSIVE_CONTENT: 'contenido no permitido',
   INCORRECT_CATEGORY: 'categoría incorrecta', PROMOTIONAL: 'es promocional (va como Marketing)', SCAM: 'parece engañosa'
 };
+// Imagen de la plantilla (bucket privado): se pide un link temporal para mostrarla
+function ImagenPlantilla({ path }) {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    createClient().storage.from('plantillas').createSignedUrl(path, 600).then(({ data }) => setUrl(data?.signedUrl ?? null));
+  }, [path]);
+  return url ? <img className="plantilla-imagen" src={url} alt="Imagen de la plantilla" /> : null;
+}
+
 // Botones de respuesta: los del borrador o, si vino de Meta, los de la plantilla aprobada
 const botonesDe = (p) => (p.botones?.length ? p.botones
   : (p.componentes ?? []).find((c) => c.type === 'BUTTONS')?.buttons?.filter((b) => b.type === 'QUICK_REPLY').map((b) => b.text) ?? []);
@@ -68,6 +77,17 @@ export default function Plantillas({ inicial, usosIniciales }) {
     };
     const malos = problemasPlantilla(datos);
     if (malos.length) return setAviso(malos.join(' '));
+    // Imagen arriba del texto (opcional): JPG o PNG hasta 5 MB
+    const imagen = f.imagen?.files?.[0];
+    if (imagen) {
+      if (!['image/jpeg', 'image/png'].includes(imagen.type)) return setAviso('La imagen tiene que ser JPG o PNG.');
+      if (imagen.size > 5 * 1048576) return setAviso('La imagen supera los 5 MB.');
+      const ruta = `${datos.nombre}-${crypto.randomUUID()}.${imagen.type === 'image/png' ? 'png' : 'jpg'}`;
+      const { error: errImg } = await supabase.storage.from('plantillas').upload(ruta, imagen, { contentType: imagen.type });
+      if (errImg) return setAviso(`No se pudo subir la imagen: ${errImg.message}`);
+      datos.imagen_path = ruta;
+      datos.nota = null;
+    }
     const consulta = id === 'nueva'
       ? supabase.from('plantillas').insert(datos).select().single()
       : supabase.from('plantillas').update(datos).eq('id', id).select().single();
@@ -122,6 +142,8 @@ export default function Plantillas({ inicial, usosIniciales }) {
       {problemas.length > 0 && borrador.cuerpo && <ul className="plantilla-problemas">{problemas.map((x) => <li key={x}>{x}</li>)}</ul>}
       <label className="campo"><span>Botones de respuesta (opcional): uno por renglón, hasta 3, máximo 25 letras cada uno</span>
         <textarea name="botones" rows={3} defaultValue={(p?.botones ?? []).join('\n')} placeholder={'Sí, cotizame\nNo, gracias'} /></label>
+      <label className="campo"><span>Imagen arriba del texto (opcional · JPG o PNG, hasta 5 MB){p?.imagen_path ? ' · ya tiene una: elegí otra solo si querés cambiarla' : ''}</span>
+        <input name="imagen" type="file" accept="image/jpeg,image/png" /></label>
       <label className="campo"><span>¿Para qué sirve? (la IA lo usa para elegirla)</span>
         <input name="uso" defaultValue={p?.uso ?? ''} placeholder="Retomar un lead que recibió la cotización y no respondió" /></label>
       {p?.estado_meta === 'APPROVED' && <p className="selector-detalle">Ojo: esta ya está aprobada. Si cambiás el texto acá, en Meta sigue el original. Para otro texto, creá una nueva con otro nombre.</p>}
@@ -166,6 +188,7 @@ export default function Plantillas({ inicial, usosIniciales }) {
                       <strong>{p.nombre}</strong><span className="audio-duracion">{p.idioma} · {p.categoria}</span>
                       <span className={`estado-plantilla ${e.clase}`}>{e.rotulo}{p.motivo_rechazo ? `: ${MOTIVOS[p.motivo_rechazo] ?? p.motivo_rechazo}` : ''}</span>
                       {!p.activa && p.estado_meta === 'APPROVED' && !p.nota && <span className="etiqueta etiqueta-humano">Desactivada en el CRM</span>}
+                      {p.imagen_path && <ImagenPlantilla path={p.imagen_path} />}
                       <p>{p.cuerpo}</p>
                       {botonesDe(p).length > 0 && (
                         <span className="plantilla-botones">{botonesDe(p).map((b) => <span key={b} className="plantilla-boton">{b}</span>)}</span>

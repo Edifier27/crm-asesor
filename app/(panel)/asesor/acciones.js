@@ -2,7 +2,7 @@
 
 import { createClient, usuarioActual } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { crearPlantillaMeta, listarPlantillas } from '@/lib/whatsapp/meta';
+import { crearPlantillaMeta, listarPlantillas, subirEjemploMeta } from '@/lib/whatsapp/meta';
 import { problemasPlantilla } from '@/lib/plantillas-uso';
 import { refrescarDatosEquipo } from '@/lib/datos-equipo';
 
@@ -13,10 +13,12 @@ async function conSesion() {
 }
 
 // Por qué el CRM no puede mandar sola una plantilla de Meta (encabezados con archivo, variables con nombre…)
-function notaDe(t) {
+function notaDe(t, conImagen = false) {
   if (t.parameter_format === 'NAMED') return 'Usa variables con nombre: por ahora mandala desde WhatsApp Manager.';
   const header = t.components?.find((c) => c.type === 'HEADER');
-  if (header && header.format !== 'TEXT') return 'Tiene encabezado con imagen, video o documento: el CRM todavía no la manda sola.';
+  // Con imagen sí la manda, si la imagen está cargada en el CRM (Editar → Imagen)
+  if (header && header.format === 'IMAGE' && !conImagen) return 'Tiene imagen: subila en Editar para que el CRM la pueda mandar.';
+  if (header && !['TEXT', 'IMAGE'].includes(header.format)) return 'Tiene encabezado con video o documento: el CRM todavía no la manda sola.';
   if (header?.text?.includes('{{')) return 'El encabezado tiene una variable: el CRM todavía no la completa.';
   const botones = t.components?.find((c) => c.type === 'BUTTONS')?.buttons ?? [];
   if (botones.some((b) => b.type === 'URL' && b.url?.includes('{{'))) return 'Tiene un botón con link variable: el CRM todavía no lo completa.';
@@ -41,8 +43,10 @@ export async function sincronizarPlantillas() {
 
   const admin = createAdminClient();
   const ahora = new Date().toISOString();
+  const { data: conImagen } = await admin.from('plantillas').select('nombre').not('imagen_path', 'is', null);
+  const tieneImagen = new Set((conImagen ?? []).map((p) => p.nombre));
   const filas = [...porNombre.values()].map((t) => {
-    const nota = notaDe(t);
+    const nota = notaDe(t, tieneImagen.has(t.name));
     return {
       nombre: t.name, idioma: t.language, categoria: String(t.category ?? 'marketing').toLowerCase(),
       cuerpo: t.components?.find((c) => c.type === 'BODY')?.text ?? '',
@@ -84,6 +88,16 @@ export async function enviarAMeta(id) {
     // Botones de respuesta rápida: el cliente contesta con un toque (el texto del botón llega como su mensaje)
     const botones = (p.botones ?? []).filter(Boolean);
     const componentes = [cuerpo, ...(botones.length ? [{ type: 'BUTTONS', buttons: botones.map((text) => ({ type: 'QUICK_REPLY', text })) }] : [])];
+    // Imagen arriba del texto: Meta pide subirla como ejemplo para revisarla
+    if (p.imagen_path) {
+      const { data: archivo, error: errImg } = await createAdminClient().storage.from('plantillas').download(p.imagen_path);
+      if (errImg) return { error: `No se pudo leer la imagen: ${errImg.message}` };
+      const mime = archivo.type || (/\.png$/i.test(p.imagen_path) ? 'image/png' : 'image/jpeg');
+      const handle = await subirEjemploMeta(Buffer.from(await archivo.arrayBuffer()), mime, p.imagen_path.split('/').pop());
+      componentes.unshift({ type: 'HEADER', format: 'IMAGE', example: { header_handle: [handle] } });
+    } else if (/_img$/.test(p.nombre)) {
+      return { error: 'Esta plantilla es la versión con imagen: subí la imagen en Editar antes de enviarla.' };
+    }
     const r = await crearPlantillaMeta({ name: p.nombre, language: p.idioma || 'es_AR', category: (p.categoria || 'marketing').toUpperCase(), components: componentes });
     const cambios = { meta_id: r.id, estado_meta: r.status ?? 'PENDING', motivo_rechazo: null, nota: null, activa: r.status === 'APPROVED', sincronizada_at: new Date().toISOString() };
     await createAdminClient().from('plantillas').update(cambios).eq('id', id);
