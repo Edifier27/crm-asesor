@@ -60,7 +60,8 @@ export async function POST(request) {
   }
 
   try {
-    const r = await ingresarLead({ ...datos, origen: porClave && datos.origen ? datos.origen : 'web' });
+    // Elegir el asesor de destino solo con la clave (desde un formulario público no se puede)
+    const r = await ingresarLead({ ...datos, origen: porClave && datos.origen ? datos.origen : 'web', asesor: porClave ? datos.asesor : undefined });
     // Un <form> común espera una redirección a la página de gracias
     if (datos.redirigir && /^https?:\/\//.test(datos.redirigir) && !tipo.includes('application/json')) {
       return Response.redirect(datos.redirigir, 303);
