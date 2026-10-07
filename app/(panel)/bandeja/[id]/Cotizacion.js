@@ -34,12 +34,18 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
   const [provincia, setProvincia] = useState(() =>
     contacto.relevamiento?.provincia ?? provinciaDesdeTexto(contacto.relevamiento?.localidad) ?? caracteristica?.provincia ?? null);
   const elegidaAMano = useRef(false);
+  const modalidadAMano = useRef(false);
+  const sueldosAMano = useRef(false);
   // Cuando el cliente dice su zona ("CABA", "GBA Sur", "Neuquén") la IA la guarda en la ficha: el precio se actualiza solo
   useEffect(() => {
     const canal = supabase.channel(`cotizador-${contacto.id}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'contactos', filter: `id=eq.${contacto.id}` }, ({ new: c }) => {
         const p = c.relevamiento?.provincia;
         if (p && !elegidaAMano.current) setProvincia(p);
+        // El cliente dijo su sueldo bruto (la IA lo guardó): pasa a derivación con ese sueldo
+        const cot = c.cotizacion ?? {};
+        if (cot.modalidad && !modalidadAMano.current) setModalidad(cot.modalidad);
+        if (Array.isArray(cot.sueldos) && cot.sueldos.length && !sueldosAMano.current) setSueldos(cot.sueldos);
       })
       .subscribe();
     return () => { supabase.removeChannel(canal); };
@@ -222,7 +228,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
           </select>
         </label>
         <label className="campo"><span>Modalidad</span>
-          <select value={modalidad} onChange={(e) => cambiar(setModalidad, 'modalidad')(e.target.value)}>
+          <select value={modalidad} onChange={(e) => { modalidadAMano.current = true; cambiar(setModalidad, 'modalidad')(e.target.value); }}>
             <option value="directo">Directo</option>
             <option value="derivacion">Derivación de aportes</option>
           </select>
@@ -244,7 +250,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
                   onChange={(e) => {
                     const s = [...sueldos];
                     s[i] = e.target.value.replace(/\D/g, '').slice(0, 10);
-                    setSueldos(s); persistir({ sueldos: s });
+                    sueldosAMano.current = true; setSueldos(s); persistir({ sueldos: s });
                   }} />
               </span>
             </label>
