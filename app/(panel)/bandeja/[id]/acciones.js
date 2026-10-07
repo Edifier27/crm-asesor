@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { after } from 'next/server';
 import { createClient, usuarioActual } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { enviarMensaje, numeroDeLaCuenta } from '@/lib/whatsapp/enviar';
+import { enviarMensaje, remitenteDeLaCuenta } from '@/lib/whatsapp/enviar';
 import { enviarReaccion } from '@/lib/whatsapp/meta';
 import { responderComoAsesor } from '@/lib/ia/asesor';
 import { BUCKET_DOCUMENTOS, CARTILLAS_ARCHIVOS, PLANES_PDF } from '@/lib/documentos';
@@ -143,8 +143,8 @@ export async function reaccionar(mensajeId, emoji) {
   const nuevo = actual === emoji ? '' : emoji; // tocar la misma reacción la quita
   try {
     if (msg.wa_message_id && !msg.wa_message_id.startsWith('sim.')) {
-      const desde = await numeroDeLaCuenta(createAdminClient(), msg.conversacion.cuenta);
-      await enviarReaccion({ to: msg.conversacion.contacto.telefono, desde }, msg.wa_message_id, nuevo);
+      const remitente = await remitenteDeLaCuenta(createAdminClient(), msg.conversacion.cuenta);
+      await enviarReaccion({ to: msg.conversacion.contacto.telefono, ...remitente }, msg.wa_message_id, nuevo);
     }
   } catch (e) {
     return { error: e.message };

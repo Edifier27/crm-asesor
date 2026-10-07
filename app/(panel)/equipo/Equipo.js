@@ -67,7 +67,7 @@ export default function Equipo({ miembros: iniciales, yo, uso, saldos: saldosIni
                   ev.preventDefault();
                   const f = new FormData(ev.currentTarget);
                   iniciar(async () => {
-                    const r = await conectarNumero(m.id, { phoneNumberId: f.get('id'), wabaId: f.get('waba') });
+                    const r = await conectarNumero(m.id, { phoneNumberId: f.get('id'), wabaId: f.get('waba'), conexion: f.get('conexion') });
                     if (r.error) return setAviso(r.error);
                     setMiembros((l) => l.map((x) => (x.id === m.id ? { ...x, numero: r.numero } : x)));
                     setConectando(null); setAviso('Número conectado');
@@ -75,6 +75,7 @@ export default function Equipo({ miembros: iniciales, yo, uso, saldos: saldosIni
                 }}>
                   <label className="campo"><span>ID del número de teléfono</span><input name="id" inputMode="numeric" placeholder="Meta → Cuentas de WhatsApp → Números de teléfono" required /></label>
                   <label className="campo"><span>ID de la cuenta de WhatsApp</span><input name="waba" inputMode="numeric" placeholder="Ej. 1046713031637739" required /></label>
+                  <label className="campo"><span>Conexión de Meta (vacío = la tuya; si el número está en otro portfolio, el nombre de su conexión, ej. GABY)</span><input name="conexion" placeholder="GABY" defaultValue={m.numero?.conexion ?? ''} /></label>
                   <button type="submit" className="boton-primario" disabled={ocupado}>Guardar</button>
                 </form>
               )}
@@ -125,6 +126,7 @@ export default function Equipo({ miembros: iniciales, yo, uso, saldos: saldosIni
                   });
                 }}>
                   <label className="campo"><span>Saldo que muestra la consola ahora (US$)</span><input name="saldo" inputMode="decimal" placeholder="Ej. 5.00" required autoFocus /></label>
+                  <label className="campo"><span>Conexión de Meta (vacío = la tuya; si el número está en otro portfolio, el nombre de su conexión, ej. GABY)</span><input name="conexion" placeholder="GABY" defaultValue={m.numero?.conexion ?? ''} /></label>
                   <button type="submit" className="boton-primario" disabled={ocupado}>Guardar</button>
                 </form>
               )}

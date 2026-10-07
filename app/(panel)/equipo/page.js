@@ -16,7 +16,7 @@ export default async function EquipoPage() {
   const [{ data: perfiles }, { data: usuarios }, { data: numeros }] = await Promise.all([
     admin.from('perfiles').select('id, nombre, rol, activo, creado_at').order('creado_at'),
     admin.auth.admin.listUsers({ perPage: 100 }),
-    admin.from('numeros_whatsapp').select('cuenta, phone_number_id, telefono, principal')
+    admin.from('numeros_whatsapp').select('*')
   ]);
   const numeroDe = Object.fromEntries((numeros ?? []).map((n) => [n.cuenta, n]));
   const porId = Object.fromEntries((usuarios?.users ?? []).map((u) => [u.id, u]));

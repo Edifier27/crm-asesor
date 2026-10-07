@@ -3,7 +3,7 @@
 import { headers } from 'next/headers';
 import { createClient, usuarioActual } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { suscribirApp, verificarNumero } from '@/lib/whatsapp/meta';
+import { suscribirApp, tokenDe, verificarNumero } from '@/lib/whatsapp/meta';
 
 async function soyAdmin() {
   const supabase = await createClient();
@@ -58,12 +58,16 @@ export async function reenviarInvitacion(email) {
  * y sus mensajes salen por ese número. El ID es el "Identificador del número de teléfono" de Meta
  * (WhatsApp → Configuración de la API), no el número en sí.
  */
-export async function conectarNumero(perfilId, { phoneNumberId, wabaId }) {
+export async function conectarNumero(perfilId, { phoneNumberId, wabaId, conexion }) {
   if (!(await soyAdmin())) return { error: 'Solo un administrador puede conectar números.' };
   const id = String(phoneNumberId ?? '').trim();
   const waba = String(wabaId ?? '').trim();
   if (!/^\d{10,20}$/.test(id)) return { error: 'El ID del número son solo dígitos (Meta → Cuentas de WhatsApp → Números de teléfono).' };
   if (!/^\d{10,20}$/.test(waba)) return { error: 'El ID de la cuenta de WhatsApp son solo dígitos (Meta → Cuentas de WhatsApp → Identificador).' };
+  // Conexión: vacía = la app y el token de Darío; si el número está en otro portfolio de Meta, su propia app (ej. GABY → WHATSAPP_TOKEN_GABY)
+  const con = String(conexion ?? '').trim().toUpperCase().replace(/[^A-Z0-9_]/g, '') || null;
+  const token = tokenDe(con);
+  if (!token) return { error: `Falta cargar el token de esa conexión en Vercel: WHATSAPP_TOKEN_${con} (y su clave WHATSAPP_APP_SECRET_${con}). Después redesplegá.` };
   const admin = createAdminClient();
   const { data: otro } = await admin.from('numeros_whatsapp').select('cuenta').eq('phone_number_id', id).maybeSingle();
   if (otro && otro.cuenta !== perfilId) return { error: 'Ese número ya está conectado a otra persona.' };
@@ -71,8 +75,8 @@ export async function conectarNumero(perfilId, { phoneNumberId, wabaId }) {
   // Que el número sea de esa cuenta y que el token tenga acceso; y que los mensajes de esa cuenta lleguen al CRM
   let telefono = null;
   try {
-    telefono = await verificarNumero(waba, id);
-    await suscribirApp(waba);
+    telefono = await verificarNumero(waba, id, token);
+    await suscribirApp(waba, token);
   } catch (e) {
     return { error: e.message };
   }
@@ -80,8 +84,8 @@ export async function conectarNumero(perfilId, { phoneNumberId, wabaId }) {
   const { data: actual } = await admin.from('numeros_whatsapp').select('principal').eq('cuenta', perfilId).maybeSingle();
   const principal = actual?.principal ?? false;
   await admin.from('numeros_whatsapp').delete().eq('cuenta', perfilId);
-  const { error } = await admin.from('numeros_whatsapp').insert({ phone_number_id: id, waba_id: waba, cuenta: perfilId, telefono, principal });
-  return error ? { error: error.message } : { ok: true, numero: { phone_number_id: id, waba_id: waba, telefono, principal } };
+  const { error } = await admin.from('numeros_whatsapp').insert({ phone_number_id: id, waba_id: waba, cuenta: perfilId, telefono, principal, conexion: con });
+  return error ? { error: error.message } : { ok: true, numero: { phone_number_id: id, waba_id: waba, telefono, principal, conexion: con } };
 }
 
 /** Saldo que muestra la consola de Claude u OpenAI al cargar crédito: desde ahí el CRM descuenta lo que gasta. */

@@ -21,13 +21,15 @@ export async function GET(request) {
 }
 
 // Meta firma el cuerpo crudo con HMAC-SHA256 usando el App Secret (header X-Hub-Signature-256)
+// Puede venir de la app de Darío (WHATSAPP_APP_SECRET) o de la de otra conexión (WHATSAPP_APP_SECRET_GABY…)
 function firmaValida(rawBody, header) {
-  const secret = process.env.WHATSAPP_APP_SECRET;
-  if (!secret || !header?.startsWith('sha256=')) return false;
-  const esperada = crypto.createHmac('sha256', secret).update(rawBody, 'utf8').digest('hex');
+  if (!header?.startsWith('sha256=')) return false;
   const recibida = header.slice('sha256='.length);
-  if (recibida.length !== esperada.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(recibida, 'hex'), Buffer.from(esperada, 'hex'));
+  const secretos = Object.entries(process.env).filter(([k, v]) => v && (k === 'WHATSAPP_APP_SECRET' || k.startsWith('WHATSAPP_APP_SECRET_'))).map(([, v]) => v);
+  return secretos.some((secret) => {
+    const esperada = crypto.createHmac('sha256', secret).update(rawBody, 'utf8').digest('hex');
+    return recibida.length === esperada.length && crypto.timingSafeEqual(Buffer.from(recibida, 'hex'), Buffer.from(esperada, 'hex'));
+  });
 }
 
 export async function POST(request) {
