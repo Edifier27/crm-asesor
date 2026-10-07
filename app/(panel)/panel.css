@@ -100,6 +100,10 @@
 .tiron.actualizando .tiron-giro { animation: girar 0.7s linear infinite; }
 @keyframes girar { to { transform: rotate(360deg); } }
 .cargando-tarjeta { display: flex; flex-direction: column; gap: 12px; }
+/* Cartelito "hay una versión nueva": abajo al centro, por encima de todo */
+.version-nueva { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 95; display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; border-radius: 999px; background: #11302C; color: #fff; font-size: 13px; font-weight: 600; box-shadow: 0 8px 24px #00000040; white-space: nowrap; }
+.version-nueva button { border: 0; border-radius: 999px; background: #fff; color: #11302C; font: inherit; font-weight: 700; padding: 6px 14px; cursor: pointer; }
+@media (max-width: 760px) { .version-nueva { bottom: 78px; } }
 .chat {
   display: flex; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--linea-suave);
   text-decoration: none; color: inherit;
