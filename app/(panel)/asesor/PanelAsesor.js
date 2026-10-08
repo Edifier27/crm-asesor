@@ -13,7 +13,7 @@ const costo = (e) =>
 
 const RESULTADOS = { respondio: 'Respondió', paso_a_humano: 'Pasó a humano', sin_accion: 'Sin acción', error: 'Error', omitida: 'Omitida' };
 
-export default function PanelAsesor({ config: configInicial, conocimientoInicial, ejecuciones, tieneClave, plantillas, aprendizajes, miPerfil }) {
+export default function PanelAsesor({ config: configInicial, conocimientoInicial, ejecuciones, tieneClave, plantillas, aprendizajes, miPerfil, esAdmin = false }) {
   const supabase = createClient();
   const [config, setConfig] = useState(configInicial ?? { activo: true, instrucciones: '', firma: '' });
   const [conocimiento, setConocimiento] = useState(conocimientoInicial);
@@ -23,6 +23,8 @@ export default function PanelAsesor({ config: configInicial, conocimientoInicial
   const avisar = (t) => { setAviso(t); setTimeout(() => setAviso(''), 2500); };
 
   async function guardarConfig(campos) {
+    // Esta configuración es una sola para todos los asesores: la cambia el administrador
+    if (!esAdmin) return avisar('Esto vale para todo el equipo: lo cambia el administrador.');
     const nuevo = { ...config, ...campos };
     setConfig(nuevo);
     const { error } = await supabase.from('asesor_config').update({ ...campos, actualizado_at: new Date().toISOString() }).eq('id', true);
@@ -82,14 +84,15 @@ export default function PanelAsesor({ config: configInicial, conocimientoInicial
       <section className="tarjeta form-audio">
         <h2>Funcionamiento</h2>
         <label className="check">
-          <input type="checkbox" checked={config.activo} onChange={(e) => guardarConfig({ activo: e.target.checked })} />
+          <input type="checkbox" checked={config.activo} disabled={!esAdmin} onChange={(e) => guardarConfig({ activo: e.target.checked })} />
           IA activa (si la apagás, ningún chat recibe respuestas automáticas)
         </label>
+        {!esAdmin && <span className="selector-detalle">Esto vale para todo el equipo: lo cambia el administrador.</span>}
         <div className="campo"><span>Qué hace la IA</span>
           <div className="pp-atajos" role="radiogroup" aria-label="Modo de la IA">
             {[['copiloto', 'Copiloto', 'Ordena los datos, te deja tareas y consejos, y solo manda plantillas aprobadas a quien no responde. Cuando el cliente contesta, lo atendés vos.'],
               ['automatico', 'Automático', 'La IA asesora y conversa con los leads por WhatsApp.']].map(([v, r, t]) => (
-              <button key={v} type="button" role="radio" aria-checked={(config.modo_ia ?? 'copiloto') === v} title={t}
+              <button key={v} type="button" role="radio" aria-checked={(config.modo_ia ?? 'copiloto') === v} title={t} disabled={!esAdmin}
                 className={`chip-filtro${(config.modo_ia ?? 'copiloto') === v ? ' activo' : ''}`}
                 onClick={() => (v !== 'automatico' || confirm('¿Pasar a modo automático? La IA va a empezar a conversar con los leads.')) && guardarConfig({ modo_ia: v })}>{r}</button>
             ))}

@@ -15,7 +15,7 @@ import { alVolverDeLaBase } from '@/lib/bases';
 import { alEntrarMensaje, esperarSiEstaEnAuditoria, modoIa, pasarAAuditoriaMedica, programarSecuencia } from '@/lib/secuencias';
 import { BUCKET_CLIENTES, leerDocumento, renombrarMensaje } from '@/lib/documentos-cliente';
 import { etiquetaDocumento } from '@/lib/formato';
-import { plantillaPara } from '@/lib/plantillas-uso';
+import { plantillaPara, usosDe } from '@/lib/plantillas-uso';
 import { BUCKET_FORMULARIOS, nombreArchivo } from '@/lib/formularios';
 import { analizarTelefono } from '@/lib/telefono';
 
@@ -192,7 +192,7 @@ async function contextoVenta(conversacionId) {
   const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
   const { data: conv } = await supabase.from('conversaciones')
-    .select('id, ventana_expira_at, contacto:contactos(id, nombre, venta)').eq('id', conversacionId).maybeSingle();
+    .select('id, cuenta, ventana_expira_at, contacto:contactos(id, nombre, venta)').eq('id', conversacionId).maybeSingle();
   if (!conv) return { error: 'No tenés acceso a esta conversación.' };
   const { data: etapas } = await supabase.from('etapas').select('id, nombre');
   const etapa = (n) => etapas?.find((e) => e.nombre === n)?.id;
@@ -237,9 +237,13 @@ export async function enviarLinkPago(conversacionId, { dni, precarga } = {}) {
     if (ventana(conv.ventana_expira_at).abierta) {
       await enviarMensaje({ conversacionId, tipo: 'texto', texto: mensajeCobro(nombre, link, 1), autor: 'asesor', perfilId: user.id });
     } else {
+      // La plantilla del link de pago es la de la cuenta de WhatsApp del chat (cada asesor elige la suya)
       const { data: config } = await admin.from('asesor_config').select('plantillas_uso').single();
-      const nombrePago = plantillaPara(config?.plantillas_uso, 'link_pago');
-      const { data: plantilla } = await admin.from('plantillas').select('id').eq('nombre', nombrePago).eq('activa', true).maybeSingle();
+      const { conexion } = await remitenteDeLaCuenta(admin, conv.cuenta);
+      const nombrePago = plantillaPara(usosDe(config?.plantillas_uso, conexion), 'link_pago', { sinDefecto: Boolean(conexion) });
+      if (!nombrePago) return { error: 'La ventana de 24 h está cerrada y todavía no elegiste tu plantilla para el link de pago (Asesor IA → Plantillas → Qué plantilla usar para cada cosa).' };
+      const deLaCuenta = admin.from('plantillas').select('id').eq('nombre', nombrePago).eq('activa', true);
+      const { data: plantilla } = await (conexion ? deLaCuenta.eq('conexion', conexion) : deLaCuenta.is('conexion', null)).maybeSingle();
       if (!plantilla) return { error: `La ventana de 24 h está cerrada y la plantilla "${nombrePago}" no está activa (Asesor IA → Plantillas).` };
       await enviarMensaje({ conversacionId, tipo: 'plantilla', plantillaId: plantilla.id, parametrosExtra: [link], autor: 'asesor', perfilId: user.id });
     }

@@ -12,6 +12,16 @@ async function conSesion() {
   return user ? supabase : null;
 }
 
+/** Quién llama: su cuenta de WhatsApp (null = la principal) y si es administrador. Sale de la sesión, no del navegador. */
+async function quienSoy(supabase) {
+  const user = await usuarioActual(supabase);
+  const [{ data: numero }, { data: perfil }] = await Promise.all([
+    supabase.from('numeros_whatsapp').select('conexion').maybeSingle(), // la base solo devuelve el propio
+    supabase.from('perfiles').select('rol, activo').eq('id', user.id).maybeSingle()
+  ]);
+  return { conexion: numero?.conexion ?? null, tieneNumero: Boolean(numero), esAdmin: perfil?.rol === 'admin' && Boolean(perfil?.activo) };
+}
+
 // Por qué el CRM no puede mandar sola una plantilla de Meta (encabezados con archivo, variables con nombre…)
 function notaDe(t, conImagen = false) {
   if (t.parameter_format === 'NAMED') return 'Usa variables con nombre: por ahora mandala desde WhatsApp Manager.';
@@ -40,13 +50,19 @@ const APPS_CONOCIDAS = { GABY: '1679288350283648' }; // id de la app de Meta de 
  * No pisa el "para qué sirve" cargado en el CRM. Cada plantilla queda marcada con la cuenta a la que pertenece.
  */
 export async function sincronizarPlantillas() {
-  if (!(await conSesion())) return { error: 'Tu sesión expiró.' };
+  const supabase = await conSesion();
+  if (!supabase) return { error: 'Tu sesión expiró.' };
   const admin = createAdminClient();
-  const { data: numeros } = await admin.from('numeros_whatsapp').select('conexion');
-  const conexiones = [null, ...new Set((numeros ?? []).map((n) => n.conexion).filter(Boolean))];
+  // Cada uno trae SOLO las plantillas de su cuenta de WhatsApp. Antes el botón traía las de todas las cuentas:
+  // que lo tocara un asesor reactivaba o desactivaba plantillas del otro.
+  const yo = await quienSoy(supabase);
+  if (!yo.tieneNumero && !yo.esAdmin) return { error: 'Todavía no tenés un número de WhatsApp conectado.' };
+  const conexiones = [yo.conexion];
   const ahora = new Date().toISOString();
-  const { data: existentes } = await admin.from('plantillas').select('nombre, conexion, imagen_path');
+  const { data: existentes } = await admin.from('plantillas').select('nombre, conexion, imagen_path, activa, estado_meta, nota');
   const duenio = new Map((existentes ?? []).map((p) => [p.nombre, p.conexion ?? null]));
+  // Las que el asesor apagó a mano ("Desactivada en el CRM") siguen apagadas después de traer
+  const apagadasAMano = new Set((existentes ?? []).filter((p) => p.estado_meta === 'APPROVED' && !p.activa && !p.nota).map((p) => p.nombre));
   const tieneImagen = new Set((existentes ?? []).filter((p) => p.imagen_path).map((p) => p.nombre));
   let traidas = 0;
   const avisos = [];
@@ -74,7 +90,7 @@ export async function sincronizarPlantillas() {
           cuerpo: t.components?.find((c) => c.type === 'BODY')?.text ?? '',
           componentes: t.components ?? null, meta_id: t.id, estado_meta: t.status, conexion,
           motivo_rechazo: t.rejected_reason && t.rejected_reason !== 'NONE' ? t.rejected_reason : null,
-          nota, activa: t.status === 'APPROVED' && !nota, sincronizada_at: ahora
+          nota, activa: t.status === 'APPROVED' && !nota && !apagadasAMano.has(t.name), sincronizada_at: ahora
         };
       });
     if (filas.length) {
@@ -92,7 +108,9 @@ export async function sincronizarPlantillas() {
 
   const { data } = await admin.from('plantillas').select('*').order('nombre');
   refrescarDatosEquipo();
-  return { ok: true, plantillas: data ?? [], traidas, ...(avisos.length ? { aviso: avisos.join(' · ') } : {}) };
+  // Cada asesor ve solo las suyas (el administrador, las de todas las cuentas, como en la pantalla)
+  const visibles = (data ?? []).filter((p) => yo.esAdmin || (p.conexion ?? null) === yo.conexion);
+  return { ok: true, plantillas: visibles, traidas, ...(avisos.length ? { aviso: avisos.join(' · ') } : {}) };
 }
 
 // Ejemplos que Meta exige para cada variable al revisar la plantilla
@@ -104,6 +122,9 @@ export async function enviarAMeta(id) {
   if (!supabase) return { error: 'Tu sesión expiró.' };
   const { data: p } = await supabase.from('plantillas').select('*').eq('id', id).maybeSingle();
   if (!p) return { error: 'Plantilla inexistente.' };
+  // Solo las de la propia cuenta de WhatsApp (el administrador puede con todas)
+  const yo = await quienSoy(supabase);
+  if (!yo.esAdmin && (p.conexion ?? null) !== yo.conexion) return { error: 'Esa plantilla es de la cuenta de otro asesor.' };
   const problemas = problemasPlantilla(p);
   if (problemas.length) return { error: problemas.join(' ') };
 

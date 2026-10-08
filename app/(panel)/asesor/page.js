@@ -40,7 +40,7 @@ export default async function AsesorPage() {
     <PanelAsesor config={config} conocimientoInicial={conocimiento ?? []} ejecuciones={ejecuciones ?? []}
       tieneClave={Boolean(process.env.ANTHROPIC_API_KEY)}
       aprendizajes={<Aprendizajes inicial={aprendizajes ?? []} ultimaCorrida={corrida} />}
-      miPerfil={miPerfil ? { id: miPerfil.id, firma: miPerfil.firma ?? null } : null}
+      miPerfil={miPerfil ? { id: miPerfil.id, firma: miPerfil.firma ?? null } : null} esAdmin={esAdmin}
       plantillas={<><Plantillas inicial={esAdmin ? (plantillas ?? []) : (plantillas ?? []).filter((p) => (p.conexion ?? null) === miConexion)}
         usosIniciales={usosDe(config?.plantillas_uso, miConexion)} conexiones={conexiones} miConexion={miConexion} /><RespuestasRapidas inicial={respuestas ?? []} /></>} />
   );
