@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/revisar-pantallas.mjs && next build",
+    "revisar": "node scripts/revisar-pantallas.mjs",
     "start": "next start",
     "demo": "node scripts/demo.mjs",
     "documentos": "node scripts/subir-documentos.mjs"

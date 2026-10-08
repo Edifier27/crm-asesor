@@ -71,6 +71,25 @@ Nunca commitear secretos.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.
 
+## Para que la pantalla no se cuelgue (reglas de interfaz)
+El 2026-10-08 el CRM quedó "colgado" (no se podía abrir un chat ni cambiar de sección) por un bucle de redibujado en
+`Deslizable`: un `useEffect` sin dependencias ponía un estado-objeto después de cada dibujo. No era de sesiones.
+- Todo `useEffect` lleva lista de dependencias. Si tiene que correr en cada dibujo, la línea de arriba lo explica con
+  `// efecto-en-cada-dibujo: <por qué es seguro>`. Lo controla `scripts/revisar-pantallas.mjs`, que corre dentro de
+  `npm run build` (sin eso no se publica) y a mano con `npm run revisar`.
+- Estado que sale de MEDIR la pantalla (anchos, scroll, si algo desborda): guardar lo último medido en un `useRef` y
+  no llamar al `set…` si no cambió; usar valores sueltos (verdadero/falso, números), no objetos nuevos.
+- `app/Vigia.js` (en el layout raíz) es la red de seguridad: si se toca un enlace interno y a los 8 s la pantalla sigue
+  en el mismo lugar, carga la página de destino entera; y manda a los registros los cuelgues y los errores de JavaScript.
+  No usar `<a>`/`<Link>` con `preventDefault` para otra cosa que navegar (para eso, `<button>`).
+- Ante un "se cuelga": PRIMERO mirar los avisos del navegador, antes de pensar en sesiones o en el servidor:
+  `vercel logs --project crm-asesor --scope forza-projects --environment production --since 1h -q diagnostico`
+  (tipos: `navegacion_trabada`, `redibujado_continuo`, `error`, `error_pantalla`; entran por `/api/diagnostico`).
+- Las rutas `/api/*` quedan fuera del proxy: ahí NO usar el cliente de Supabase para mirar la sesión (puede renovarla
+  o borrar las cookies a destiempo). Para saber de quién es el navegador: `lib/cuenta-cookie.js` (solo lee).
+- Un navegador guarda UNA sesión por dirección (la comparten todas sus pestañas). Dos cuentas a la vez en la misma
+  compu = dos direcciones distintas (o ventana de incógnito).
+
 ## MVP (orden sugerido)
 1. Login (Supabase Auth) y esquema de base: contactos/leads, conversaciones, mensajes, etiquetas,
    etapas del embudo, audios (biblioteca), campañas, origen del lead.

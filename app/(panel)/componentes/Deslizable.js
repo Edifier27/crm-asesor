@@ -43,8 +43,8 @@ export default function Deslizable({ className = '', children }) {
     f.addEventListener('wheel', rueda, { passive: false });
     return () => { observador.disconnect(); f.removeEventListener('wheel', rueda); };
   }, []);
-  // Si cambia lo de adentro (una etiqueta nueva, un contador), se vuelve a medir. Solo mira: medir() no toca el
-  // estado salvo que una flecha tenga que aparecer o desaparecer.
+  // Si cambia lo de adentro (una etiqueta nueva, un contador), se vuelve a medir.
+  // efecto-en-cada-dibujo: medir() solo mira; no toca el estado salvo que una flecha tenga que aparecer o desaparecer
   useEffect(medir);
 
   function alBajar(e) {

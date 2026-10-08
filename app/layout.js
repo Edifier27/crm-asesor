@@ -1,5 +1,6 @@
 import './globals.css';
 import PuenteApp from './PuenteApp';
+import Vigia from './Vigia';
 
 export const metadata = {
   title: 'AsesorCRM',
@@ -9,7 +10,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="es">
-      <body><PuenteApp />{children}</body>
+      <body><PuenteApp /><Vigia />{children}</body>
     </html>
   );
 }

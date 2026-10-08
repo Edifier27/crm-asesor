@@ -100,6 +100,7 @@ export default function ImagenPegada({ pegada, titulo, puedeEnviar, onCerrar, on
   }
   const usar = async (destino) => onUsar(await archivoFinal(), destino);
 
+  // efecto-en-cada-dibujo: solo vuelve a enganchar las teclas (para que vean lo último); no cambia el estado
   useEffect(() => {
     const tecla = (e) => {
       if (e.key === 'Escape') onCerrar();
