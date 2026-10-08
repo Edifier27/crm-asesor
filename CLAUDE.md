@@ -12,6 +12,9 @@ Idioma de la interfaz y del código de negocio: español rioplatense (voseo).
 - Next.js (App Router, JavaScript) desplegado en Vercel.
   - Proyecto Vercel: `crm-asesor`, equipo `forza-projects`, región de funciones `gru1` (San Pablo).
   - Dominio propio: `asesorcrm.com.ar` (desde 2026-10-07). `crm-asesor.vercel.app` sigue funcionando en paralelo.
+  - `gaby.asesorcrm.com.ar` (desde 2026-10-08): la MISMA app en otra dirección, para tener la cuenta de Gaby y la de
+    Darío abiertas a la vez en un mismo navegador (cada dirección guarda su propia sesión). No hay código que dependa
+    de la dirección; para otra cuenta más alcanza con agregar otro subdominio al proyecto en Vercel (los DNS están ahí).
 - Supabase (plan gratuito por ahora; Pro más adelante). El cotizador existente ya usa Supabase.
 - WhatsApp Cloud API oficial de Meta (primero con el número de prueba de Meta; la línea real hoy
   está conectada a Kommo y se migra recién cuando el CRM funcione).
