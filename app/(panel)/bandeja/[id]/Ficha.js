@@ -111,7 +111,8 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
         inicial={{
           seguimiento_at: conversacion.seguimiento_at, seguimiento_motivo: conversacion.seguimiento_motivo, seguimiento_responsable: conversacion.seguimiento_responsable,
           seguimiento_cadencia: conversacion.seguimiento_cadencia, seguimientos_sin_respuesta: conversacion.seguimientos_sin_respuesta,
-          seguimiento_plantillas: conversacion.seguimiento_plantillas, consejo_ia: conversacion.consejo_ia
+          seguimiento_plantillas: conversacion.seguimiento_plantillas, consejo_ia: conversacion.consejo_ia,
+          espera_desde: conversacion.espera_desde, modo: conversacion.modo
         }} />
 
       <Venta key={dniLeido ?? 'sin-dni'} conversacionId={conversacion.id} contacto={contacto} etapas={etapas} dniLeido={dniLeido}

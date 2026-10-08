@@ -495,3 +495,40 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 .plantilla-imagen { display: block; max-width: 240px; max-height: 160px; object-fit: cover; border-radius: 8px; margin: 6px 0; border: 1px solid var(--wa-linea); }
 .grupo-plantillas + .grupo-plantillas { margin-top: 18px; }
 .grupo-titulo { font-size: 14px; letter-spacing: 0.06em; color: var(--wa-verde-oscuro); margin: 14px 0 6px; padding-bottom: 6px; border-bottom: 2px solid var(--wa-linea); }
+
+/* ───────── Bandeja: a quién le debo respuesta (8-oct) ───────── */
+/* Te escribió y no le respondiste: fila azul; pasada la hora, roja. Ya respondido: fila normal con el tilde. */
+.chat-item { position: relative; }
+.chat.espera { background: #EAF2FB; box-shadow: inset 4px 0 0 #2F6FB7; }
+.chat.espera:hover { background: #E0ECF9; }
+.chat.espera.larga { background: #FCEEEC; box-shadow: inset 4px 0 0 #C0392B; }
+.chat.espera.larga:hover { background: #FAE4E1; }
+.chat.espera.activo { background: #D9E7F7; }
+.chat.espera.larga.activo { background: #F7DAD6; }
+.chat.espera .chat-nombre { font-weight: 700; }
+.pildora-espera { flex: 0 0 auto; font-size: 12px; font-weight: 600; white-space: nowrap; padding: 1px 8px; border-radius: 10px; background: #fff; color: #1F5A99; }
+.chat.espera.larga .pildora-espera { color: #A93226; }
+.chat-vos { color: var(--wa-suave); }
+.tarjeta-paso.de-espera { color: #3E4A47; font-weight: 400; }
+/* Flechita de cada chat: marcar como leído / no leído */
+.chat-flecha {
+  position: absolute; top: 8px; right: 6px; z-index: 2; width: 26px; height: 22px; border: 0; padding: 0; border-radius: 6px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; color: var(--wa-suave); background: #fff; opacity: 0;
+  box-shadow: 0 0 0 1px var(--wa-linea);
+}
+.chat-item:hover .chat-flecha, .chat-flecha:focus-visible, .chat-flecha[aria-expanded="true"] { opacity: 1; }
+@media (hover: none) { .chat-flecha { opacity: 0.75; } }
+.lista.achicada .chat-flecha, .lista.achicada .pildora-espera { display: none; }
+.chat-menu { top: 32px; right: 6px; left: auto; }
+.chat-menu.arriba { top: auto; bottom: calc(100% - 6px); }
+/* Menú de un mensaje que está al fondo del chat: se abre hacia arriba */
+.menu-mensaje.arriba { top: auto; bottom: 26px; }
+.menu-mensaje.bajo-mantenido.arriba { top: auto; bottom: calc(100% + 66px); }
+/* Ficha: globitos "que la IA lo retome en…" */
+.pp-globitos { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 4px; }
+.pp-globitos-titulo { font-size: 12px; font-weight: 600; color: var(--wa-suave); margin-right: 2px; }
+.pp-globitos .chip-filtro { padding: 4px 11px; font-size: 13px; border: 0; cursor: pointer; }
+.pp-deshacer { border: 0; background: none; padding: 4px 6px; font: inherit; font-size: 13px; font-weight: 600; color: var(--acento); cursor: pointer; text-decoration: underline; }
+/* Asesor IA: plantillas que propone la IA */
+.propuestas-ia { border: 1px solid #C9DDF3; background: #F4F8FD; border-radius: 12px; padding: 10px 12px; margin-bottom: 14px; }
+.audio.propuesta-ia { background: #fff; }

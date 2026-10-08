@@ -3,6 +3,7 @@
 // Burbuja de mensaje, igual que WhatsApp: colita en el primero del grupo, hora y tildes adentro abajo a la derecha,
 // flechita con menú al pasar el mouse y carita para reaccionar. La usan la bandeja y el panel en vivo del embudo.
 import { useEffect, useRef, useState } from 'react';
+import { abrirHaciaArriba } from './haciaArriba';
 import { createClient } from '@/lib/supabase/client';
 import { hora } from '@/lib/formato';
 import VisorArchivo, { muestraPdf } from './VisorArchivo';
@@ -255,7 +256,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
           </div>
         )}
         {(menu === 'opciones' || menu === 'mantenido') && (
-          <div className={`menu-mensaje${menu === 'mantenido' ? ' bajo-mantenido' : ''}`} role="menu">
+          <div className={`menu-mensaje${menu === 'mantenido' ? ' bajo-mantenido' : ''}`} role="menu" ref={abrirHaciaArriba}>
             <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onResponder(m); }}>Responder</button>
             {menu === 'opciones' && <button type="button" role="menuitem" onClick={() => setMenu('reacciones')}>Reaccionar</button>}
             {m.texto && m.tipo !== 'audio' && <button type="button" role="menuitem" onClick={copiar}>Copiar</button>}

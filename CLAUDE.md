@@ -78,6 +78,15 @@ Nunca commitear secretos.
   uno lee los suyos (los que subió o los que usa algo propio). SIGUEN COMUNES por decisión de Darío: `listas_precios`,
   `campanias`, PDFs de planes (bucket `documentos`) y `etapas`. Con el cliente de servicio SIEMPRE filtrar por la cuenta
   del chat o del lead. La tabla vieja `asesor_config` (una sola fila) quedó sin uso.
+- BANDEJA COMO WHATSAPP (migración 0044, 2026-10-08): orden por mensaje más nuevo. `conversaciones.espera_desde` (la
+  mantiene el trigger `marcar_espera` sobre `mensajes`) marca a quién se le debe respuesta: fila azul, roja pasada 1 h
+  (`tiempoDeEspera`); `ultimo_es_propio` pone "✓ Vos:". Flechita de cada chat: marcar como leído / no leído. En copiloto,
+  al responder el chat QUEDA en la bandeja ("respondido") con seguimiento de la IA a las 24 h; nunca contestó → fuera de
+  la bandeja, 48 h/72 h/5 d; globitos de la ficha (24 h, 48 h, 72 h, 5 días) → sale de la bandeja. En todos, la plantilla
+  la elige la IA entre las aprobadas de la cuenta (`plantillaElegida` en `lib/seguimiento.js`, Haiku en
+  `lib/ia/plantillas.js`); `seguimiento_cadencia` son horas ENTRE envíos (`marcasDe` las muestra acumuladas). Si falta una
+  plantilla, la IA la deja como propuesta (`plantillas.propuesta_ia_at`) en Asesor IA → Plantillas para aprobar. Las
+  secuencias con lista fija (`seguimiento_plantillas`) solo quedan para las que ya estaban en curso.
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.

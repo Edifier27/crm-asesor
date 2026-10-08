@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { PASOS_SECUENCIA, USOS_PLANTILLA, problemasPlantilla, secuenciaPara } from '@/lib/plantillas-uso';
+import { USOS_PLANTILLA, problemasPlantilla } from '@/lib/plantillas-uso';
 import { enviarAMeta, guardarUsos, sincronizarPlantillas } from './acciones';
 
 const ESTADOS = {
@@ -34,6 +34,8 @@ const estadoDe = (p) => ESTADOS[p.estado_meta] ?? { rotulo: 'No enviada a Meta',
 // Plantillas de WhatsApp: se traen de Meta, se crean desde acá y se elige cuál usar para cada cosa.
 // {{1}} = primer nombre del contacto.
 const nombreCuenta = (c) => (c ? (c === 'GABY' ? 'Gaby' : c) : 'Darío');
+// Propuesta de la IA todavía sin revisar: no se mandó a Meta
+const esPropuesta = (p) => Boolean(p.propuesta_ia_at) && !p.meta_id && !p.estado_meta;
 
 export default function Plantillas({ inicial, usosIniciales, conexiones = [], miConexion = null }) {
   const supabase = createClient();
@@ -42,7 +44,9 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [], mi
   const verCuenta = miConexion ?? '';
   const deLaCuenta = plantillas.filter((p) => (p.conexion ?? '') === verCuenta);
   // Bloques por cuenta: el administrador ve todas (su cuenta primero), cada asesor solo la suya
-  const grupos = (conexiones.length ? ['', ...conexiones] : [verCuenta]).map((cuenta) => ({ cuenta, plantillas: plantillas.filter((p) => (p.conexion ?? '') === cuenta) }));
+  const grupos = (conexiones.length ? ['', ...conexiones] : [verCuenta]).map((cuenta) => ({ cuenta, plantillas: plantillas.filter((p) => (p.conexion ?? '') === cuenta && !esPropuesta(p)) }));
+  // Lo que propuso la IA y todavía no revisaste (no está en Meta): va arriba de todo, para aprobar o descartar
+  const propuestas = plantillas.filter((p) => esPropuesta(p) && (p.conexion ?? '') === verCuenta);
   const [usos, setUsos] = useState(usosIniciales ?? {});
   const [editando, setEditando] = useState(null); // id | 'nueva' | null
   const [borrador, setBorrador] = useState({ nombre: '', cuerpo: '' });
@@ -104,6 +108,13 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [], mi
     if (error) return setAviso(`No se pudo guardar: ${error.message}`);
     setPlantillas((l) => (id === 'nueva' ? [...l, data] : l.map((p) => (p.id === id ? data : p))).sort((a, b) => a.nombre.localeCompare(b.nombre)));
     setEditando(null); setAviso('');
+  }
+
+  async function descartar(p) {
+    if (!confirm(`¿Descartar la propuesta "${p.nombre}"?`)) return;
+    const { error } = await supabase.from('plantillas').delete().eq('id', p.id);
+    if (error) return setAviso(`No se pudo descartar: ${error.message}`);
+    setPlantillas((l) => l.filter((x) => x.id !== p.id));
   }
 
   async function alternar(p) {
@@ -194,6 +205,32 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [], mi
         </p>
         {aviso && <p className="pp-aviso">{aviso}</p>}
         {editando === 'nueva' && formulario(null)}
+        {propuestas.length > 0 && (
+          <div className="grupo-plantillas propuestas-ia">
+            <h3 className="grupo-titulo">Propuestas de la IA <span className="selector-detalle">({propuestas.length}) · le faltó una plantilla así para retomar un chat</span></h3>
+            <ul className="lista-audios">
+              {propuestas.map((p) => (
+                <li key={p.id} className="audio propuesta-ia">
+                  {editando === p.id ? formulario(p) : (
+                    <>
+                      <div className="audio-info">
+                        <strong>{p.nombre}</strong><span className="audio-duracion">{p.idioma} · {p.categoria}</span>
+                        <p>{p.cuerpo}</p>
+                        {p.uso && <p className="cuando"><strong>Para:</strong> {p.uso}</p>}
+                        {p.propuesta_motivo && <p className="cuando"><strong>Por qué la propone:</strong> {p.propuesta_motivo}</p>}
+                      </div>
+                      <div className="acciones">
+                        <button type="button" className="boton-primario" disabled={ocupado} onClick={() => aprobar(p)}>Aprobar y mandar a Meta</button>
+                        <button type="button" className="boton-secundario" onClick={() => abrirEditor(p)}>Editar</button>
+                        <button type="button" className="boton-secundario peligro" onClick={() => descartar(p)}>Descartar</button>
+                      </div>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {grupos.map((grupo) => (
           <div key={grupo.cuenta || 'dario'} className="grupo-plantillas">
             {grupos.length > 1 && <h3 className="grupo-titulo">PLANTILLAS {nombreCuenta(grupo.cuenta || null).toUpperCase().replace('DARÍO', 'DARO').replace('GABY', 'GABI')} <span className="selector-detalle">({grupo.plantillas.length})</span></h3>}
@@ -249,21 +286,11 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [], mi
               </select>
             </label>
           ))}
-          {PASOS_SECUENCIA.map((s) => {
-            const defecto = secuenciaPara({}, s.clave).plantillas;
-            return (
-              <fieldset key={s.clave} className="usos-secuencia">
-                <legend>{s.rotulo}</legend>
-                {s.pasos.map((paso, i) => (
-                  <label key={paso} className="campo"><span>{paso}</span>
-                    <select value={usos[s.clave]?.[i] ?? ''} onChange={(ev) => elegirUso(s.clave, ev.target.value, i)}>
-                      <option value="">{miConexion ? 'Sin elegir (ahí termina la secuencia)' : `Por defecto (${defecto[i]})`}</option>{opciones}
-                    </select>
-                  </label>
-                ))}
-              </fieldset>
-            );
-          })}
+          <p className="selector-detalle">
+            Seguimientos: ya no hace falta armar secuencias. A quien no contesta, la IA le manda la plantilla aprobada que
+            mejor encaja con la charla: a las 48 h, 72 h y 5 días si nunca contestó; a las 24 h, 48 h, 72 h y 5 días si le
+            respondiste y no volvió a escribir. Si le falta una plantilla, te deja la propuesta arriba para que la apruebes.
+          </p>
         </div>
       </section>
     </>

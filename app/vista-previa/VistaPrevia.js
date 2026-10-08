@@ -76,9 +76,9 @@ export default function VistaPrevia() {
     ia_pensando_desde: null, resumen_ia: null, contacto
   };
   const lista = [
-    { id: conversacion.id, modo: 'humano', ultimo_mensaje_at: hace(2), ultimo_mensaje_texto: 'Perfecto, ya te armo la cotización 🙌', no_leidos: 0, contacto: { ...contacto, temperatura: 'caliente' } },
-    { id: 'c2', modo: 'humano', ultimo_mensaje_at: hace(15), ultimo_mensaje_texto: 'me pasás los valores?', no_leidos: 2, contacto: { id: 'x', nombre: 'Martín Gómez', telefono: '5491133445566', temperatura: 'tibio', etiquetas: [] } },
-    { id: 'c3', modo: 'humano', ultimo_mensaje_at: hace(300), ultimo_mensaje_texto: '🎤 Audio', no_leidos: 0, seguimiento_responsable: 'asesor', seguimiento_at: hace(10), seguimiento_motivo: 'Volver a contactar: quedó en verlo', contacto: { id: 'y', nombre: 'Carla Ruiz', telefono: '5491144556677', temperatura: 'frio', etiquetas: [] } }
+    { id: conversacion.id, modo: 'humano', ultimo_mensaje_at: hace(2), ultimo_mensaje_texto: 'Perfecto, ya te armo la cotización 🙌', ultimo_es_propio: true, no_leidos: 0, contacto: { ...contacto, temperatura: 'caliente' } },
+    { id: 'c2', modo: 'humano', ultimo_mensaje_at: hace(15), ultimo_mensaje_texto: 'me pasás los valores?', no_leidos: 2, espera_desde: hace(15), contacto: { id: 'x', nombre: 'Martín Gómez', telefono: '5491133445566', temperatura: 'tibio', etiquetas: [] } },
+    { id: 'c3', modo: 'humano', ultimo_mensaje_at: hace(300), ultimo_mensaje_texto: '🎤 Audio', no_leidos: 0, espera_desde: hace(95), seguimiento_responsable: 'asesor', seguimiento_at: hace(10), seguimiento_motivo: 'Volver a contactar: quedó en verlo', contacto: { id: 'y', nombre: 'Carla Ruiz', telefono: '5491144556677', temperatura: 'frio', etiquetas: [] } }
   ];
 
   return (

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { CHAT_CERRADO } from '@/lib/consultas';
-import { TEMPERATURAS, cuandoSeguimiento } from '@/lib/formato';
+import { GLOBITOS, TEMPERATURAS, cuandoSeguimiento, marcasDe } from '@/lib/formato';
 import { ajustarAHorarioHabil } from '@/lib/horario';
 
 // Atajos de un toque (hora local del navegador)
@@ -47,7 +47,8 @@ export default function ProximoPaso({ conversacionId, contactoId, inicial, tempe
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversaciones', filter: `id=eq.${conversacionId}` },
         ({ new: f }) => setPaso({
           seguimiento_at: f.seguimiento_at, seguimiento_motivo: f.seguimiento_motivo, seguimiento_responsable: f.seguimiento_responsable,
-          seguimiento_cadencia: f.seguimiento_cadencia, seguimientos_sin_respuesta: f.seguimientos_sin_respuesta
+          seguimiento_cadencia: f.seguimiento_cadencia, seguimientos_sin_respuesta: f.seguimientos_sin_respuesta,
+          seguimiento_plantillas: f.seguimiento_plantillas, consejo_ia: f.consejo_ia, espera_desde: f.espera_desde, modo: f.modo
         }))
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'contactos', filter: `id=eq.${contactoId}` },
         ({ new: f }) => setTemperatura(f.temperatura))
@@ -93,6 +94,30 @@ export default function ProximoPaso({ conversacionId, contactoId, inicial, tempe
     }
   }
 
+  // Globitos: "que la IA lo retome en 24 h / 48 h / 72 h / 5 días". El chat sale de la bandeja y, en ese plazo, la IA
+  // le manda la plantilla aprobada que mejor encaje (y sigue con los plazos que quedan). Si el cliente escribe antes,
+  // vuelve solo a la bandeja y no sale nada.
+  const [previo, setPrevio] = useState(null); // cómo estaba, para deshacer
+  async function retomar(g) {
+    const { fecha } = ajustarAHorarioHabil(enHoras(g.horas));
+    const cambios = {
+      modo: 'ia', espera_desde: null, seguimiento_responsable: 'ia', seguimiento_at: fecha.toISOString(),
+      seguimiento_cadencia: g.esperas, seguimiento_plantillas: null, seguimientos_sin_respuesta: 0,
+      seguimiento_motivo: `Elegiste ${g.rotulo}: la IA le manda la plantilla que mejor encaje`
+    };
+    setPrevio(Object.fromEntries(Object.keys(cambios).map((k) => [k, paso[k] ?? (k === 'modo' ? 'humano' : k === 'seguimientos_sin_respuesta' ? 0 : null)])));
+    setPaso((p) => ({ ...p, ...cambios })); setEditando(false);
+    const { error } = await supabase.from('conversaciones').update(cambios).eq('id', conversacionId);
+    setAviso(error ? `No se pudo programar: ${error.message}`
+      : `Listo: ${cuandoSeguimiento(fecha.toISOString())?.texto} la IA le manda la plantilla que mejor encaje. Salió de tu bandeja; si contesta, vuelve sola.`);
+  }
+  async function deshacer() {
+    if (!previo) return;
+    const vuelta = previo;
+    setPaso((p) => ({ ...p, ...vuelta })); setPrevio(null); setAviso('');
+    await supabase.from('conversaciones').update(vuelta).eq('id', conversacionId);
+  }
+
   const cuando = cuandoSeguimiento(paso.seguimiento_at);
   const esIA = paso.seguimiento_responsable !== 'asesor';
 
@@ -108,6 +133,19 @@ export default function ProximoPaso({ conversacionId, contactoId, inicial, tempe
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="pp-globitos" role="group" aria-label="Que la IA lo retome">
+        <span className="pp-globitos-titulo">Que la IA lo retome en</span>
+        {GLOBITOS.map((g) => {
+          const elegido = esIA && Boolean(paso.seguimiento_at) && (paso.seguimiento_motivo ?? '').startsWith(`Elegiste ${g.rotulo}:`);
+          return (
+            <button key={g.horas} type="button" className={`chip-filtro${elegido ? ' activo' : ''}`} aria-pressed={elegido}
+              title="Sale de tu bandeja y la IA le manda la plantilla aprobada que mejor encaje. Si contesta, vuelve sola."
+              onClick={() => retomar(g)}>{g.rotulo}</button>
+          );
+        })}
+        {previo && <button type="button" className="pp-deshacer" onClick={deshacer}>Deshacer</button>}
       </div>
 
       {!editando && (
@@ -129,7 +167,7 @@ export default function ProximoPaso({ conversacionId, contactoId, inicial, tempe
           )}
           {esIA && !paso.seguimiento_plantillas?.length && paso.seguimiento_cadencia?.length > 0 && (
             <span className="pp-secuencia">
-              Si no responde: {paso.seguimiento_cadencia.map(textoHoras).join(' → ')}
+              Si no contesta, la IA insiste a las: {marcasDe(paso.seguimiento_cadencia).map(textoHoras).join(' → ')}
               {' · '}intento {Math.min((paso.seguimientos_sin_respuesta ?? 0) + 1, paso.seguimiento_cadencia.length)} de {paso.seguimiento_cadencia.length}
             </span>
           )}
