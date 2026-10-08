@@ -9,14 +9,25 @@ import { useEffect, useRef, useState } from 'react';
 export default function Deslizable({ className = '', children }) {
   const fila = useRef(null);
   const arrastre = useRef(null); // { x, scroll, movido }
-  const [bordes, setBordes] = useState({ izq: false, der: false });
+  // Qué flechas se ven. OJO, esto colgó el CRM entero (8-oct): antes era un solo estado { izq, der } que se volvía a
+  // poner después de CADA dibujo. Si el primer cambio quedaba en espera (React lo deja para "cuando haya tiempo" al
+  // cargar la página), cada dibujo siguiente armaba un objeto nuevo, eso pedía otro dibujo, y así sin fin: la pantalla
+  // se redibujaba cientos de veces por segundo y ningún cambio de pantalla (abrir un chat, ir al Embudo) llegaba a verse.
+  // Ahora: 1) lo último medido se guarda aparte y, si no cambió, NO se toca el estado; 2) son dos valores sueltos
+  // (verdadero/falso), que no cambian de identidad aunque React los recalcule.
+  const [hayIzq, setHayIzq] = useState(false);
+  const [hayDer, setHayDer] = useState(false);
+  const medido = useRef({ izq: false, der: false });
 
   function medir() {
     const f = fila.current;
     if (!f) return;
     const izq = f.scrollLeft > 2;
     const der = f.scrollLeft + f.clientWidth < f.scrollWidth - 2;
-    setBordes((b) => (b.izq === izq && b.der === der ? b : { izq, der }));
+    if (medido.current.izq === izq && medido.current.der === der) return;
+    medido.current = { izq, der };
+    setHayIzq(izq);
+    setHayDer(der);
   }
 
   useEffect(() => {
@@ -32,7 +43,8 @@ export default function Deslizable({ className = '', children }) {
     f.addEventListener('wheel', rueda, { passive: false });
     return () => { observador.disconnect(); f.removeEventListener('wheel', rueda); };
   }, []);
-  // Si cambia lo de adentro (una etiqueta nueva, un contador), se vuelve a medir
+  // Si cambia lo de adentro (una etiqueta nueva, un contador), se vuelve a medir. Solo mira: medir() no toca el
+  // estado salvo que una flecha tenga que aparecer o desaparecer.
   useEffect(medir);
 
   function alBajar(e) {
@@ -60,7 +72,7 @@ export default function Deslizable({ className = '', children }) {
 
   return (
     <div className="deslizable">
-      {bordes.izq && (
+      {hayIzq && (
         <button type="button" className="deslizable-flecha izq" onClick={() => correr(-1)} aria-label="Ver los anteriores" tabIndex={-1}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
         </button>
@@ -70,7 +82,7 @@ export default function Deslizable({ className = '', children }) {
         onClickCapture={(e) => { if (arrastre.current?.movido) { e.preventDefault(); e.stopPropagation(); } }}>
         {children}
       </div>
-      {bordes.der && (
+      {hayDer && (
         <button type="button" className="deslizable-flecha der" onClick={() => correr(1)} aria-label="Ver más" tabIndex={-1}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
         </button>
