@@ -424,7 +424,9 @@ a.pastilla-ia { text-decoration: none; }
 a.pastilla-ia:hover { background: #E2DAFB; }
 .lista-vacia a { color: var(--acento); }
 .boton-link { display: inline-flex; align-items: center; text-decoration: none; }
-.embudo-pagina { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--fondo); }
+/* min-height: 0 es clave en el celular: sin eso la página crecía hasta el alto de la columna más larga, el encabezado
+   quedaba fuera de la pantalla y nada se podía desplazar (parecía colgada) */
+.embudo-pagina { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--fondo); }
 .embudo-cabecera { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 16px 20px 12px; background: #fff; border-bottom: 1px solid var(--linea); }
 .embudo-cabecera h1 { margin: 0; font-size: 22px; }
 .embudo-cabecera p { margin: 2px 0 0; }

@@ -39,15 +39,24 @@ const conPasoLargo = (l) => ({ ...l, seguimiento_at: hace(540), seguimiento_resp
 const LEADS_EJEMPLO = [leadEjemplo(1, 'Carla Ruiz', 1), leadEjemplo(2, 'Martín Sosa', 1), conPasoLargo(leadEjemplo(3, 'Ana Paz', 2, 'humano')), leadEjemplo(4, 'Julián Vera', 3),
   leadEjemplo(5, 'Sol Ibáñez', 6), leadEjemplo(6, 'Pedro Gil', 7, 'humano'), leadEjemplo(7, 'Rocío Luna', 11, 'pausada')];
 
+// /vista-previa?embudo=120 → el tablero con esa cantidad de leads (para probar que no se trabe con una cartera real)
+const muchosLeads = (n) => Array.from({ length: n }, (_, i) => {
+  const l = leadEjemplo(i + 1, `Lead de prueba ${i + 1}`, (i % 11) + 1, i % 3 ? 'ia' : 'humano');
+  l.contacto.etiquetas = [{ etiqueta: { id: 1, nombre: 'Familia', color: '#7C3AED' } }, { etiqueta: { id: 2, nombre: 'Relación de dependencia', color: '#0E7490' } }];
+  return i % 2 ? conPasoLargo(l) : l;
+});
+
 export default function VistaPrevia() {
   const [embudo, setEmbudo] = useState(false);
+  const [cantidad, setCantidad] = useState(0);
+  useEffect(() => { setCantidad(Number(new URLSearchParams(location.search).get('embudo')) || 0); }, []);
   useEffect(() => { setEmbudo(new URLSearchParams(location.search).has('embudo')); }, []);
   const [audio, setAudio] = useState(null);
   const [visor, setVisor] = useState(false);
   const [conChat, setConChat] = useState(true); // probar la barrita: window.__salirDelChat()
   useEffect(() => { window.__salirDelChat = () => setConChat(false); }, []);
   useEffect(() => { setAudio(tono()); setVisor(new URLSearchParams(location.search).has('visor')); }, []);
-  if (embudo) return <div className="app"><Tablero etapas={ETAPAS_EJEMPLO} inicial={LEADS_EJEMPLO} /></div>;
+  if (embudo) return <div className="app"><Tablero key={cantidad} etapas={ETAPAS_EJEMPLO} inicial={cantidad ? muchosLeads(cantidad) : LEADS_EJEMPLO} /></div>;
   if (!audio) return null;
 
   const mensajes = [
