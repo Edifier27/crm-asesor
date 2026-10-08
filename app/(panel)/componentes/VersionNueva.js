@@ -2,26 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 
 const CADA_MS = 5 * 60 * 1000;
 
-// Recargar por un cambio de sesión, como mucho una vez cada 15 s (para no entrar nunca en un ida y vuelta)
-function recargarUnaVez(destino) {
-  try {
-    const ultima = Number(sessionStorage.getItem('recarga-sesion') || 0);
-    if (Date.now() - ultima < 15000) return;
-    sessionStorage.setItem('recarga-sesion', String(Date.now()));
-  } catch { /* sin sessionStorage: se recarga igual */ }
-  if (destino) window.location.replace(destino); else window.location.reload();
-}
-
 /**
- * El CRM queda abierto todo el día (pestaña o app instalada). Este vigía mira cada tanto dos cosas:
- * 1) Versión: si se publicó una nueva, avisa con un cartelito "Actualizar" y, si no lo tocan, se actualiza solo la próxima
- *    vez que cambien de pantalla (ahí no se pierde nada de lo que estaban escribiendo).
- * 2) Sesión: si se cerró (o este navegador pasó a otra cuenta), recarga. Sin esto la pantalla quedaba a la vista pero
- *    "colgada": nada respondía porque el servidor ya no reconocía la sesión.
+ * El CRM queda abierto todo el día (pestaña o app instalada). Este vigía mira cada tanto qué versión está publicada:
+ * si cambió, avisa con un cartelito "Actualizar" y, si no lo tocan, se actualiza solo la próxima vez que cambien de
+ * pantalla (ahí no se pierde nada de lo que estaban escribiendo).
+ * También recarga si este navegador pasó a OTRA cuenta (entraron con otro usuario en otra pestaña): así nunca se
+ * mezcla la pantalla de uno con la sesión del otro. Nunca saca a nadie a la pantalla de ingreso por su cuenta.
  * actual: versión con la que se cargó esta pantalla. usuarioId: de quién es la pantalla que se está viendo.
  */
 export default function VersionNueva({ actual: recibida, usuarioId }) {
@@ -39,22 +28,20 @@ export default function VersionNueva({ actual: recibida, usuarioId }) {
         const r = await fetch('/api/version', { cache: 'no-store' });
         if (!r.ok || cortado) return;
         const { version, usuario } = await r.json();
-        if (usuarioId && !usuario) return recargarUnaVez('/login');          // la sesión se cerró
-        if (usuarioId && usuario !== usuarioId) return recargarUnaVez(null);  // este navegador pasó a otra cuenta
+        // Otra cuenta en este navegador: se recarga una sola vez (como mucho cada 30 s, para no entrar nunca en un ida y vuelta)
+        if (usuarioId && usuario && usuario !== usuarioId) {
+          let ultima = 0;
+          try { ultima = Number(sessionStorage.getItem('recarga-sesion') || 0); sessionStorage.setItem('recarga-sesion', String(Date.now())); } catch {}
+          if (Date.now() - ultima > 30000) window.location.reload();
+          return;
+        }
         if (actual && actual !== 'dev' && version && version !== 'dev' && version !== actual) setHay(true);
       } catch { /* sin conexión: se vuelve a mirar después */ }
     }
-    const primera = setTimeout(mirar, 4000);
     const reloj = setInterval(mirar, CADA_MS);
     document.addEventListener('visibilitychange', mirar);
     window.addEventListener('focus', mirar);
-    // Si el navegador da por cerrada la sesión (venció y no se pudo renovar), a la pantalla de ingreso
-    const { data } = createClient().auth.onAuthStateChange((evento) => { if (evento === 'SIGNED_OUT') recargarUnaVez('/login'); });
-    return () => {
-      cortado = true; clearTimeout(primera); clearInterval(reloj);
-      document.removeEventListener('visibilitychange', mirar); window.removeEventListener('focus', mirar);
-      data?.subscription?.unsubscribe();
-    };
+    return () => { cortado = true; clearInterval(reloj); document.removeEventListener('visibilitychange', mirar); window.removeEventListener('focus', mirar); };
   }, [actual, usuarioId]);
 
   // Con una versión nueva esperando, el próximo cambio de pantalla la carga
