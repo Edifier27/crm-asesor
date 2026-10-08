@@ -1,6 +1,6 @@
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
-import { salir } from '../login/actions';
+import BotonSalir from './componentes/BotonSalir';
 import Link from 'next/link';
 import RielLinks from './RielLinks';
 import RielPlegable from './RielPlegable';
@@ -61,16 +61,12 @@ export default async function PanelLayout({ children }) {
         <RielLinks esAdmin={perfil?.rol === 'admin'} />
         <div className="riel-espacio" />
         <Link href="/perfil" className="riel-usuario" title={`${user.email} · mi perfil y color`}>{inicial}</Link>
-        <form action={salir}>
-          <button className="riel-boton" type="submit" aria-label="Cerrar sesión" title="Cerrar sesión">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></svg>
-          </button>
-        </form>
+        <BotonSalir />
       </RielPlegable>
       {children}
       <Avisos />
       <ReproductorGlobal />
-      <VersionNueva actual={process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev'} />
+      <VersionNueva actual={process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev'} usuarioId={user.id ?? null} />
     </div>
   );
 }

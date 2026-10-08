@@ -1,12 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 // Elegir (o cambiar) la contraseña. Se llega desde el mail de invitación, o desde el menú del usuario.
 export default function Bienvenida() {
-  const router = useRouter();
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
 
@@ -20,7 +18,7 @@ export default function Bienvenida() {
     const { error: e } = await createClient().auth.updateUser({ password: clave });
     setGuardando(false);
     if (e) return setError(e.message.includes('session') ? 'El link venció. Pedí que te reenvíen la invitación.' : e.message);
-    router.replace('/bandeja');
+    window.location.replace('/bandeja'); // carga la página entera: arranca limpio con la cuenta nueva
   }
 
   return (

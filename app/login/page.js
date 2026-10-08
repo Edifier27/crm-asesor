@@ -1,10 +1,13 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect } from 'react';
 import { entrar } from './actions';
 
 export default function Login() {
   const [estado, accion, enviando] = useActionState(entrar, null);
+  // Al entrar se carga la página entera (no una navegación interna): arranca limpio, sin nada de la cuenta anterior
+  useEffect(() => { if (estado?.ok) window.location.replace('/bandeja'); }, [estado]);
+  const entrando = enviando || Boolean(estado?.ok);
 
   return (
     <main className="login">
@@ -23,7 +26,7 @@ export default function Login() {
 
         {estado?.error && <p className="error" role="alert">{estado.error}</p>}
 
-        <button type="submit" disabled={enviando}>{enviando ? 'Ingresando…' : 'Ingresar'}</button>
+        <button type="submit" disabled={entrando}>{entrando ? 'Ingresando…' : 'Ingresar'}</button>
       </form>
     </main>
   );
