@@ -46,6 +46,16 @@ const muchosLeads = (n) => Array.from({ length: n }, (_, i) => {
   return i % 2 ? conPasoLargo(l) : l;
 });
 
+// Plantillas de ejemplo para probar el selector del chat (buscador)
+const PLANTILLAS_EJEMPLO = [
+  ['recontacto_48hs', 'Hola {{1}}, te escribo para saber si pudiste ver la cotizacion que te mande. Te quedo alguna duda?'],
+  ['sin_respuesta_2do_contacto', 'Hola {{1}}, como estas? Te escribi hace unos dias por tu consulta de Swiss Medical. Seguis buscando cobertura?'],
+  ['pudiste_ver_el_plan', 'Hola {{1}}, pudiste ver el plan que te pase? Si queres lo repasamos juntos.'],
+  ['cotizado_48hs', 'Hola {{1}}, te deje la cotizacion hace dos dias. Queres que avancemos con el alta?'],
+  ['link_de_pago', 'Hola {{1}}, te paso el link para completar el pago: {{2}}'],
+  ['reclamo_documentacion', 'Hola {{1}}, me falta la documentacion para avanzar con tu legajo. Me la podes enviar?']
+].map(([nombre, cuerpo], i) => ({ id: i + 1, nombre, cuerpo, uso: null, conexion: null }));
+
 export default function VistaPrevia() {
   const [embudo, setEmbudo] = useState(false);
   const [cantidad, setCantidad] = useState(0);
@@ -88,7 +98,7 @@ export default function VistaPrevia() {
       <RielPlegable><div className="riel-marca">AC</div><RielLinks esAdmin /></RielPlegable>
       <ListaChats inicial={lista} iaInicial={3} />
       <ReproductorGlobal />
-      {conChat && <Conversacion conversacion={conversacion} mensajesIniciales={mensajes} onFicha={() => {}} audios={[]} plantillas={[]} modoPrueba={false}
+      {conChat && <Conversacion conversacion={conversacion} mensajesIniciales={mensajes} onFicha={() => {}} audios={[]} plantillas={PLANTILLAS_EJEMPLO} modoPrueba={false}
         equipo={{ yo: 'yo', nombres: { yo: 'Darío' } }} respuestasIniciales={[]} sinConexion />}
       <Ficha conversacion={{ ...conversacion, contacto: { ...contacto, etapa_id: 4, relevamiento: {}, documentos: [] } }} abierta lista={null} todasEtiquetas={[]} onCerrar={() => {}}
         formularios={[{ id: 'f1', nombre: 'Resumen de historia clínica', descripcion: 'Lo completa y firma el médico tratante', path: 'ejemplo-1.pdf', auditoria_medica: true },

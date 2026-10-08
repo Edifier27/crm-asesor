@@ -532,3 +532,8 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 /* Asesor IA: plantillas que propone la IA */
 .propuestas-ia { border: 1px solid #C9DDF3; background: #F4F8FD; border-radius: 12px; padding: 10px 12px; margin-bottom: 14px; }
 .audio.propuesta-ia { background: #fff; }
+
+/* Selector de plantillas del chat: secciones y por qué la sugiere la IA */
+.selector-seccion { display: block; padding: 8px 10px 2px; font-size: 12px; font-weight: 700; color: var(--texto-suave); }
+.selector-item.sugerida { background: #F4F8FD; }
+.selector-porque { font-size: 12px; font-weight: 600; color: #1F5A99; }

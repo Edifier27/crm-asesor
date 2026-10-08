@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { corregirMensaje } from './acciones';
+import { corregirMensaje, plantillasSugeridas } from './acciones';
 import { createClient } from '@/lib/supabase/client';
 
 const EMOJIS = ['😊', '😀', '😂', '🙂', '😉', '😍', '🤗', '🙏', '👍', '👌', '👏', '💪', '🙌', '✅', '❤️', '💚', '🎉', '✨', '🔥', '⭐', '😅', '🤔', '😮', '😢', '👋', '📄', '📞', '📍', '🏥', '👨‍👩‍👧', '👶', '💬', '⏰', '📅', '💰', '🤝'];
@@ -21,6 +21,19 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, formula
   const [texto, setTexto] = useState('');
   const [panel, setPanel] = useState(null); // 'audios' | 'plantillas' | 'formularios' | 'emojis' | null
   const [buscaFormulario, setBuscaFormulario] = useState('');
+  // Plantillas: buscador (por nombre o por lo que dice) y las que la IA mandaría en este chat, primero
+  const [buscaPlantilla, setBuscaPlantilla] = useState('');
+  const [iaPlantillas, setIaPlantillas] = useState(null); // null | 'cargando' | { cuando, lista: [{ id, porQue }] }
+  useEffect(() => {
+    // Se piden al abrir el panel (si hay pocas plantillas no hace falta) y valen un par de minutos
+    if (panel !== 'plantillas' || plantillas.length <= 4) return;
+    if (iaPlantillas === 'cargando' || (iaPlantillas && Date.now() - iaPlantillas.cuando < 120_000)) return;
+    setIaPlantillas('cargando');
+    plantillasSugeridas(conversacion.id)
+      .then((r) => setIaPlantillas({ cuando: Date.now(), lista: r?.sugeridas ?? [] }))
+      .catch(() => setIaPlantillas({ cuando: Date.now(), lista: [] }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panel]);
   const [error, setError] = useState('');
   const [corrigiendoAhora, iniciar] = useTransition();
   const campo = useRef(null);
@@ -28,6 +41,20 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, formula
   useEffect(() => { if (respondiendo || corrigiendo) campo.current?.focus(); }, [respondiendo, corrigiendo]);
 
   const nombre = conversacion.contacto.nombre?.trim().split(/\s+/)[0] || 'qué tal';
+  // Buscador de plantillas: todas las palabras, en cualquier orden, sin importar tildes ni mayúsculas
+  const sinTildes = (t) => String(t ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/_/g, ' ');
+  const palabrasPlantilla = sinTildes(buscaPlantilla).split(/\s+/).filter(Boolean);
+  const plantillasFiltradas = palabrasPlantilla.length
+    ? plantillas.filter((p) => { const t = sinTildes(`${p.nombre} ${p.cuerpo} ${p.uso ?? ''}`); return palabrasPlantilla.every((w) => t.includes(w)); })
+    : plantillas;
+  const itemPlantilla = (p, porQue) => (
+    <button key={`${porQue === undefined ? '' : 'ia-'}${p.id}`} type="button" className={`selector-item${porQue === undefined ? '' : ' sugerida'}`}
+      onClick={() => { onEnviar({ tipo: 'plantilla', plantillaId: p.id }, { tipo: 'plantilla', plantilla: p.nombre, texto: p.cuerpo.replaceAll('{{1}}', nombre) }); setPanel(null); setBuscaPlantilla(''); }}>
+      <span className="selector-titulo">{p.nombre}{p.uso ? ` · ${p.uso}` : ''}</span>
+      {porQue ? <span className="selector-porque">{porQue}</span> : null}
+      <span className="selector-detalle">{p.cuerpo.replaceAll('{{1}}', nombre)}</span>
+    </button>
+  );
   const [elegida, setElegida] = useState(0);
 
   // Respuestas rápidas: "/" al principio filtra por atajo o texto
@@ -177,13 +204,20 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, formula
             <strong>Plantillas aprobadas</strong>
             <button type="button" className="boton-icono" aria-label="Cerrar" onClick={() => setPanel(null)}>×</button>
           </div>
-          {plantillas.map((p) => (
-            <button key={p.id} type="button" className="selector-item"
-              onClick={() => { onEnviar({ tipo: 'plantilla', plantillaId: p.id }, { tipo: 'plantilla', plantilla: p.nombre, texto: p.cuerpo.replaceAll('{{1}}', nombre) }); setPanel(null); }}>
-              <span className="selector-titulo">{p.nombre}{p.uso ? ` · ${p.uso}` : ''}</span>
-              <span className="selector-detalle">{p.cuerpo.replaceAll('{{1}}', nombre)}</span>
-            </button>
-          ))}
+          <input className="selector-buscar" autoFocus placeholder="Buscar plantilla (por nombre o por lo que dice)…"
+            value={buscaPlantilla} onChange={(e) => setBuscaPlantilla(e.target.value)} />
+          {!palabrasPlantilla.length && iaPlantillas === 'cargando' && <p className="selector-vacio">La IA está eligiendo las que mejor encajan con este chat…</p>}
+          {!palabrasPlantilla.length && iaPlantillas?.lista?.length > 0 && (
+            <>
+              <span className="selector-seccion">Sugeridas por la IA para este chat</span>
+              {iaPlantillas.lista.map((s) => { const p = plantillas.find((x) => x.id === s.id); return p ? itemPlantilla(p, s.porQue) : null; })}
+              <span className="selector-seccion">Todas tus plantillas</span>
+            </>
+          )}
+          {plantillasFiltradas.map((p) => itemPlantilla(p))}
+          {plantillasFiltradas.length === 0 && (
+            <p className="selector-vacio">{plantillas.length ? 'Ninguna plantilla coincide con la búsqueda.' : 'Todavía no tenés plantillas aprobadas. Se crean en Asesor IA → Plantillas.'}</p>
+          )}
         </div>
       )}
 

@@ -19,6 +19,8 @@ import { plantillaPara, usosDe } from '@/lib/plantillas-uso';
 import { configDe } from '@/lib/config-cuenta';
 import { BUCKET_FORMULARIOS, nombreArchivo } from '@/lib/formularios';
 import { analizarTelefono } from '@/lib/telefono';
+import { sugerirPlantillas } from '@/lib/ia/plantillas';
+import { registrarConsumo } from '@/lib/costos';
 
 // Solo se pueden ver/enviar los PDF del catálogo (planes y cartillas)
 const DOCUMENTOS_VALIDOS = new Set([...Object.values(PLANES_PDF).map((p) => p.path), ...CARTILLAS_ARCHIVOS.map((c) => c.path)]);
@@ -386,4 +388,24 @@ export async function corregirTelefono(contactoId, valor) {
       texto: `Teléfono corregido: ${r.telefono}. Ya se le puede escribir.` });
   }
   return { ok: true, telefono: r.telefono, etiquetaQuitada: tag?.id ?? null };
+}
+
+/** Selector de plantillas del chat: las (hasta 4) que la IA mandaría en esta conversación, para mostrarlas primero. */
+export async function plantillasSugeridas(conversacionId) {
+  const supabase = await createClient();
+  const user = await usuarioActual(supabase);
+  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  const [{ data: conv }, { data: plantillas }, { data: ultimos }] = await Promise.all([
+    supabase.from('conversaciones').select('id, contacto:contactos(etapa:etapas(nombre))').eq('id', conversacionId).maybeSingle(),
+    supabase.from('plantillas').select('id, nombre, cuerpo, uso').eq('activa', true).order('nombre'), // la base solo devuelve las de tu cuenta de WhatsApp
+    supabase.from('mensajes').select('autor, texto').eq('conversacion_id', conversacionId).neq('autor', 'sistema').order('creado_at', { ascending: false }).limit(10)
+  ]);
+  if (!conv) return { error: 'No tenés acceso a esta conversación.' };
+  const r = await sugerirPlantillas(plantillas ?? [], {
+    etapa: conv.contacto?.etapa?.nombre,
+    ultimos: (ultimos ?? []).reverse().map((m) => `${m.autor === 'contacto' ? 'Lead' : 'Asesor'}: ${m.texto ?? ''}`).join('\n')
+  });
+  if (r.error) return { error: r.error };
+  after(() => registrarConsumo(createAdminClient(), 'claude', 'plantilla', r.usd));
+  return { sugeridas: r.sugeridas.map((s) => ({ id: plantillas.find((p) => p.nombre === s.nombre).id, porQue: s.motivo })) };
 }
