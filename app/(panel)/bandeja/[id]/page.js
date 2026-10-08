@@ -8,9 +8,11 @@ import { datosDelEquipo } from '@/lib/datos-equipo';
 export default async function ChatPage({ params }) {
   const { id } = await params;
   const supabase = await createClient();
+  // De quién es la sesión (se verifica acá mismo, sin viajar): audios, respuestas y formularios son los de esa cuenta
+  const { data: sesion } = await supabase.auth.getClaims();
 
-  // Conversación, mensajes, sesión y datos del equipo, todo a la vez
-  const [{ data: conversacion, error }, { data: mensajes }, { data: sesion }, datos, { data: miNumero }, { data: etiquetas }] = await Promise.all([supabase
+  // Conversación, mensajes y datos de la cuenta, todo a la vez
+  const [{ data: conversacion, error }, { data: mensajes }, datos, { data: miNumero }, { data: etiquetas }] = await Promise.all([supabase
     .from('conversaciones')
     .select(`id, modo, ventana_expira_at, resumen_ia, ia_pensando_desde, seguimiento_at, seguimiento_motivo, seguimiento_responsable, seguimiento_cadencia, seguimientos_sin_respuesta, seguimiento_plantillas, consejo_ia,
       contacto:contactos(id, nombre, telefono, telefono_original, email, zona, origen, origen_detalle, etapa_id, relevamiento, notas, cotizacion, temperatura, valor, plan_cotizado, motivo_perdida, venta,
@@ -19,8 +21,7 @@ export default async function ChatPage({ params }) {
     .eq('id', id)
     .maybeSingle(),
     supabase.from('mensajes').select(SELECT_MENSAJE).eq('conversacion_id', id).order('creado_at').limit(500),
-    supabase.auth.getClaims(),
-    datosDelEquipo(),
+    datosDelEquipo(sesion?.claims?.sub),
     supabase.from('numeros_whatsapp').select('conexion').maybeSingle(), // la base solo devuelve el propio
     supabase.from('etiquetas').select('id, nombre, color').order('nombre')
   ]);

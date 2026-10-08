@@ -9,7 +9,7 @@ export default async function BasesPage() {
   const [{ data: filas, error }, { data: todas }, { data: config }, { data: difusiones }, { data: miNumero }] = await Promise.all([
     supabase.from('bases').select('*').order('creado_at', { ascending: false }).limit(5000),
     supabase.from('plantillas').select('id, nombre, cuerpo, uso, categoria, conexion').eq('activa', true).order('nombre'),
-    supabase.from('asesor_config').select('plantillas_uso').maybeSingle(),
+    supabase.from('config_asesor').select('plantillas_uso').maybeSingle(), // la base solo devuelve la propia
     supabase.from('difusiones').select('id, nombre, mes, segmento, creado_at, plantilla:plantillas(nombre), envios:difusion_envios(estado, respondio_at)')
       .order('creado_at', { ascending: false }).limit(100),
     supabase.from('numeros_whatsapp').select('conexion').maybeSingle() // la base solo devuelve el propio

@@ -32,6 +32,14 @@ export async function GET(request) {
     const { data: propio } = /^[0-9a-f-]{36}$/i.test(contactoId) ? await supabase.from('contactos').select('id').eq('id', contactoId).maybeSingle() : { data: null };
     if (!propio) return new Response('Sin acceso', { status: 403 });
   }
+  // Formularios: solo los de tu cuenta (uno que cargaste o uno que ya mandaste en un chat tuyo); la base no muestra los de otra
+  if (bucket === BUCKET_FORMULARIOS) {
+    const [{ data: mio }, { data: enviado }] = await Promise.all([
+      supabase.from('formularios').select('id').eq('path', ruta).limit(1).maybeSingle(),
+      supabase.from('mensajes').select('id').eq('media_path', path).limit(1).maybeSingle()
+    ]);
+    if (!mio && !enviado) return new Response('Sin acceso', { status: 403 });
+  }
 
   // ?descargar=Nombre.ext → el navegador lo baja con ese nombre en vez de abrirlo
   const descargar = new URL(request.url).searchParams.get('descargar')?.replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 120);

@@ -70,6 +70,14 @@ Nunca commitear secretos.
   tier por plan, región por provincia). `npm run documentos -- "<carpeta del cotizador>"` los sube/actualiza. En la ficha:
   "Ver cotización" (desglose por integrante, `detalleCotizacion`) y "Plan y cartilla" (ver/enviar PDF por WhatsApp).
   Todo lo enviado queda en `contactos.cotizacion.enviadas` (historial en la ficha y "Enviado" en cada plan).
+- CADA CUENTA ES UN CRM APARTE (migración 0042, 2026-10-08): además de contactos/chats/mensajes/etiquetas, son de cada
+  asesor (columna `cuenta`, RLS `cuenta = auth.uid()`) los audios y `audios_pedidos`, la configuración del Asesor IA
+  (`config_asesor`, una fila por cuenta: encendido, modo, indicaciones, `plantillas_uso`; se lee con `configDe(supabase,
+  cuenta)` de `lib/config-cuenta.js`), `conocimiento`, `aprendizajes` (cada uno aprende de sus chats), `respuestas_rapidas`
+  y `formularios`. Las plantillas van por cuenta de WhatsApp (`conexion`), también para el administrador. Archivos: cada
+  uno lee los suyos (los que subió o los que usa algo propio). SIGUEN COMUNES por decisión de Darío: `listas_precios`,
+  `campanias`, PDFs de planes (bucket `documentos`) y `etapas`. Con el cliente de servicio SIEMPRE filtrar por la cuenta
+  del chat o del lead. La tabla vieja `asesor_config` (una sola fila) quedó sin uso.
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.

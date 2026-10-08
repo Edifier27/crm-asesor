@@ -16,6 +16,7 @@ import { alEntrarMensaje, esperarSiEstaEnAuditoria, modoIa, pasarAAuditoriaMedic
 import { BUCKET_CLIENTES, leerDocumento, renombrarMensaje } from '@/lib/documentos-cliente';
 import { etiquetaDocumento } from '@/lib/formato';
 import { plantillaPara, usosDe } from '@/lib/plantillas-uso';
+import { configDe } from '@/lib/config-cuenta';
 import { BUCKET_FORMULARIOS, nombreArchivo } from '@/lib/formularios';
 import { analizarTelefono } from '@/lib/telefono';
 
@@ -88,7 +89,7 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
   const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
 
-  const { data: conv } = await supabase.from('conversaciones').select('id, contacto_id, ventana_expira_at').eq('id', conversacionId).maybeSingle();
+  const { data: conv } = await supabase.from('conversaciones').select('id, cuenta, contacto_id, ventana_expira_at').eq('id', conversacionId).maybeSingle();
   if (!conv) return { error: 'No tenés acceso a esta conversación.' };
   if (tipo === 'archivo') {
     const valido = archivo?.path?.startsWith(`${conv.contacto_id}/enviados/`) && /^[0-9a-f-]{36}\.[a-z0-9]{2,5}$/.test(archivo.path.split('/').pop());
@@ -126,7 +127,7 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
     after(async () => {
       const admin = createAdminClient();
       if (await esperarSiEstaEnAuditoria(admin, conversacionId)) return;
-      if ((await modoIa(admin)) === 'copiloto') await programarSecuencia(admin, conversacionId);
+      if ((await modoIa(admin, conv.cuenta)) === 'copiloto') await programarSecuencia(admin, conversacionId);
     });
     return { ok: true, id: r.id, simulado: r.simulado, ...(etapaId ? { etapaId } : {}) };
   } catch (e) {
@@ -238,7 +239,7 @@ export async function enviarLinkPago(conversacionId, { dni, precarga } = {}) {
       await enviarMensaje({ conversacionId, tipo: 'texto', texto: mensajeCobro(nombre, link, 1), autor: 'asesor', perfilId: user.id });
     } else {
       // La plantilla del link de pago es la de la cuenta de WhatsApp del chat (cada asesor elige la suya)
-      const { data: config } = await admin.from('asesor_config').select('plantillas_uso').single();
+      const config = await configDe(admin, conv.cuenta, 'plantillas_uso');
       const { conexion } = await remitenteDeLaCuenta(admin, conv.cuenta);
       const nombrePago = plantillaPara(usosDe(config?.plantillas_uso, conexion), 'link_pago', { sinDefecto: Boolean(conexion) });
       if (!nombrePago) return { error: 'La ventana de 24 h está cerrada y todavía no elegiste tu plantilla para el link de pago (Asesor IA → Plantillas → Qué plantilla usar para cada cosa).' };

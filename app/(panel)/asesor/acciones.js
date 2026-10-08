@@ -12,14 +12,10 @@ async function conSesion() {
   return user ? supabase : null;
 }
 
-/** Quién llama: su cuenta de WhatsApp (null = la principal) y si es administrador. Sale de la sesión, no del navegador. */
+/** Quién llama: su cuenta de WhatsApp (null = la principal). Sale de la sesión, no del navegador. */
 async function quienSoy(supabase) {
-  const user = await usuarioActual(supabase);
-  const [{ data: numero }, { data: perfil }] = await Promise.all([
-    supabase.from('numeros_whatsapp').select('conexion').maybeSingle(), // la base solo devuelve el propio
-    supabase.from('perfiles').select('rol, activo').eq('id', user.id).maybeSingle()
-  ]);
-  return { conexion: numero?.conexion ?? null, tieneNumero: Boolean(numero), esAdmin: perfil?.rol === 'admin' && Boolean(perfil?.activo) };
+  const { data: numero } = await supabase.from('numeros_whatsapp').select('conexion').maybeSingle(); // la base solo devuelve el propio
+  return { conexion: numero?.conexion ?? null, tieneNumero: Boolean(numero) };
 }
 
 // Por qué el CRM no puede mandar sola una plantilla de Meta (encabezados con archivo, variables con nombre…)
@@ -56,7 +52,7 @@ export async function sincronizarPlantillas() {
   // Cada uno trae SOLO las plantillas de su cuenta de WhatsApp. Antes el botón traía las de todas las cuentas:
   // que lo tocara un asesor reactivaba o desactivaba plantillas del otro.
   const yo = await quienSoy(supabase);
-  if (!yo.tieneNumero && !yo.esAdmin) return { error: 'Todavía no tenés un número de WhatsApp conectado.' };
+  if (!yo.tieneNumero) return { error: 'Todavía no tenés un número de WhatsApp conectado.' };
   const conexiones = [yo.conexion];
   const ahora = new Date().toISOString();
   const { data: existentes } = await admin.from('plantillas').select('nombre, conexion, imagen_path, activa, estado_meta, nota');
@@ -108,8 +104,8 @@ export async function sincronizarPlantillas() {
 
   const { data } = await admin.from('plantillas').select('*').order('nombre');
   refrescarDatosEquipo();
-  // Cada asesor ve solo las suyas (el administrador, las de todas las cuentas, como en la pantalla)
-  const visibles = (data ?? []).filter((p) => yo.esAdmin || (p.conexion ?? null) === yo.conexion);
+  // Cada uno ve solo las de su cuenta de WhatsApp (el administrador también)
+  const visibles = (data ?? []).filter((p) => (p.conexion ?? null) === yo.conexion);
   return { ok: true, plantillas: visibles, traidas, ...(avisos.length ? { aviso: avisos.join(' · ') } : {}) };
 }
 
@@ -122,9 +118,9 @@ export async function enviarAMeta(id) {
   if (!supabase) return { error: 'Tu sesión expiró.' };
   const { data: p } = await supabase.from('plantillas').select('*').eq('id', id).maybeSingle();
   if (!p) return { error: 'Plantilla inexistente.' };
-  // Solo las de la propia cuenta de WhatsApp (el administrador puede con todas)
+  // Solo las de la propia cuenta de WhatsApp
   const yo = await quienSoy(supabase);
-  if (!yo.esAdmin && (p.conexion ?? null) !== yo.conexion) return { error: 'Esa plantilla es de la cuenta de otro asesor.' };
+  if ((p.conexion ?? null) !== yo.conexion) return { error: 'Esa plantilla es de la cuenta de otro asesor.' };
   const problemas = problemasPlantilla(p);
   if (problemas.length) return { error: problemas.join(' ') };
 
@@ -159,23 +155,25 @@ export async function enviarAMeta(id) {
 export async function guardarUsos(usos) {
   const supabase = await conSesion();
   if (!supabase) return { error: 'Tu sesión expiró.' };
-  // Cada cuenta de WhatsApp guarda lo suyo: la principal arriba y las demás en porConexion.
-  // La cuenta sale de la sesión (el número de quien está logueado), no de lo que manda el navegador.
+  // Cada cuenta guarda lo suyo en SU configuración (la principal arriba y las demás en porConexion, como siempre).
+  // La cuenta sale de la sesión (quien está logueado), no de lo que manda el navegador.
+  const user = await usuarioActual(supabase);
   const { data: numero } = await supabase.from('numeros_whatsapp').select('conexion').maybeSingle();
-  const admin = createAdminClient();
-  const { data: config } = await admin.from('asesor_config').select('plantillas_uso').eq('id', true).single();
+  const { data: config } = await supabase.from('config_asesor').select('plantillas_uso').eq('cuenta', user.id).single();
   const actual = config?.plantillas_uso ?? {};
   const { porConexion: _ajeno, ...propios } = usos ?? {};
   const nuevo = numero?.conexion
     ? { ...actual, porConexion: { ...(actual.porConexion ?? {}), [numero.conexion]: propios } }
     : { ...propios, ...(actual.porConexion ? { porConexion: actual.porConexion } : {}) };
-  const { error } = await admin.from('asesor_config').update({ plantillas_uso: nuevo }).eq('id', true);
+  const { error } = await supabase.from('config_asesor').update({ plantillas_uso: nuevo }).eq('cuenta', user.id);
   return error ? { error: error.message } : { ok: true };
 }
 
-/** Botón "Analizar ahora": la IA lee los chats nuevos de Darío y Gaby y propone aprendizajes. */
+/** Botón "Analizar ahora": la IA lee los chats nuevos de quien lo toca y le propone aprendizajes (solo de su cuenta). */
 export async function analizarAprendizaje() {
-  if (!(await conSesion())) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  const supabase = await conSesion();
+  if (!supabase) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  const user = await usuarioActual(supabase);
   const { aprender } = await import('@/lib/ia/aprendizaje');
-  return aprender();
+  return aprender(user.id);
 }
