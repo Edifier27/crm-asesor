@@ -217,3 +217,60 @@
   .burbuja.con-audio { min-width: min(300px, 80vw); }
   .no-leidos-franja { margin-inline: -4px; }
 }
+
+/* ═════════ Transiciones como WhatsApp (Android) ═════════
+   Curvas de Material: entrar desacelerando, salir acelerando. Salir es más rápido que entrar. */
+:root {
+  /* En :root y no en .app: las capas de la transición cuelgan del documento y no heredan de .app */
+  --curva-entra: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --curva-sale: cubic-bezier(0.3, 0, 0.8, 0.15);
+}
+/* La pantalla entera no hace el fundido por defecto del navegador: solo animan las partes marcadas */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+::view-transition { pointer-events: none; }
+
+/* Cambiar de sección (Chats, Embudo, Audios…): la vieja se desvanece y la nueva aparece con un leve zoom */
+::view-transition-old(.seccion-sale) { animation: 90ms var(--curva-sale, ease-in) both wa-desvanece; }
+::view-transition-new(.seccion-entra) { animation: 210ms var(--curva-entra, ease-out) 90ms both wa-aparece-zoom; }
+
+/* Celular: abrir un chat lo hace subir y aparecer; volver lo hace bajar y desaparecer */
+@media (max-width: 760px) {
+  ::view-transition-new(.chat-entra) { animation: 260ms var(--curva-entra, ease-out) both wa-sube; }
+  ::view-transition-old(.chat-sale) { animation: 180ms var(--curva-sale, ease-in) both wa-baja; }
+}
+/* Compu: entre chats no hay transición (igual que WhatsApp Web) */
+@media (min-width: 761px) {
+  ::view-transition-new(.chat-entra), ::view-transition-old(.chat-sale) { animation: none; }
+}
+
+@keyframes wa-desvanece { to { opacity: 0; } }
+@keyframes wa-aparece-zoom { from { opacity: 0; transform: scale(0.96); } }
+@keyframes wa-sube { from { opacity: 0; transform: translateY(12%); } }
+@keyframes wa-baja { to { opacity: 0; transform: translateY(12%); } }
+
+/* Menús, adjuntar y reacciones: crecen desde donde se tocaron */
+.menu-mensaje { animation: wa-menu 140ms var(--curva-entra) both; transform-origin: top right; }
+.burbuja.entrante .menu-mensaje { transform-origin: top left; }
+.menu-mensaje.arriba { transform-origin: bottom right; }
+.burbuja.entrante .menu-mensaje.arriba { transform-origin: bottom left; }
+.menu-adjuntar { animation: wa-menu 160ms var(--curva-entra) both; transform-origin: bottom left; }
+.selector-reacciones, .barra-mantenido { animation: wa-menu 160ms var(--curva-entra) both; transform-origin: bottom center; }
+@keyframes wa-menu { from { opacity: 0; transform: scale(0.85); } }
+
+/* Botón para bajar al último mensaje: aparece creciendo */
+.bajar-al-final { animation: wa-boton 160ms var(--curva-entra) both; }
+@keyframes wa-boton { from { opacity: 0; transform: scale(0.6); } }
+
+/* Mensaje nuevo (no los que ya estaban al abrir el chat): entra subiendo suave */
+.mensaje-fila.recien { animation: wa-mensaje 220ms var(--curva-entra) both; }
+@keyframes wa-mensaje { from { opacity: 0; transform: translateY(10px); } }
+
+/* Ventanas (reenviar): el fondo se oscurece y la caja aparece con zoom */
+.reenviar-fondo { animation: wa-fondo 160ms ease-out both; }
+.reenviar-caja { animation: wa-aparece-zoom 200ms var(--curva-entra) both; }
+@keyframes wa-fondo { from { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*), ::view-transition-new(*), ::view-transition-group(*) { animation-duration: 0s !important; animation-delay: 0s !important; }
+  .menu-mensaje, .menu-adjuntar, .selector-reacciones, .barra-mantenido, .bajar-al-final, .mensaje-fila.recien, .reenviar-fondo, .reenviar-caja, .panel-chat { animation: none !important; }
+}

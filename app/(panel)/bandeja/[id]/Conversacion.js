@@ -68,6 +68,8 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
   const fondo = useRef(null);
   const zonaMensajes = useRef(null);
   const [lejos, setLejos] = useState(false);
+  // Los mensajes que ya estaban al abrir no se animan; los que llegan después entran subiendo suave
+  const [idsIniciales] = useState(() => new Set(mensajesIniciales.map((m) => m.id)));
   const [panelChat, setPanelChat] = useState(null);   // null | 'buscar' | 'destacados' | 'archivos'
   const [menuCabecera, setMenuCabecera] = useState(false);
   const [reenviando, setReenviando] = useState(null); // mensaje a reenviar
@@ -443,7 +445,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
           const nuevoDia = i === 0 || !mismoDia(lista[i - 1].creado_at, m.creado_at);
           return (
             <div key={m.id} data-id={m.id} data-dia={separadorDia(m.creado_at)}
-              className={`mensaje-fila${i > 0 && lista[i - 1].direccion === m.direccion && lista[i - 1].autor !== 'sistema' ? ' seguido' : ''}`}>
+              className={`mensaje-fila${i > 0 && lista[i - 1].direccion === m.direccion && lista[i - 1].autor !== 'sistema' ? ' seguido' : ''}${idsIniciales.has(m.id) || (!m.local && m.direccion === 'saliente' && m.autor === 'asesor') ? '' : ' recien'}`}>
               {nuevoDia && <div className="dia">{separadorDia(m.creado_at)}</div>}
               {primerNoLeido?.id === m.id && (
                 <div className="no-leidos-franja"><span>{primerNoLeido.cantidad === 1 ? '1 mensaje no leído' : `${primerNoLeido.cantidad} mensajes no leídos`}</span></div>
