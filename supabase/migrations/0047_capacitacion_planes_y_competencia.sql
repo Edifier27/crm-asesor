@@ -4,6 +4,10 @@
 -- chequeo medico total y prestadores destacados (ya no dicen "lo consultas": la IA no puede decirlo).
 -- Va sin tildes a proposito (archivo ASCII). Se puede correr mas de una vez: reemplaza las fichas por titulo.
 
+-- Todo en un solo bloque: el SQL Editor de Supabase corre cada sentencia por separado y una tabla temporal
+-- creada en una sentencia no existe en la siguiente
+do $do$
+begin
 drop table if exists capacitacion;
 create temporary table capacitacion (titulo text primary key, contenido text not null);
 
@@ -91,6 +95,8 @@ select n.cuenta, c.titulo, c.contenido, true
   from capacitacion c cross join (select distinct cuenta from public.numeros_whatsapp) n;
 
 drop table capacitacion;
+end
+$do$;
 
 -- Control: fichas activas de cada CRM
 select p.nombre as crm, k.titulo
