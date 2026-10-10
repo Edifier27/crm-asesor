@@ -14,7 +14,7 @@ export default async function ChatPage({ params }) {
   // Conversación, mensajes y datos de la cuenta, todo a la vez
   const [{ data: conversacion, error }, { data: mensajes }, datos, { data: miNumero }, { data: etiquetas }] = await Promise.all([supabase
     .from('conversaciones')
-    .select(`id, modo, espera_desde, ventana_expira_at, resumen_ia, ia_pensando_desde, seguimiento_at, seguimiento_motivo, seguimiento_responsable, seguimiento_cadencia, seguimientos_sin_respuesta, seguimiento_plantillas, consejo_ia,
+    .select(`id, modo, espera_desde, no_leidos, fijada_at, chat_archivado_at, ventana_expira_at, resumen_ia, ia_pensando_desde, seguimiento_at, seguimiento_motivo, seguimiento_responsable, seguimiento_cadencia, seguimientos_sin_respuesta, seguimiento_plantillas, consejo_ia,
       contacto:contactos(id, nombre, telefono, telefono_original, email, zona, origen, origen_detalle, etapa_id, relevamiento, notas, cotizacion, temperatura, valor, plan_cotizado, motivo_perdida, venta,
         etiquetas:contacto_etiquetas(etiqueta:etiquetas(id, nombre, color)),
         documentos:documentos_cliente(id, path, tipo, estado, datos, observacion, nombre_archivo, mime, creado_at, etiqueta, persona))`)

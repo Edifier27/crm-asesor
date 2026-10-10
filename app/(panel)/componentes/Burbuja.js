@@ -92,11 +92,14 @@ const firmarAudio = async (path) => (await createClient().storage.from('audios')
  * @param {object} p
  * @param {object} p.m          mensaje
  * @param {object} [p.citado]   mensaje al que responde (si lo tiene)
- * @param {object} [p.acciones] { onResponder, onReaccionar, onCorregir, onGuardarRapida } — sin acciones, solo lectura
+ * @param {object} [p.acciones] { onResponder, onReaccionar, onCorregir, onGuardarRapida, onDestacar, onReenviar } — sin acciones, solo lectura.
+ *                              Responder y reaccionar solo vienen con la ventana de 24 h abierta.
  * @param {boolean} [p.cola]    primer mensaje del grupo: lleva la "colita" como en WhatsApp
  * @param {object} [p.avatar]   { iniciales, estilo } para las notas de voz
+ * @param {Function} [p.onIrA]  tocar la cita lleva al mensaje original
+ * @param {string} [p.nombreCliente]  para la cita ("Juan" en vez de "Cliente")
  */
-export default function Burbuja({ m, citado, acciones, equipo, cola = true, avatar }) {
+export default function Burbuja({ m, citado, acciones, equipo, cola = true, avatar, onIrA, nombreCliente }) {
   const [escuchadoLocal, setEscuchadoLocal] = useState(false);
   const [menu, setMenu] = useState(null); // null | 'opciones' | 'reacciones'
   const [copiado, setCopiado] = useState(false);
@@ -125,7 +128,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
     const dy = e.touches[0].clientY - t.y;
     if (Math.abs(dx) > 8 || Math.abs(dy) > 8) clearTimeout(mantener.current);
     // Se decide al primer movimiento: hacia la derecha es responder; vertical es desplazar el chat
-    if (t.horizontal === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) t.horizontal = dx > 0 && Math.abs(dx) > Math.abs(dy);
+    if (t.horizontal === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) t.horizontal = Boolean(acciones.onResponder) && dx > 0 && Math.abs(dx) > Math.abs(dy);
     if (!t.horizontal) return;
     const d = Math.max(0, Math.min(dx * 0.75, 90));
     if (d >= UMBRAL && desliz < UMBRAL) navigator.vibrate?.(12);
@@ -135,7 +138,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
     clearTimeout(mantener.current);
     const t = toque.current;
     toque.current = null;
-    if (t?.horizontal && desliz >= UMBRAL) acciones.onResponder(m);
+    if (t?.horizontal && desliz >= UMBRAL) acciones.onResponder?.(m);
     setDesliz(0);
   }
 
@@ -154,12 +157,10 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
   const corregible = acciones?.onCorregir && saliente && m.tipo === 'texto' && ['asesor', 'ia'].includes(m.autor)
     && !m.corregido_por && Date.now() - new Date(m.creado_at) < MIN_CORREGIR * 60_000;
 
-  // Como WhatsApp, lo tuyo no lleva nombre; sí la IA, las plantillas y lo que mandó un compañero
+  // Como WhatsApp, lo tuyo no lleva nombre; sí lo que mandó un compañero. La IA y las plantillas llevan una marca chica
   const companero = m.autor === 'asesor' && m.autor_perfil_id && equipo && m.autor_perfil_id !== equipo.yo;
-  const etiqueta = !saliente ? null
-    : m.tipo === 'plantilla' ? `Plantilla${m.plantilla ? ` · ${m.plantilla}` : ''}`
-      : m.autor === 'ia' ? 'Asesor IA'
-        : companero ? (equipo.nombres[m.autor_perfil_id] ?? 'Compañero') : null;
+  const etiqueta = saliente && companero && m.tipo !== 'plantilla' ? (equipo.nombres[m.autor_perfil_id] ?? 'Compañero') : null;
+  const deIA = saliente && m.autor === 'ia';
 
   const esAudio = m.tipo === 'audio';
   const grabado = esAudio && /^Audio grabado/.test(m.texto ?? '');
@@ -180,6 +181,8 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
     <span className="burbuja-meta">
       {m.editado_at && <span className="marca-msg" title={m.texto_original ? `Antes decía: ${m.texto_original}` : ''}>Editado</span>}
       {m.corregido_por && <span className="marca-msg">Corregido</span>}
+      {m.destacado_at && <span className="marca-destacado" title="Destacado" aria-label="Destacado"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z" /></svg></span>}
+      {deIA && <span className="marca-ia" title="Lo escribió la IA" aria-label="Lo escribió la IA"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8zM19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9z" /></svg></span>}
       {saliente && esAudio && m.escuchado_at && <span className="marca-escuchado">Leído</span>}
       {hora(m.creado_at)}
       {saliente && m.estado && <Tildes estado={m.estado === 'esperando' ? 'pendiente' : m.estado} />}
@@ -202,10 +205,24 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
           </button>
         )}
-        {etiqueta && <span className={`burbuja-autor autor-${m.tipo === 'plantilla' ? 'plantilla' : m.autor}`}>{etiqueta}</span>}
+        {etiqueta && <span className={`burbuja-autor autor-${m.autor}`}>{etiqueta}</span>}
+        {saliente && m.tipo === 'plantilla' && (
+          <span className="burbuja-plantilla" title={m.plantilla ? `Plantilla ${m.plantilla}` : 'Plantilla'}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></svg>
+            Plantilla{m.plantilla ? ` · ${m.plantilla}` : ''}
+          </span>
+        )}
+        {m.reenviado && (
+          <span className="burbuja-reenviado">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14l5-5-5-5" /><path d="M4 20v-7a4 4 0 0 1 4-4h12" /></svg>
+            Reenviado
+          </span>
+        )}
         {citado && (
-          <span className={`cita ${citado.direccion === 'entrante' ? 'de-cliente' : 'propia'}`}>
-            <strong>{citado.direccion === 'entrante' ? 'Cliente' : 'Vos'}</strong>
+          <span className={`cita ${citado.direccion === 'entrante' ? 'de-cliente' : 'propia'}`} role={onIrA ? 'button' : undefined} tabIndex={onIrA ? 0 : undefined}
+            title={onIrA ? 'Ir al mensaje' : undefined} onClick={onIrA ? () => onIrA(citado.id) : undefined}
+            onKeyDown={onIrA ? (e) => { if (e.key === 'Enter') onIrA(citado.id); } : undefined}>
+            <strong>{citado.direccion === 'entrante' ? (nombreCliente || 'Cliente') : citado.autor === 'ia' ? 'Asesor IA' : 'Vos'}</strong>
             <span>{resumen(citado).slice(0, 140)}</span>
           </span>
         )}
@@ -247,7 +264,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
           </span>
         )}
 
-        {menu === 'mantenido' && (
+        {menu === 'mantenido' && acciones.onReaccionar && (
           <div className="barra-mantenido" role="group" aria-label="Reaccionar">
             {REACCIONES.map((e) => (
               <button key={e} type="button" className={m.reacciones?.asesor === e ? 'activa' : ''}
@@ -257,8 +274,10 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
         )}
         {(menu === 'opciones' || menu === 'mantenido') && (
           <div className={`menu-mensaje${menu === 'mantenido' ? ' bajo-mantenido' : ''}`} role="menu" ref={abrirHaciaArriba}>
-            <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onResponder(m); }}>Responder</button>
-            {menu === 'opciones' && <button type="button" role="menuitem" onClick={() => setMenu('reacciones')}>Reaccionar</button>}
+            {acciones.onResponder && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onResponder(m); }}>Responder</button>}
+            {menu === 'opciones' && acciones.onReaccionar && <button type="button" role="menuitem" onClick={() => setMenu('reacciones')}>Reaccionar</button>}
+            {acciones.onReenviar && !m.local && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onReenviar(m); }}>Reenviar</button>}
+            {acciones.onDestacar && !m.local && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onDestacar(m); }}>{m.destacado_at ? 'Quitar destacado' : 'Destacar'}</button>}
             {m.texto && m.tipo !== 'audio' && <button type="button" role="menuitem" onClick={copiar}>Copiar</button>}
             {conArchivo && <a role="menuitem" href={linkDescarga(m.media_path, m.texto)} download onClick={() => setMenu(null)}>Descargar</a>}
             {esAudio && m.media_path && <button type="button" role="menuitem" onClick={() => { setMenu(null); descargarAudio(m.media_path, m.texto); }}>Descargar</button>}
@@ -271,7 +290,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
         {copiado && <span className="burbuja-copiado">Copiado</span>}
       </div>
 
-      {acciones && !m.eliminado_at && (
+      {acciones?.onReaccionar && !m.eliminado_at && (
         <div className="burbuja-acciones">
           <button type="button" className="accion-reaccion" aria-label="Reaccionar" title="Reaccionar" onClick={() => setMenu(menu === 'reacciones' ? null : 'reacciones')}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0" /><circle cx="9" cy="10" r="0.8" fill="currentColor" /><circle cx="15" cy="10" r="0.8" fill="currentColor" /></svg>

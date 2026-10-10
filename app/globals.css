@@ -11,8 +11,8 @@
 * { box-sizing: border-box; }
 
 body {
-  /* Tipografía del sistema (la misma de WhatsApp): no se descarga ninguna fuente */
-  font-family: "Segoe UI", "Helvetica Neue", Helvetica, Roboto, Arial, sans-serif;
+  /* Roboto, la fuente de WhatsApp Web (app/layout.js la sirve desde el CRM) */
+  font-family: var(--fuente-wa, Roboto), "Helvetica Neue", Helvetica, Arial, sans-serif;
   margin: 0;
   background: var(--fondo);
   color: var(--texto);

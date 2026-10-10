@@ -14,7 +14,7 @@ const esTactil = () => typeof window !== 'undefined' && window.matchMedia('(hove
  * Como en WhatsApp: lo que se manda aparece al instante en el chat y sale por detrás (onEnviar lo maneja la conversación).
  * respondiendo: mensaje citado (responder); corrigiendo: mensaje propio a corregir; onLimpiar: sale de esos modos.
  */
-export default function Redactor({ conversacion, ventanaAbierta, audios, formularios = [], plantillas, modoPrueba, respondiendo, corrigiendo, onLimpiar, onEnviar, respuestas = [], onAdjuntar }) {
+export default function Redactor({ conversacion, ventanaAbierta, audios, formularios = [], plantillas, modoPrueba, respondiendo, corrigiendo, onLimpiar, onEnviar, respuestas = [], onAdjuntar, onEscribiendo }) {
   const archivoRef = useRef(null);
   const [grabando, setGrabando] = useState(null); // 'audio' (nota de voz) | 'dictado' | null
   const [dictando, setDictando] = useState(false); // pasando lo dictado a texto
@@ -257,7 +257,7 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, formula
           <span className="oculto">Mensaje</span>
           <textarea ref={campo} rows={1} value={texto} disabled={!ventanaAbierta || corrigiendoAhora}
             placeholder={!ventanaAbierta ? 'Pasaron 24 h: mandá una plantilla con el +' : dictando ? 'Pasando tu voz a texto…' : corrigiendo ? 'Escribí el texto corregido' : 'Escribe un mensaje'}
-            onChange={(e) => { setTexto(e.target.value); setElegida(0); }}
+            onChange={(e) => { setTexto(e.target.value); setElegida(0); if (e.target.value.trim()) onEscribiendo?.(); }}
             onFocus={() => { if (esTactil() && panel === 'emojis') setPanel(null); }}
             onKeyDown={(e) => {
               if (sugeridas.length) {

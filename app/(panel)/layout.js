@@ -12,6 +12,7 @@ import { temaValido } from '@/lib/temas';
 import { SALDO_BAJO_USD, saldosIa } from '@/lib/costos';
 import './panel.css';
 import './whatsapp.css';
+import './whatsapp-2025.css';
 
 // Una sola lectura del perfil por pedido: la comparten el título de la pestaña y el layout
 const perfilActual = cache(async () => {

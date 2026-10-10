@@ -44,6 +44,24 @@ export default function ListaChats({ inicial, iaInicial }) {
     document.addEventListener('pointerdown', fuera);
     return () => document.removeEventListener('pointerdown', fuera);
   }, [menuDe]);
+  // Fijar (hasta 3, como WhatsApp) y archivar (sale de la lista; vuelve sola si el cliente escribe)
+  const [verArchivados, setVerArchivados] = useState(false);
+  const [avisoLista, setAvisoLista] = useState('');
+  async function cambiarChat(c, cambios, aviso) {
+    setMenuDe(null);
+    setConversaciones((l) => l.map((x) => (x.id === c.id ? { ...x, ...cambios } : x)));
+    const { error } = await supabase.from('conversaciones').update(cambios).eq('id', c.id);
+    setAvisoLista(error ? `No se pudo: ${error.message}` : aviso);
+    setTimeout(() => setAvisoLista(''), 2500);
+  }
+  function fijar(c) {
+    if (!c.fijada_at && conversaciones.filter((x) => x.fijada_at).length >= 3) {
+      setMenuDe(null); setAvisoLista('Ya tenés 3 chats fijados: desfijá uno primero.'); setTimeout(() => setAvisoLista(''), 3000); return;
+    }
+    cambiarChat(c, { fijada_at: c.fijada_at ? null : new Date().toISOString() }, c.fijada_at ? 'Chat desfijado' : 'Chat fijado');
+  }
+  const archivar = (c) => cambiarChat(c, { chat_archivado_at: c.chat_archivado_at ? null : new Date().toISOString() }, c.chat_archivado_at ? 'Chat desarchivado' : 'Chat archivado');
+
   // Leído: se le va el resaltado de "le debo respuesta" (ej.: escribió "gracias"). No leído: vuelve a quedar resaltado.
   async function marcar(c, leido) {
     setMenuDe(null);
@@ -160,6 +178,7 @@ export default function ListaChats({ inicial, iaInicial }) {
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
   }
 
+  const archivados = useMemo(() => conversaciones.filter((c) => c.chat_archivado_at), [conversaciones]);
   const conteos = useMemo(() => ({
     sinResponder: conversaciones.filter((c) => c.espera_desde).length,
     respondidos: conversaciones.filter((c) => !c.espera_desde).length,
@@ -176,6 +195,7 @@ export default function ListaChats({ inicial, iaInicial }) {
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return conversaciones.filter((c) => {
+      if (Boolean(c.chat_archivado_at) !== verArchivados) return false;
       if (filtro === 'sin_responder' && !c.espera_desde) return false;
       if (filtro === 'respondidos' && c.espera_desde) return false;
       if (filtro === 'hoy' && !pasoMio(c)?.hoy) return false;
@@ -183,8 +203,9 @@ export default function ListaChats({ inicial, iaInicial }) {
       if (!q) return true;
       return [c.contacto?.nombre, c.contacto?.telefono, ...etiquetasDe(c).map((e) => e.nombre)]
         .some((v) => v?.toLowerCase().includes(q));
-    }).sort((a, b) => reciente(b) - reciente(a));
-  }, [conversaciones, filtro, busqueda]);
+    // Fijados arriba (el último fijado primero); el resto, el mensaje más nuevo arriba
+    }).sort((a, b) => (b.fijada_at ? new Date(b.fijada_at).getTime() : 0) - (a.fijada_at ? new Date(a.fijada_at).getTime() : 0) || reciente(b) - reciente(a));
+  }, [conversaciones, filtro, busqueda, verArchivados]);
 
   const Filtro = ({ valor, children }) => (
     <button type="button" className={`chip-filtro${filtro === valor ? ' activo' : ''}`} aria-pressed={filtro === valor}
@@ -229,6 +250,21 @@ export default function ListaChats({ inicial, iaInicial }) {
         <span className="tiron-giro" style={actualizando ? undefined : { transform: `rotate(${bajado * 3}deg)` }} aria-hidden="true" />
         <span>{actualizando ? 'Actualizando…' : bajado >= UMBRAL ? 'Soltá para actualizar' : 'Tirá para actualizar'}</span>
       </div>
+      {avisoLista && <p className="aviso-error" role="status">{avisoLista}</p>}
+      {verArchivados ? (
+        <div className="cabecera-archivados">
+          <button type="button" className="cabecera-icono" aria-label="Volver a Mis chats" onClick={() => setVerArchivados(false)}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>
+          </button>
+          Archivados
+        </div>
+      ) : archivados.length > 0 && (
+        <button type="button" className="fila-archivados" onClick={() => setVerArchivados(true)}>
+          <span className="icono"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="5" rx="1" /><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4" /></svg></span>
+          Archivados
+          <span className="cuenta">{archivados.length}</span>
+        </button>
+      )}
       <ul className="chats" ref={listaRef} onScroll={guardarPosicion} onTouchStart={alTocar} onTouchMove={alArrastrar} onTouchEnd={alSoltar} onTouchCancel={alSoltar}>
         {visibles.map((c) => {
           // Te escribió y todavía no le respondiste: fila resaltada (azul; roja si espera hace más de una hora)
@@ -250,6 +286,11 @@ export default function ListaChats({ inicial, iaInicial }) {
                   <span className="chat-ultimo">{!espera && c.ultimo_es_propio && c.ultimo_mensaje_texto && <span className="chat-vos" title="Ya le respondiste">✓ Vos: </span>}{resumenUltimo(c.ultimo_mensaje_texto)}</span>
                   {espera && <span className="pildora-espera" title="Hace cuánto espera tu respuesta">{espera.texto === 'recién' ? 'Recién escribió' : `Espera ${espera.texto}`}</span>}
                   {c.no_leidos > 0 && <span className="contador" aria-label={`${c.no_leidos} sin leer`}>{c.no_leidos}</span>}
+                  {c.fijada_at && (
+                    <span className="chat-fijado" title="Chat fijado" aria-label="Chat fijado">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 3l5 5-3 1-4 4 1 5-2 2-4-4-5 5-1-1 5-5-4-4 2-2 5 1 4-4z" /></svg>
+                    </span>
+                  )}
                 </span>
                 {pasoMio(c) && (
                   <span className={`tarjeta-paso${espera ? ' de-espera' : pasoMio(c).vencido ? ' vencido' : ''}`}>
@@ -272,13 +313,15 @@ export default function ListaChats({ inicial, iaInicial }) {
               <div className="menu-mensaje chat-menu" role="menu" ref={abrirHaciaArriba}>
                 <button type="button" role="menuitem" onClick={() => marcar(c, true)}>Marcar como leído</button>
                 <button type="button" role="menuitem" onClick={() => marcar(c, false)}>Marcar como no leído</button>
+                <button type="button" role="menuitem" onClick={() => fijar(c)}>{c.fijada_at ? 'Desfijar chat' : 'Fijar chat'}</button>
+                <button type="button" role="menuitem" onClick={() => archivar(c)}>{c.chat_archivado_at ? 'Desarchivar chat' : 'Archivar chat'}</button>
               </div>
             )}
           </li>
           );
         })}
         {visibles.length === 0 && (
-          <li className="lista-vacia">{conversaciones.length ? 'Ningún chat coincide con el filtro.' : <>No tenés chats para atender. La IA está atendiendo {enIA} en el <Link href="/embudo">Embudo</Link>.</>}</li>
+          <li className="lista-vacia">{verArchivados ? 'No hay chats archivados.' : conversaciones.length ? 'Ningún chat coincide con el filtro.' : <>No tenés chats para atender. La IA está atendiendo {enIA} en el <Link href="/embudo">Embudo</Link>.</>}</li>
         )}
       </ul>
       {/* Borde derecho: arrastrarlo cambia el ancho de la lista; doble clic vuelve al ancho de siempre */}

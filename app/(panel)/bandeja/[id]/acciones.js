@@ -5,7 +5,7 @@ import { after } from 'next/server';
 import { createClient, usuarioActual } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { enviarMensaje, remitenteDeLaCuenta } from '@/lib/whatsapp/enviar';
-import { enviarReaccion } from '@/lib/whatsapp/meta';
+import { enviarReaccion, marcarLeidoMeta } from '@/lib/whatsapp/meta';
 import { responderComoAsesor } from '@/lib/ia/asesor';
 import { BUCKET_DOCUMENTOS, CARTILLAS_ARCHIVOS, PLANES_PDF } from '@/lib/documentos';
 import { linkBienvenida, mensajeCobro } from '@/lib/venta';
@@ -408,4 +408,81 @@ export async function plantillasSugeridas(conversacionId) {
   if (r.error) return { error: r.error };
   after(() => registrarConsumo(createAdminClient(), 'claude', 'plantilla', r.usd));
   return { sugeridas: r.sugeridas.map((s) => ({ id: plantillas.find((p) => p.nombre === s.nombre).id, porQue: s.motivo })) };
+}
+
+/**
+ * Reenviar un mensaje a otro chat de la misma cuenta (como WhatsApp): texto, foto o archivo del cliente, PDF de planes
+ * o cartillas, audio de la biblioteca o grabado. El nuevo mensaje queda marcado "Reenviado".
+ */
+export async function reenviarMensaje(mensajeId, destinoId) {
+  const supabase = await createClient();
+  const user = await usuarioActual(supabase);
+  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  // RLS: el mensaje y el chat de destino tienen que ser de la cuenta de quien reenvía
+  const [{ data: m }, { data: destino }] = await Promise.all([
+    supabase.from('mensajes').select('id, tipo, texto, media_path, audio_id, autor, conversacion_id').eq('id', mensajeId).maybeSingle(),
+    supabase.from('conversaciones').select('id, contacto_id, ventana_expira_at').eq('id', destinoId).maybeSingle()
+  ]);
+  if (!m) return { error: 'No tenés acceso a ese mensaje.' };
+  if (!destino) return { error: 'No tenés acceso a ese chat.' };
+  if (m.conversacion_id === destino.id) return { error: 'Elegí otro chat.' };
+  if (!ventana(destino.ventana_expira_at).abierta) return { error: 'En ese chat pasaron más de 24 h desde el último mensaje del cliente: WhatsApp solo deja mandar plantillas.' };
+
+  const admin = createAdminClient();
+  let datos;
+  const path = m.media_path ?? '';
+  if (m.tipo === 'texto' || m.tipo === 'plantilla') {
+    if (!m.texto?.trim()) return { error: 'El mensaje está vacío.' };
+    datos = { tipo: 'texto', texto: m.texto };
+  } else if (m.tipo === 'audio' && m.audio_id) {
+    datos = { tipo: 'audio', audioId: m.audio_id };
+  } else if (m.tipo === 'audio' && /^grabaciones\/[0-9a-f-]{36}\.(ogg|m4a)$/.test(path)) {
+    const x = /\((\d+):(\d{2})\)/.exec(m.texto ?? '');
+    datos = { tipo: 'audio', grabacion: { path, duracion: x ? Number(x[1]) * 60 + Number(x[2]) : 1 } };
+  } else if (['imagen', 'documento'].includes(m.tipo) && path.startsWith('clientes/')) {
+    // Se copia a la carpeta de enviados del otro cliente (cada cliente tiene su carpeta)
+    const ext = (path.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'bin';
+    const nuevo = `${destino.contacto_id}/enviados/${crypto.randomUUID()}.${ext}`;
+    const { error } = await admin.storage.from(BUCKET_CLIENTES).copy(path.slice('clientes/'.length), nuevo);
+    if (error) return { error: `No se pudo copiar el archivo: ${error.message}` };
+    const mime = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', pdf: 'application/pdf' }[ext] ?? 'application/octet-stream';
+    datos = { tipo: 'archivo', archivo: { path: nuevo, nombre: (m.texto || `Archivo.${ext}`).slice(0, 200), mime } };
+  } else if (m.tipo === 'documento' && DOCUMENTOS_VALIDOS.has(path)) {
+    datos = { tipo: 'documento', documento: { path, nombre: (m.texto || 'Documento.pdf').split(' · ')[0] } };
+  } else {
+    return { error: 'Este tipo de mensaje todavía no se puede reenviar.' };
+  }
+
+  try {
+    const r = await enviarMensaje({ conversacionId: destino.id, ...datos, autor: 'asesor', perfilId: user.id });
+    await admin.from('mensajes').update({ reenviado: true }).eq('id', r.id);
+    return { ok: true };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+/**
+ * Le avisa al cliente por WhatsApp que leíste sus mensajes (tilde azul) y, si estás escribiendo, muestra
+ * "escribiendo…" (dura hasta que respondés o 25 s). Si falla no pasa nada: es solo un aviso.
+ */
+export async function avisarLectura(conversacionId, { escribiendo = false } = {}) {
+  const supabase = await createClient();
+  const user = await usuarioActual(supabase);
+  if (!user) return { ok: false };
+  const { data: conv } = await supabase.from('conversaciones').select('id, cuenta, ventana_expira_at').eq('id', conversacionId).maybeSingle();
+  if (!conv) return { ok: false };
+  // "Escribiendo…" solo tiene sentido si se le puede responder (ventana de 24 h abierta)
+  const tipear = escribiendo && ventana(conv.ventana_expira_at).abierta;
+  const { data: ultimo } = await supabase.from('mensajes').select('wa_message_id').eq('conversacion_id', conv.id)
+    .eq('direccion', 'entrante').not('wa_message_id', 'is', null).order('creado_at', { ascending: false }).limit(1).maybeSingle();
+  if (!ultimo?.wa_message_id || ultimo.wa_message_id.startsWith('sim.')) return { ok: false };
+  try {
+    const remitente = await remitenteDeLaCuenta(createAdminClient(), conv.cuenta);
+    await marcarLeidoMeta(remitente, ultimo.wa_message_id, { escribiendo: tipear });
+    return { ok: true };
+  } catch (e) {
+    console.warn('avisar_lectura', e.message);
+    return { ok: false };
+  }
 }
