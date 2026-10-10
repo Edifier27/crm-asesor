@@ -19,8 +19,12 @@ const CASOS = [
   ['genial, entonces tu aporte se deriva y el de tu esposa sería particular', false],
   ['me pasás tu sueldo bruto aproximado para calcularlo?', false],
   ['la consulta con el médico no tiene copago en el SMG02', false],
-  // Chat de Ale Zappettino (Gaby, 10-oct): "te consulto" = "te pregunto" sale; "lo tengo que consultar" no
-  ['te consulto, lo harías de forma particular o derivando aportes de un recibo de sueldo?', false],
+  // Chat de Ale Zappettino (Gaby, 10-oct). Darío pidió que tampoco use "te consulto" para preguntar
+  ['te consulto, lo harías de forma particular o derivando aportes de un recibo de sueldo?', true],
+  ['contame, lo harías de forma particular o derivando aportes de un recibo de sueldo?', false],
+  ['perfecto, para armarte la cotización necesito unos datos. qué edad tenés?', false],
+  ['comentame, qué te pareció? está dentro de tus posibilidades?', false],
+  ['te entiendo perfecto, estoy recibiendo muchas consultas de Sancor por ese motivo', false],
   ['Ale, lo de la antigüedad lo tengo que consultar para no decirte nada incorrecto. te lo confirmo y te escribo', true],
   ['dejame consultarlo y te aviso', true],
   ['te lo consulto y te digo', true]
