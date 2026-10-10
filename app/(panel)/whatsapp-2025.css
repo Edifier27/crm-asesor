@@ -274,3 +274,10 @@
   ::view-transition-old(*), ::view-transition-new(*), ::view-transition-group(*) { animation-duration: 0s !important; animation-delay: 0s !important; }
   .menu-mensaje, .menu-adjuntar, .selector-reacciones, .barra-mantenido, .bajar-al-final, .mensaje-fila.recien, .reenviar-fondo, .reenviar-caja, .panel-chat { animation: none !important; }
 }
+
+/* Un link largo (sin espacios) en la caja de escribir: crece hacia abajo, nunca hacia los costados.
+   field-sizing: content agrandaba también el ancho y empujaba toda la conversación fuera de la pantalla */
+.redactor-campo { min-width: 0; }
+.redactor-campo textarea { width: 100%; min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+.redactor { min-width: 0; max-width: 100%; }
+.burbuja-texto, .cita span, .respondiendo-cuerpo span, .panel-chat-texto { overflow-wrap: anywhere; }
