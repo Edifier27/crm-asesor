@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -85,6 +85,25 @@ export default function ListaChats({ inicial, iaInicial }) {
       document.removeEventListener('visibilitychange', alVolver); window.removeEventListener('online', recargar);
     };
   }, [supabase, recargar]);
+
+  // Volver de un chat deja la lista donde estaba, como WhatsApp. En el celular la lista se oculta mientras el chat
+  // está abierto y el navegador pierde la posición: se guarda al desplazarse (solo con la lista a la vista) y se
+  // repone al volver. También sobrevive a ir al Embudo y volver (sessionStorage, solo esta pestaña).
+  const listaRef = useRef(null);
+  const posicion = useRef(null);
+  function guardarPosicion(e) {
+    const el = e.currentTarget;
+    if (!el.clientHeight) return; // oculta: el scroll que informa es 0 y no vale
+    posicion.current = el.scrollTop;
+    try { sessionStorage.setItem('lista-chats-scroll', String(el.scrollTop)); } catch {}
+  }
+  useLayoutEffect(() => {
+    const el = listaRef.current;
+    if (!el || activo) return;
+    let y = posicion.current;
+    if (y === null) { try { y = Number(sessionStorage.getItem('lista-chats-scroll')) || 0; } catch { y = 0; } }
+    if (y && Math.abs(el.scrollTop - y) > 1) el.scrollTop = y;
+  }, [activo]);
 
   // En el celular: tirar la lista hacia abajo la actualiza, como en WhatsApp (en la compu no hace falta: no hay dedo)
   const tiron = useRef(null);            // dónde empezó el dedo
@@ -210,7 +229,7 @@ export default function ListaChats({ inicial, iaInicial }) {
         <span className="tiron-giro" style={actualizando ? undefined : { transform: `rotate(${bajado * 3}deg)` }} aria-hidden="true" />
         <span>{actualizando ? 'Actualizando…' : bajado >= UMBRAL ? 'Soltá para actualizar' : 'Tirá para actualizar'}</span>
       </div>
-      <ul className="chats" onTouchStart={alTocar} onTouchMove={alArrastrar} onTouchEnd={alSoltar} onTouchCancel={alSoltar}>
+      <ul className="chats" ref={listaRef} onScroll={guardarPosicion} onTouchStart={alTocar} onTouchMove={alArrastrar} onTouchEnd={alSoltar} onTouchCancel={alSoltar}>
         {visibles.map((c) => {
           // Te escribió y todavía no le respondiste: fila resaltada (azul; roja si espera hace más de una hora)
           const espera = tiempoDeEspera(c.espera_desde);

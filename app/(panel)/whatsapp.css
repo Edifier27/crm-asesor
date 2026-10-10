@@ -80,10 +80,12 @@
 
 /* Cita (responder) */
 .cita {
-  display: flex; flex-direction: column; margin: 0 0 4px; padding: 5px 8px 6px; border-radius: 6px;
-  background: rgba(11, 20, 26, 0.05); border-left: 4px solid #06CF9C; font-size: 13.2px; line-height: 18px;
+  position: relative; display: flex; flex-direction: column; margin: 0 0 4px; padding: 6px 10px 7px 14px; border-radius: 8px;
+  background: rgba(11, 20, 26, 0.05); border: 0; font-size: 13.2px; line-height: 18px; overflow: hidden; min-width: 160px;
 }
-.cita.de-cliente { border-left-color: #A5B337; }
+.cita::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #06CF9C; }
+.cita.de-cliente::before { background: #A5B337; }
+.burbuja.saliente .cita { background: rgba(37, 99, 56, 0.08); }
 .cita strong { font-size: 12.8px; font-weight: 500; color: var(--wa-verde-oscuro); }
 .cita.de-cliente strong { color: #7E8F00; }
 .cita span { color: var(--wa-suave); }
@@ -259,15 +261,27 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 .deslizar-responder { position: absolute; left: -38px; top: 50%; margin-top: -15px; width: 30px; height: 30px; border-radius: 50%; background: rgba(11, 20, 26, 0.25); color: #fff; display: flex; align-items: center; justify-content: center; transition: transform 0.12s; }
 .burbuja-envoltura.saliente .deslizar-responder { left: auto; right: calc(100% + 8px); }
 
-/* Respondiendo / corrigiendo: arriba del campo de escribir y del mismo ancho (como WhatsApp) */
+/* Respondiendo / corrigiendo: tarjeta redondeada arriba del campo de escribir, como WhatsApp.
+   Adentro, la cita con su barrita de color a la izquierda (redondeada) y la X redonda a la derecha. */
 .respondiendo {
-  margin: 6px 68px 0 112px; padding: 6px 6px 6px 8px; background: #fff; border: 0; border-radius: 8px 8px 0 0; gap: 6px;
+  margin: 8px 68px 2px 112px; padding: 6px; background: #fff; border: 0; border-radius: 14px; gap: 6px;
+  box-shadow: 0 1px 2px rgba(11, 20, 26, 0.1); animation: respuesta-entra 0.14s ease-out;
 }
-.respondiendo-cuerpo { background: rgba(11, 20, 26, 0.05); border-left: 4px solid #06CF9C; border-radius: 6px; padding: 5px 8px; }
-.respondiendo.corrigiendo .respondiendo-cuerpo { border-left-color: #B45309; }
+@keyframes respuesta-entra { from { opacity: 0; transform: translateY(6px); } }
+.respondiendo-cuerpo {
+  position: relative; background: #F0F2F5; border: 0; border-radius: 10px; padding: 7px 10px 7px 14px; overflow: hidden;
+  line-height: 18px;
+}
+.respondiendo-cuerpo::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #06CF9C; }
+.respondiendo.corrigiendo .respondiendo-cuerpo::before { background: #B45309; }
 .respondiendo-cuerpo strong { color: var(--wa-verde-oscuro); font-weight: 500; font-size: 12.8px; }
-.redactor-zona:has(.respondiendo) .redactor-campo { border-top-left-radius: 0; border-top-right-radius: 0; }
-.redactor-zona:has(.respondiendo) .redactor { padding-top: 0; }
+.respondiendo-cuerpo span { font-size: 13.2px; color: var(--wa-suave); }
+.respondiendo .boton-icono {
+  flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; color: #54656F; background: transparent; font-size: 20px; line-height: 1;
+}
+.respondiendo .boton-icono:hover { background: rgba(11, 20, 26, 0.06); }
+.redactor-zona:has(.respondiendo) .redactor { padding-top: 2px; }
+@media (max-width: 760px) { .respondiendo { margin: 6px 8px 0; } }
 /* La flechita para bajar sube cuando aparece el recuadro de respuesta, así no se tapan */
 .conversacion:has(.respondiendo) .bajar-al-final { bottom: 140px; }
 
