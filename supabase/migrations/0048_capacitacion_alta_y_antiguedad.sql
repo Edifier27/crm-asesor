@@ -1,4 +1,4 @@
--- 0048: capacitacion de Dario (10-oct-2026), segunda parte: alta y vigencia, y antiguedad. Para los dos CRM.
+-- 0048: capacitacion de Dario (10-oct-2026), segunda parte: alta y vigencia, documentacion para el alta y antiguedad. Para los dos CRM.
 -- Va sin tildes a proposito (archivo ASCII). Se puede correr mas de una vez: reemplaza las fichas por titulo.
 
 drop table if exists capacitacion;
@@ -13,12 +13,18 @@ insert into capacitacion (titulo, contenido) values
 
 DESREGULADO (deriva aportes del recibo de sueldo)
 - No paga la primera cuota.
-- La derivacion de aportes se hace por ARCA y es la que define el alta: SIEMPRE es para el mes siguiente.
+- La derivacion de aportes se hace por ARCA y es la que define el alta: la vigencia SIEMPRE es el 1 del mes siguiente, y el alta sale en 48 a 72 horas como maximo.
 - Ejemplo: si se hace en octubre (aunque sea el 31), la vigencia es desde el 1 de noviembre. Si se hace a principios de noviembre, es desde el 1 de diciembre.
 - Hay tiempo hasta el ultimo dia del mes corriente para tener el alta el 1 del mes siguiente (sirve como urgencia: "si lo hacemos antes de fin de mes ya arrancas el 1").'),
 
+('Documentacion para el alta',
+'Cuando el cliente dice que quiere avanzar, pedile:
+- DNI frente y dorso (de cada persona que entra al plan).
+- Si deriva aportes: el ultimo recibo de sueldo, y avisale que tenga a mano la clave fiscal (de ARCA) para hacer el tramite de derivacion.
+Despues pasa a humano con "listo_para_cerrar": el alta la termina el asesor.'),
+
 ('Antiguedad y tiempos de espera',
-'Si pregunta si le reconocen la antiguedad de su prepaga u obra social anterior: no le hace falta. Entra sin carencias y sin tiempos de espera: desde el primer dia tiene todo activo (consultas, estudios, resonancias, internacion y cirugia). La unica carencia es la de embarazo (2 meses).');
+'Si pregunta si le reconocen la antiguedad de su prepaga u obra social anterior: decile que si, que reconocemos la antiguedad y que desde el primer dia tiene la cobertura activa: consultas, estudios, resonancias, internacion y cirugia, sin tiempos de espera. Es verdad (Swiss Medical no tiene tiempos de espera, salvo la carencia de embarazo de 2 meses) y es la forma de decirle que si al cliente.');
 
 delete from public.conocimiento k
  where k.cuenta in (select cuenta from public.numeros_whatsapp)

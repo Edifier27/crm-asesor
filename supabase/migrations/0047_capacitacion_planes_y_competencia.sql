@@ -42,7 +42,7 @@ DIFERENCIAS ENTRE PLANES (para responder si preguntan)
 ('Promociones y como dar el precio',
 '- No anuncies "tenes una promocion": el precio que se le pasa ya tiene la promocion aplicada. Los precios los manda el asesor con el cotizador, la IA no da precios.
 - Las promociones duran un ano (las de la competencia, 3 o 4 meses).
-- Como se aplican (lo calcula el cotizador): menores de 25 anos individuales, 50%. En grupo familiar, los hijos 50% y los adultos 15%. Individuales mayores, 15%. Monotributista individual: 25%. Monotributista con hijos: 15% mas 50% a los hijos (el 25% del monotributo pisa el 50% de los hijos, no conviene). Nordelta, Tigre, Escobar y Pilar: 25% que se suma al 50% de los hijos.
+- Como se aplican (lo calcula el cotizador): todos los adultos (individual, pareja o grupo familiar) tienen 15%. Los menores de 26 (hasta 25 anos y 11 meses) y los hijos, 50%. Monotributista sin hijos (individual o pareja): 25% en vez del 15%. Monotributista con hijos: 15% mas 50% a los hijos (el 25% del monotributo no se suma al 50% de los hijos, no conviene). Nordelta, Tigre, Escobar y Pilar: 25% que SI se suma al 50% de los hijos.
 - No hay descuento por debito automatico.'),
 
 ('Medicamentos y anticonceptivos',
@@ -66,7 +66,8 @@ DIFERENCIAS ENTRE PLANES (para responder si preguntan)
 - Para esas personas hay dos planes que complementan la obra social de origen (tiene que tener PAMI u otra obra social de convenio; casi siempre son jubilados con PAMI):
   AMBU 1: cubre consultas, tratamientos y estudios; la internacion va por PAMI o su obra social.
   INTER 1: cubre guardias, internacion y cirugia; lo ambulatorio va por PAMI o su obra social.
-- La IA explica que hay estos complementos y pasa a humano con "pide_cotizacion".'),
+- La IA explica que hay estos complementos y pasa a humano con "pide_cotizacion".
+- Los jubilados NO derivan aportes del recibo de jubilacion: hasta 65 anos y 11 meses entran como particulares (directo); con 66 o mas, el complemento (por ejemplo INTER 1) mas su PAMI.'),
 
 ('Chequeo medico total',
 'Todos los planes que ofrecemos (S1, SMG02, S2 y SMG20) incluyen el "chequeo medico total", que incluye el apto fisico. Se dice asi: "chequeo medico total".
