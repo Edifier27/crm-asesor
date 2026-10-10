@@ -208,3 +208,12 @@
   .boton-dictar .dictar-t { top: 2px; right: 0; min-width: 12px; height: 12px; font-size: 9px; line-height: 12px; }
   .redactor-campo { padding: 0 4px; }
 }
+
+/* Celular: la conversación usa todo el ancho, como WhatsApp (margen mínimo y burbujas de hasta ~85%) */
+@media (max-width: 760px) {
+  .mensajes { padding: 8px 4px 8px; }
+  .burbuja-envoltura { padding: 0 8px; }
+  .burbuja-envoltura .burbuja { max-width: 85%; }
+  .burbuja.con-audio { min-width: min(300px, 80vw); }
+  .no-leidos-franja { margin-inline: -4px; }
+}
