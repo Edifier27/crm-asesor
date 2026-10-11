@@ -7,19 +7,19 @@
 
 insert into public.plantillas (nombre, idioma, categoria, cuerpo, uso, botones, activa, nota, conexion, imagen_path) values
 ('recontacto_kommo_contesto_img', 'es_AR', 'marketing',
- $$Hola {{1}}, como andas? Hace un tiempo hablamos por tu cobertura medica. Este mes tenemos planes con 15% bonificado por 12 meses, sin carencias y con cobertura desde el primer dia. Queres que te pase el valor actualizado?$$,
+ $$Hola {{1}}, como andas? Hace un tiempo hablamos por tu cobertura medica. Este mes tenemos planes con 15% bonificado por 12 meses y accedes a la cobertura al 100% desde el primer dia. Queres que te pase el valor actualizado?$$,
  'Campania Kommo: contestaron alguna vez (con imagen)', array['Si, pasame el valor', 'Ya tengo prepaga', 'No, gracias'], false,
  'Borrador: revisala y toca "Enviar a Meta".', null, 'recontacto_kommo-campania-oct.jpg'),
 ('recontacto_kommo_contesto', 'es_AR', 'marketing',
- $$Hola {{1}}, como andas? Hace un tiempo hablamos por tu cobertura medica. Este mes tenemos planes con 15% bonificado por 12 meses, sin carencias y con cobertura desde el primer dia. Queres que te pase el valor actualizado?$$,
+ $$Hola {{1}}, como andas? Hace un tiempo hablamos por tu cobertura medica. Este mes tenemos planes con 15% bonificado por 12 meses y accedes a la cobertura al 100% desde el primer dia. Queres que te pase el valor actualizado?$$,
  'Campania Kommo: contestaron alguna vez', array['Si, pasame el valor', 'Ya tengo prepaga', 'No, gracias'], false,
  'Borrador: revisala y toca "Enviar a Meta".', null, null),
 ('recontacto_kommo_nuevo_img', 'es_AR', 'marketing',
- $$Hola {{1}}, soy Dario, asesor de Swiss Medical. Hace un tiempo consultaste por un plan de salud. Este mes tenemos 15% bonificado por 12 meses y sin carencias. Te paso el valor sin compromiso?$$,
+ $$Hola {{1}}, soy Dario, asesor de Swiss Medical. Hace un tiempo consultaste por un plan de salud. Este mes tenemos 15% bonificado por 12 meses y accedes a la cobertura al 100% desde el primer dia. Te paso el valor sin compromiso?$$,
  'Campania Kommo: nunca contestaron (con imagen)', array['Si, cotizame', 'No, gracias'], false,
  'Borrador: revisala y toca "Enviar a Meta".', null, 'recontacto_kommo-campania-oct.jpg'),
 ('recontacto_kommo_nuevo', 'es_AR', 'marketing',
- $$Hola {{1}}, soy Dario, asesor de Swiss Medical. Hace un tiempo consultaste por un plan de salud. Este mes tenemos 15% bonificado por 12 meses y sin carencias. Te paso el valor sin compromiso?$$,
+ $$Hola {{1}}, soy Dario, asesor de Swiss Medical. Hace un tiempo consultaste por un plan de salud. Este mes tenemos 15% bonificado por 12 meses y accedes a la cobertura al 100% desde el primer dia. Te paso el valor sin compromiso?$$,
  'Campania Kommo: nunca contestaron', array['Si, cotizame', 'No, gracias'], false,
  'Borrador: revisala y toca "Enviar a Meta".', null, null)
 on conflict (nombre) do nothing;

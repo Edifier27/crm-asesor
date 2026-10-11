@@ -5,25 +5,25 @@
   </defs>
   <rect width="1200" height="628" fill="url(#fondo)"/>
   <!-- Panel rojo a la derecha, con corte diagonal -->
-  <path d="M770 0 H1200 V628 H690 Z" fill="url(#rojo)"/>
-  <!-- Escudo con check (cobertura / tranquilidad) -->
-  <g transform="translate(945 250)">
+  <path d="M790 0 H1200 V628 H710 Z" fill="url(#rojo)"/>
+  <!-- Escudo con check (tranquilidad) -->
+  <g transform="translate(960 240)">
     <path d="M0 -150 L120 -105 V-10 C120 75 65 130 0 160 C-65 130 -120 75 -120 -10 V-105 Z" fill="none" stroke="#FFFFFF" stroke-width="14" stroke-linejoin="round"/>
     <path d="M-52 5 L-12 45 L60 -35" fill="none" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-  <text x="945" y="500" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="44" fill="#FFFFFF">Sin carencias</text>
-  <text x="945" y="552" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="36" fill="#FFE3E5">Sin autorizaciones</text>
+  <text x="960" y="492" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="42" fill="#FFFFFF">Sin autorizaciones</text>
+  <text x="960" y="544" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="36" fill="#FFE3E5">Turnos rápidos</text>
 
   <!-- Marca en texto (no logo) -->
-  <text x="64" y="92" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="30" letter-spacing="4" fill="#B5121F">SWISS MEDICAL</text>
+  <text x="64" y="84" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="30" letter-spacing="4" fill="#B5121F">SWISS MEDICAL</text>
   <!-- Promesa principal -->
-  <text font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="76" fill="#14181B">
-    <tspan x="60" y="210">Cobertura</tspan>
-    <tspan x="60" y="296">desde el</tspan>
-    <tspan x="60" y="382" fill="#D21B2B">primer día</tspan>
+  <text font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="64" fill="#14181B">
+    <tspan x="60" y="168">Accedé a la cobertura</tspan>
+    <tspan x="60" y="242">desde el primer día</tspan>
+    <tspan x="60" y="330" font-size="84" fill="#D21B2B">al 100%</tspan>
   </text>
   <!-- Beneficio concreto -->
-  <rect x="60" y="430" width="560" height="84" rx="42" fill="#14181B"/>
-  <text x="340" y="486" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="40" fill="#FFFFFF">15% bonificado · 12 meses</text>
-  <text x="62" y="574" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="34" fill="#3A4046">Turnos rápidos · Médico online</text>
+  <rect x="60" y="384" width="560" height="84" rx="42" fill="#14181B"/>
+  <text x="340" y="440" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="40" fill="#FFFFFF">15% bonificado · 12 meses</text>
+  <text x="62" y="540" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="34" fill="#3A4046">Médico online · Chequeo médico total</text>
 </svg>
