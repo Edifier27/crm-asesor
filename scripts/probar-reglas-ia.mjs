@@ -47,7 +47,11 @@ const ZONAS = [
   ['te recomiendo el S2', 'CORDOBA', false],
   ['el SMG20 sin copago', 'INTERIOR', false],
   ['tenés el SMG30 con cobertura internacional', 'AMBA', false],
-  ['te recomiendo el S2', null, false]
+  ['te recomiendo el S2', null, false],
+  // Jorge (CABA) pidió el S2: explicar la equivalencia está bien, ofrecer el S2 no
+  ['el S2 acá en Capital es el S1, mismo plan con copago fijo de 14 mil', 'AMBA', false],
+  ['dale, te paso el S2', 'AMBA', true],
+  ['el SMG02 en tu zona es el SMG20, sin copago', 'CORDOBA', false]
 ];
 console.table(ZONAS.map(([texto, zona, bloquear]) => {
   const motivo = motivoPlanFueraDeZona(texto, zona);
