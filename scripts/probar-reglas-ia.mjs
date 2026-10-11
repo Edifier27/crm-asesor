@@ -1,5 +1,5 @@
 // Prueba de lib/ia/reglas-mensaje.js: node scripts/probar-reglas-ia.mjs
-import { motivoProhibido } from '../lib/ia/reglas-mensaje.js';
+import { motivoPlanFueraDeZona, motivoProhibido } from '../lib/ia/reglas-mensaje.js';
 
 const NOMBRES = ['Darío', 'Gabriela', 'Gaby'];
 // [texto, debe bloquearse]
@@ -37,5 +37,23 @@ console.table(CASOS.map(([texto, bloquear]) => {
   if (!bien) fallas++;
   return { texto: texto.slice(0, 70), esperado: bloquear ? 'bloquea' : 'sale', obtenido: motivo ?? 'sale', '': bien ? '✓' : '✗' };
 }));
-console.log(fallas ? `${fallas} caso(s) fallaron` : `Los ${CASOS.length} casos dan lo esperado`);
+// Planes por zona (chat de Milagros, La Plata: le ofreció el S2 siendo AMBA)
+const ZONAS = [
+  ['para vos te recomiendo el S2. sin autorizaciones', 'AMBA', true],
+  ['te paso el SMG20 que no tiene copago', 'AMBA', true],
+  ['te recomiendo el SMG02, sin copago', 'AMBA', false],
+  ['el S1 tiene un copago fijo de 14 mil', 'AMBA', false],
+  ['el SMG02 es el que más eligen', 'CORDOBA', true],
+  ['te recomiendo el S2', 'CORDOBA', false],
+  ['el SMG20 sin copago', 'INTERIOR', false],
+  ['tenés el SMG30 con cobertura internacional', 'AMBA', false],
+  ['te recomiendo el S2', null, false]
+];
+console.table(ZONAS.map(([texto, zona, bloquear]) => {
+  const motivo = motivoPlanFueraDeZona(texto, zona);
+  const bien = Boolean(motivo) === bloquear;
+  if (!bien) fallas++;
+  return { texto, zona, obtenido: motivo ?? 'sale', '': bien ? '✓' : '✗' };
+}));
+console.log(fallas ? `${fallas} caso(s) fallaron` : `Los ${CASOS.length + ZONAS.length} casos dan lo esperado`);
 process.exit(fallas ? 1 : 0);
