@@ -21,7 +21,8 @@ const reciente = (c) => new Date(c.ultimo_mensaje_at ?? 0).getTime();
 
 const etiquetasDe = (c) => (c.contacto?.etiquetas ?? []).map((e) => e.etiqueta).filter(Boolean);
 
-// Bandeja = solo lo que tiene que atender el asesor (modo humano). "pausada" = archivada (venta cerrada). Lo que atiende la IA vive en el Embudo.
+// Bandeja = todos los chats activos, como WhatsApp: los que atendés vos (modo humano) y los que atiende la IA (modo ia, con su marca).
+// "pausada" = cerrado (venta cerrada, perdido, importado de Kommo): no aparece; vuelve solo si el cliente escribe.
 export default function ListaChats({ inicial, iaInicial }) {
   const supabase = createClient();
   const { id: activo } = useParams();
@@ -74,7 +75,7 @@ export default function ListaChats({ inicial, iaInicial }) {
 
   const recargar = useCallback(async () => {
     const [{ data }, { count }] = await Promise.all([
-      supabase.from('conversaciones').select(SELECT_LISTA).eq('modo', 'humano')
+      supabase.from('conversaciones').select(SELECT_LISTA).in('modo', ['humano', 'ia'])
         .order('ultimo_mensaje_at', { ascending: false, nullsFirst: false }).limit(300),
       supabase.from('conversaciones').select('id', { count: 'exact', head: true }).eq('modo', 'ia')
     ]);
@@ -182,7 +183,9 @@ export default function ListaChats({ inicial, iaInicial }) {
   const conteos = useMemo(() => ({
     sinResponder: conversaciones.filter((c) => c.espera_desde).length,
     respondidos: conversaciones.filter((c) => !c.espera_desde).length,
-    hoy: conversaciones.filter((c) => pasoMio(c)?.hoy).length
+    hoy: conversaciones.filter((c) => pasoMio(c)?.hoy).length,
+    ia: conversaciones.filter((c) => c.modo === 'ia' && !c.chat_archivado_at).length,
+    yo: conversaciones.filter((c) => c.modo === 'humano' && !c.chat_archivado_at).length
   }), [conversaciones]);
 
   // Etiquetas presentes en la lista, para filtrar
@@ -199,6 +202,8 @@ export default function ListaChats({ inicial, iaInicial }) {
       if (filtro === 'sin_responder' && !c.espera_desde) return false;
       if (filtro === 'respondidos' && c.espera_desde) return false;
       if (filtro === 'hoy' && !pasoMio(c)?.hoy) return false;
+      if (filtro === 'ia' && c.modo !== 'ia') return false;
+      if (filtro === 'yo' && c.modo !== 'humano') return false;
       if (filtro.startsWith('et:') && !etiquetasDe(c).some((e) => `et:${e.id}` === filtro)) return false;
       if (!q) return true;
       return [c.contacto?.nombre, c.contacto?.telefono, ...etiquetasDe(c).map((e) => e.nombre)]
@@ -241,6 +246,8 @@ export default function ListaChats({ inicial, iaInicial }) {
           <Filtro valor="sin_responder">Sin responder{conteos.sinResponder ? ` ${conteos.sinResponder}` : ''}</Filtro>
           <Filtro valor="respondidos">Respondidos{conteos.respondidos ? ` ${conteos.respondidos}` : ''}</Filtro>
           <Filtro valor="hoy">Para hoy{conteos.hoy ? ` ${conteos.hoy}` : ''}</Filtro>
+          <Filtro valor="yo">Atendés vos{conteos.yo ? ` ${conteos.yo}` : ''}</Filtro>
+          <Filtro valor="ia">Atiende la IA{conteos.ia ? ` ${conteos.ia}` : ''}</Filtro>
           {etiquetas.map((e) => <Filtro key={e.id} valor={`et:${e.id}`}>{e.nombre}</Filtro>)}
           <GestorEtiquetas onFiltrar={(id) => setFiltro(`et:${id}`)} />
         </Deslizable>
