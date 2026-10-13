@@ -390,6 +390,7 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 .form-resultados button:hover:not(:disabled) { background: var(--wa-saliente); }
 .form-resultados button:disabled { opacity: 0.55; cursor: not-allowed; }
 .icono-adjunto.formulario { background: #FFF0DC; }
+.icono-adjunto.sanatorios { background: #E3F2FD; }
 
 /* Avisos de mensajes nuevos (como WhatsApp Web) */
 .avisos { position: fixed; top: 16px; right: 16px; z-index: 60; display: flex; flex-direction: column; gap: 8px; width: min(360px, calc(100vw - 32px)); }

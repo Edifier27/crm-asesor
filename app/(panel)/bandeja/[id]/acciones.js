@@ -21,6 +21,7 @@ import { BUCKET_FORMULARIOS, nombreArchivo } from '@/lib/formularios';
 import { analizarTelefono } from '@/lib/telefono';
 import { sugerirPlantillas } from '@/lib/ia/plantillas';
 import { registrarConsumo } from '@/lib/costos';
+import { mensajeSanatorios, sanatoriosPara } from '@/lib/cartilla-swiss';
 
 // Solo se pueden ver/enviar los PDF del catálogo (planes y cartillas)
 const DOCUMENTOS_VALIDOS = new Set([...Object.values(PLANES_PDF).map((p) => p.path), ...CARTILLAS_ARCHIVOS.map((c) => c.path)]);
@@ -485,4 +486,22 @@ export async function avisarLectura(conversacionId, { escribiendo = false } = {}
     console.warn('avisar_lectura', e.message);
     return { ok: false };
   }
+}
+
+// "Sanatorios" del menú +: arma el mensaje con los principales de la cartilla para la localidad y el plan del cliente
+// (y lo que suma subiendo de plan). Queda en el cuadro para que el asesor lo revise antes de mandarlo.
+export async function sanatoriosDelChat(conversacionId) {
+  const supabase = await createClient();
+  const user = await usuarioActual(supabase);
+  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  const { data: conv } = await supabase.from('conversaciones')
+    .select('contacto:contactos(zona, plan_cotizado, relevamiento, cotizacion)').eq('id', conversacionId).maybeSingle();
+  if (!conv) return { error: 'No tenés acceso a esta conversación.' };
+  const c = conv.contacto ?? {};
+  const provincia = c.relevamiento?.provincia ?? (c.zona === 'AMBA' ? 'CABA' : null);
+  if (!provincia) return { error: 'Falta la provincia del cliente: cargala en la ficha.' };
+  const cotizado = (c.cotizacion?.enviadas ?? []).find((e) => e.tipo === 'cotizacion')?.planes?.[0]?.plan;
+  const plan = c.plan_cotizado ?? cotizado ?? (c.zona === 'AMBA' || ['CABA', 'GBA (zona AMBA)'].includes(provincia) ? 'SMG02' : 'S2');
+  const texto = mensajeSanatorios(sanatoriosPara({ provincia, localidad: c.relevamiento?.localidad, plan }));
+  return texto ? { texto } : { error: provincia === 'Bs.As. Interior' ? 'Falta la localidad del cliente (ej.: Tandil, Junín): cargala en la ficha.' : 'No encontré sanatorios de la cartilla para su zona.' };
 }

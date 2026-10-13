@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { corregirMensaje, plantillasSugeridas } from './acciones';
+import { corregirMensaje, plantillasSugeridas, sanatoriosDelChat } from './acciones';
 import { createClient } from '@/lib/supabase/client';
 
 const EMOJIS = ['😊', '😀', '😂', '🙂', '😉', '😍', '🤗', '🙏', '👍', '👌', '👏', '💪', '🙌', '✅', '❤️', '💚', '🎉', '✨', '🔥', '⭐', '😅', '🤔', '😮', '😢', '👋', '📄', '📞', '📍', '🏥', '👨‍👩‍👧', '👶', '💬', '⏰', '📅', '💰', '🤝'];
@@ -234,6 +234,15 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, formula
           </button>
           <button type="button" role="menuitem" disabled={!ventanaAbierta} onClick={() => setPanel('rapidas')}>
             <span className="icono-adjunto rapida">⚡</span>Respuestas rápidas
+          </button>
+          <button type="button" role="menuitem" disabled={!ventanaAbierta} onClick={async () => {
+            setPanel(null); setError('');
+            const r = await sanatoriosDelChat(conversacion.id);
+            if (r.error) return setError(r.error);
+            setTexto(r.texto);
+            requestAnimationFrame(() => campo.current?.focus());
+          }}>
+            <span className="icono-adjunto sanatorios">🏥</span>Sanatorios de su zona
           </button>
           <button type="button" role="menuitem" disabled={!ventanaAbierta} onClick={() => setPanel('audios')}>
             <span className="icono-adjunto audio">🎵</span>Audios guardados
