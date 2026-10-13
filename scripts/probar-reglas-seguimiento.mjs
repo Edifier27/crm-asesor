@@ -1,5 +1,5 @@
 // Prueba de lib/ia/reglas-seguimiento.js: node scripts/probar-reglas-seguimiento.mjs
-import { hablaDePlanEnviado, lePasoUnPlan, textoParaIA, yaEsAfiliado } from '../lib/ia/reglas-seguimiento.js';
+import { esTramiteDeAfiliado, hablaDePlanEnviado, lePasoUnPlan, textoParaIA, yaEsAfiliado } from '../lib/ia/reglas-seguimiento.js';
 
 const generales = new Set(['datos singular', 'Datos plural', 'Sueldo bruto', 'Inflacion']);
 // [descripción, obtenido, esperado]
@@ -25,6 +25,15 @@ const CASOS = [
   ['tiene OSDE', yaEsAfiliado(['tengo OSDE y quiero ver Swiss']), false],
   ['tuvo Swiss', yaEsAfiliado(['tuve Swiss hace años, quiero volver']), false],
   ['quiere Swiss', yaEsAfiliado(['quiero un plan de Swiss Medical para mí sola']), false],
+  ['soy socio', yaEsAfiliado(['soy socio de Swiss']), true],
+  // Afiliado con trámite (va al 0810) vs. afiliado que suma a un familiar (es venta)
+  ['Natalia: descuento en su plan', esTramiteDeAfiliado(['[audio] Nosotros tenemos Swiss Medical, está a nombre de mi marido. Tenemos el 02. Te queríamos preguntar si dentro de ese plan podría haber algún descuento, bonificación.']), true],
+  ['socio que suma al hijo', esTramiteDeAfiliado(['soy socio de Swiss y quiero incluir a mi hijo']), false],
+  ['afiliada, plan para la mamá', esTramiteDeAfiliado(['tengo Swiss Medical, busco un plan para mi mamá']), false],
+  ['tenemos Swiss, sumar al bebé', esTramiteDeAfiliado(['tenemos Swiss y queremos sumar al bebé que nace en marzo']), false],
+  ['afiliado, agregarla (en otro mensaje)', esTramiteDeAfiliado(['soy afiliado', 'me gustaría agregar a mi esposa']), false],
+  ['socio, cambio de plan', esTramiteDeAfiliado(['soy socio de Swiss, quiero pasarme al SMG30']), true],
+  ['lead común (no afiliado)', esTramiteDeAfiliado(['quiero incluir a mi hijo']), false],
   ['audio sin transcribir', textoParaIA({ tipo: 'audio', texto: 'datos singular' }), '[audio: datos singular]']
 ];
 
