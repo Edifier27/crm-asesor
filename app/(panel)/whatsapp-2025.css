@@ -24,6 +24,9 @@
 }
 .chip-filtro:hover { background: var(--wa-barra); }
 .chip-filtro.activo { background: var(--wa-saliente); border-color: transparent; color: var(--wa-verde-oscuro); font-weight: 500; }
+/* Filtros de Mis chats un poco más chicos (pedido de Darío, 13-oct-2026): entran más a la vista */
+.lista-cabecera .filtros { gap: 5px; }
+.lista-cabecera .filtros .chip-filtro { font-size: 12.5px; padding: 3px 10px; line-height: 18px; }
 .chat { min-height: 72px; }
 .chat:hover { background: var(--wa-hover); }
 .chat.activo { background: var(--wa-activa); }

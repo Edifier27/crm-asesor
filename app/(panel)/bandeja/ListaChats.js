@@ -19,6 +19,11 @@ const pasoMio = (c) => (c.seguimiento_responsable === 'asesor' ? cuandoSeguimien
 // Orden como WhatsApp: el chat con el mensaje más nuevo va arriba
 const reciente = (c) => new Date(c.ultimo_mensaje_at ?? 0).getTime();
 
+// Venta hecha (Falta de cobro), Ganado o Perdido con el chat en manos del sistema: no van en Mis chats (Darío, 13-oct-2026).
+// Vuelven solos cuando toca mandar el link de pago (pasan a modo humano) o si el cliente escribe.
+const CERRADAS = ['Falta de cobro', 'Ganado', 'Perdido'];
+const fueraDeBandeja = (c) => c.modo === 'ia' && CERRADAS.includes(c.contacto?.etapa?.nombre);
+
 const etiquetasDe = (c) => (c.contacto?.etiquetas ?? []).map((e) => e.etiqueta).filter(Boolean);
 
 // Bandeja = todos los chats activos, como WhatsApp: los que atendés vos (modo humano) y los que atiende la IA (modo ia, con su marca).
@@ -179,25 +184,26 @@ export default function ListaChats({ inicial, iaInicial }) {
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
   }
 
-  const archivados = useMemo(() => conversaciones.filter((c) => c.chat_archivado_at), [conversaciones]);
+  const enBandeja = useMemo(() => conversaciones.filter((c) => !fueraDeBandeja(c)), [conversaciones]);
+  const archivados = useMemo(() => enBandeja.filter((c) => c.chat_archivado_at), [enBandeja]);
   const conteos = useMemo(() => ({
-    sinResponder: conversaciones.filter((c) => c.espera_desde).length,
-    respondidos: conversaciones.filter((c) => !c.espera_desde).length,
-    hoy: conversaciones.filter((c) => pasoMio(c)?.hoy).length,
-    ia: conversaciones.filter((c) => c.modo === 'ia' && !c.chat_archivado_at).length,
-    yo: conversaciones.filter((c) => c.modo === 'humano' && !c.chat_archivado_at).length
-  }), [conversaciones]);
+    sinResponder: enBandeja.filter((c) => c.espera_desde).length,
+    respondidos: enBandeja.filter((c) => !c.espera_desde).length,
+    hoy: enBandeja.filter((c) => pasoMio(c)?.hoy).length,
+    ia: enBandeja.filter((c) => c.modo === 'ia' && !c.chat_archivado_at).length,
+    yo: enBandeja.filter((c) => c.modo === 'humano' && !c.chat_archivado_at).length
+  }), [enBandeja]);
 
   // Etiquetas presentes en la lista, para filtrar
   const etiquetas = useMemo(() => {
     const mapa = new Map();
-    conversaciones.forEach((c) => etiquetasDe(c).forEach((e) => mapa.set(e.id, e)));
+    enBandeja.forEach((c) => etiquetasDe(c).forEach((e) => mapa.set(e.id, e)));
     return [...mapa.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
-  }, [conversaciones]);
+  }, [enBandeja]);
 
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    return conversaciones.filter((c) => {
+    return enBandeja.filter((c) => {
       if (Boolean(c.chat_archivado_at) !== verArchivados) return false;
       if (filtro === 'sin_responder' && !c.espera_desde) return false;
       if (filtro === 'respondidos' && c.espera_desde) return false;
@@ -210,7 +216,7 @@ export default function ListaChats({ inicial, iaInicial }) {
         .some((v) => v?.toLowerCase().includes(q));
     // Fijados arriba (el último fijado primero); el resto, el mensaje más nuevo arriba
     }).sort((a, b) => (b.fijada_at ? new Date(b.fijada_at).getTime() : 0) - (a.fijada_at ? new Date(a.fijada_at).getTime() : 0) || reciente(b) - reciente(a));
-  }, [conversaciones, filtro, busqueda, verArchivados]);
+  }, [enBandeja, filtro, busqueda, verArchivados]);
 
   const Filtro = ({ valor, children }) => (
     <button type="button" className={`chip-filtro${filtro === valor ? ' activo' : ''}`} aria-pressed={filtro === valor}
@@ -244,8 +250,8 @@ export default function ListaChats({ inicial, iaInicial }) {
         <Deslizable className="filtros">
           <Filtro valor="todos">Todos</Filtro>
           <Filtro valor="sin_responder">Sin responder{conteos.sinResponder ? ` ${conteos.sinResponder}` : ''}</Filtro>
-          <Filtro valor="respondidos">Respondidos{conteos.respondidos ? ` ${conteos.respondidos}` : ''}</Filtro>
           <Filtro valor="hoy">Para hoy{conteos.hoy ? ` ${conteos.hoy}` : ''}</Filtro>
+          <Filtro valor="respondidos">Respondidos{conteos.respondidos ? ` ${conteos.respondidos}` : ''}</Filtro>
           <Filtro valor="yo">Atendés vos{conteos.yo ? ` ${conteos.yo}` : ''}</Filtro>
           <Filtro valor="ia">Atiende la IA{conteos.ia ? ` ${conteos.ia}` : ''}</Filtro>
           {etiquetas.map((e) => <Filtro key={e.id} valor={`et:${e.id}`}>{e.nombre}</Filtro>)}
