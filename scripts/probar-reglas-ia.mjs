@@ -27,7 +27,14 @@ const CASOS = [
   ['te entiendo perfecto, estoy recibiendo muchas consultas de Sancor por ese motivo', false],
   ['Ale, lo de la antigüedad lo tengo que consultar para no decirte nada incorrecto. te lo confirmo y te escribo', true],
   ['dejame consultarlo y te aviso', true],
-  ['te lo consulto y te digo', true]
+  ['te lo consulto y te digo', true],
+  // Promociones (13-oct): solo el 15%, nunca el 25% del monotributo ni el 50% de los menores
+  ['sí, tiene un 15% de descuento', false],
+  ['como sos monotributista tenés un 25% de descuento', true],
+  ['los chicos tienen el 50% de descuento', true],
+  ['los monotributistas tienen un precio especial', false],
+  ['descuento en medicamentos del 40% al 70%', false],
+  ['cobertura al 100% desde el primer día', false]
 ];
 
 let fallas = 0;
