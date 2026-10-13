@@ -100,6 +100,12 @@ export default function PanelAsesor({ config: configInicial, conocimientoInicial
             ? 'Copiloto: la IA no conversa. Ordena la ficha, te deja la tarea con un consejo y manda solo plantillas aprobadas a quien no responde.'
             : 'Automático: la IA asesora y conversa con los leads.'}</span>
         </div>
+        {config.modo_ia === 'automatico' && (
+          <label className="check">
+            <input type="checkbox" checked={config.ia_cotiza !== false} onChange={(e) => guardarConfig({ ia_cotiza: e.target.checked })} />
+            La IA cotiza y manda audios (si lo apagás, pide los datos, los deja cargados en el cotizador y te pasa el chat para que asesores vos)
+          </label>
+        )}
         <label className="campo"><span>Cómo te presentás (tu firma: la usa la IA en tus chats)</span>
           <input defaultValue={miPerfil?.firma ?? config.firma ?? ''} placeholder="Ej.: Gabriela, asesora de Swiss Medical"
             onBlur={async (e) => {
