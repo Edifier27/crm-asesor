@@ -284,3 +284,5 @@
 .redactor-campo textarea { width: 100%; min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
 .redactor { min-width: 0; max-width: 100%; }
 .burbuja-texto, .cita span, .respondiendo-cuerpo span, .panel-chat-texto { overflow-wrap: anywhere; }
+/* "Sin IA": chat bloqueado para la IA (Darío, 13-oct-2026) */
+.conv-cabecera .interruptor-ia.bloqueada { border: 1px solid var(--wa-linea); background: #FFF4E5; color: #8A4B00; border-radius: 100px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 500; }

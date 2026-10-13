@@ -25,6 +25,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
   const { contacto } = conversacion;
   const [mensajes, setMensajes] = useState(mensajesIniciales);
   const [modo, setModo] = useState(conversacion.modo);
+  const [bloqueada, setBloqueada] = useState(Boolean(conversacion.ia_bloqueada));
   const [expira, setExpira] = useState(conversacion.ventana_expira_at);
   const [pensando, setPensando] = useState(conversacion.ia_pensando_desde);
   const [respondiendo, setRespondiendo] = useState(null);
@@ -286,6 +287,19 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mensajes.length, locales.length]);
 
+  // "La IA no toca este chat" (Darío, 13-oct-2026): para los que trabaja él aunque la cuenta pase a automático. Al
+  // bloquearlo lo toma el asesor y se cancela el seguimiento que tuviera la IA
+  async function bloquearIA(si) {
+    setMenuCabecera(false);
+    const cambios = si
+      ? { ia_bloqueada: true, modo: modo === 'ia' ? 'humano' : modo, ...(conversacion.seguimiento_responsable === 'ia' ? { seguimiento_at: null, seguimiento_motivo: null } : {}) }
+      : { ia_bloqueada: false };
+    setBloqueada(si);
+    if (si && modo === 'ia') setModo('humano');
+    const { error } = await supabase.from('conversaciones').update(cambios).eq('id', conversacion.id);
+    if (error) { setBloqueada(!si); alert('No se pudo: ' + error.message); }
+  }
+
   async function cambiarModo(nuevo) {
     const anterior = modo;
     setModo(nuevo);
@@ -414,11 +428,15 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
           onClick={() => setPanelChat(panelChat === 'buscar' ? null : 'buscar')}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
         </button>
-        <label className="interruptor-ia">
-          <input type="checkbox" checked={modo === 'ia'} onChange={(e) => cambiarModo(e.target.checked ? 'ia' : 'humano')} />
-          IA asesorando
-        </label>
-        {modo === 'ia' && <button type="button" className="boton-primario" onClick={() => cambiarModo('humano')}>Tomar conversación</button>}
+        {bloqueada ? (
+          <button type="button" className="interruptor-ia bloqueada" onClick={() => bloquearIA(false)} title="La IA no toca este chat. Tocá para liberarlo">🔒 Sin IA</button>
+        ) : (
+          <label className="interruptor-ia">
+            <input type="checkbox" checked={modo === 'ia'} onChange={(e) => cambiarModo(e.target.checked ? 'ia' : 'humano')} />
+            IA asesorando
+          </label>
+        )}
+        {modo === 'ia' && !bloqueada && <button type="button" className="boton-primario" onClick={() => cambiarModo('humano')}>Tomar conversación</button>}
         <button type="button" className="boton-secundario boton-ficha" onClick={onFicha} aria-label="Ficha del cliente" title="Ficha"><span className="ficha-texto">Ficha</span><svg className="ficha-icono" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="2" /><circle cx="12" cy="10" r="3" /><path d="M7.5 17a5 5 0 0 1 9 0" /></svg></button>
         <span className="cabecera-menu">
           <button type="button" className={`cabecera-icono${menuCabecera ? ' activo' : ''}`} aria-label="Más opciones" aria-expanded={menuCabecera} onClick={() => setMenuCabecera((x) => !x)}>
@@ -428,6 +446,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
             <div className="menu-mensaje" role="menu">
               <button type="button" role="menuitem" onClick={() => { setMenuCabecera(false); setPanelChat('buscar'); }}>Buscar mensajes</button>
               <button type="button" role="menuitem" onClick={() => { setMenuCabecera(false); setPanelChat('destacados'); }}>Mensajes destacados</button>
+              <button type="button" role="menuitem" onClick={() => bloquearIA(!bloqueada)}>{bloqueada ? 'Liberar el chat para la IA' : '🔒 Que la IA no toque este chat'}</button>
               <button type="button" role="menuitem" onClick={() => { setMenuCabecera(false); setPanelChat('archivos'); }}>Archivos, enlaces y documentos</button>
               {!sinConexion && <button type="button" role="menuitem" onClick={alternarFijado}>{fijada ? 'Desfijar chat' : 'Fijar chat'}</button>}
               {!sinConexion && <button type="button" role="menuitem" onClick={alternarArchivado}>{archivado ? 'Desarchivar chat' : 'Archivar chat'}</button>}
@@ -464,7 +483,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
               <span className="pase-titulo">La IA te pasó este lead</span>
               <span>{conversacion.resumen_ia}</span>
             </div>
-            <button type="button" className="boton-secundario" onClick={() => cambiarModo('ia')}>Que siga la IA</button>
+            {!bloqueada && <button type="button" className="boton-secundario" onClick={() => cambiarModo('ia')}>Que siga la IA</button>}
           </div>
         )}
         <div ref={fondo} />
