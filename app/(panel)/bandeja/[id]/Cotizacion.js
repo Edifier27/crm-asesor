@@ -6,7 +6,7 @@ import { zonaPorCaracteristica } from '@/lib/caracteristicas';
 import { ZONAS_AUDIO, audiosDelPlan, zonaDeAudio } from '@/lib/audios-plan';
 import { createClient } from '@/lib/supabase/client';
 import { CAMPANIAS, ZONA_ROTULO, campaniaSugerida, cargaBU, cotizar, ordenarPlanes, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
-import { PROVINCIAS, datosProvincia, provinciaDesdeTexto } from '@/lib/provincias';
+import { PROVINCIAS_LISTA, datosProvincia, provinciaDesdeTexto, zonaGbaDe } from '@/lib/provincias';
 import { REGIONES, TIERS, cartillaDe, planPdf, regionSugerida, tierDePlan } from '@/lib/documentos';
 import { fechaCorta, hora } from '@/lib/formato';
 import { enviarDesdeBandeja, verDocumento } from './acciones';
@@ -69,7 +69,9 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
   // Si todavía no se sabe, se estima por la característica del teléfono (0299 → Neuquén, 11 → AMBA).
   const caracteristica = useMemo(() => zonaPorCaracteristica(contacto.telefono), [contacto.telefono]);
   const [provincia, setProvincia] = useState(() =>
-    contacto.relevamiento?.provincia ?? provinciaDesdeTexto(contacto.relevamiento?.localidad) ?? caracteristica?.provincia ?? null);
+    // Fichas viejas con "GBA (zona AMBA)": si la localidad dice la zona (Lomas de Zamora → GBA Sur), va esa
+    (contacto.relevamiento?.provincia === 'GBA (zona AMBA)' ? zonaGbaDe(contacto.relevamiento?.localidad) : null)
+    ?? contacto.relevamiento?.provincia ?? provinciaDesdeTexto(contacto.relevamiento?.localidad) ?? caracteristica?.provincia ?? null);
   const elegidaAMano = useRef(false);
   const arrastre = useArrastre();
   const miembrosAMano = useRef(false);
@@ -308,7 +310,8 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
         <label className="campo"><span>Provincia</span>
           <select value={provincia ?? ''} onChange={(e) => { elegidaAMano.current = true; cambiar(setProvincia, 'provincia')(e.target.value || null); }}>
             {!provincia && <option value="">Elegí la provincia</option>}
-            {PROVINCIAS.map((p) => <option key={p.nombre} value={p.nombre}>{p.nombre}</option>)}
+            {PROVINCIAS_LISTA.map((p) => <option key={p.nombre} value={p.nombre}>{p.nombre}</option>)}
+            {provincia && datosProvincia(provincia)?.oculta && <option value={provincia}>{provincia}</option>}
           </select>
         </label>
         <label className="campo"><span>Modalidad</span>

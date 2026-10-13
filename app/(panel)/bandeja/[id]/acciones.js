@@ -22,6 +22,7 @@ import { analizarTelefono } from '@/lib/telefono';
 import { sugerirPlantillas } from '@/lib/ia/plantillas';
 import { registrarConsumo } from '@/lib/costos';
 import { mensajeSanatorios, sanatoriosPara } from '@/lib/cartilla-swiss';
+import { esGba } from '@/lib/provincias';
 
 // Solo se pueden ver/enviar los PDF del catálogo (planes y cartillas)
 const DOCUMENTOS_VALIDOS = new Set([...Object.values(PLANES_PDF).map((p) => p.path), ...CARTILLAS_ARCHIVOS.map((c) => c.path)]);
@@ -501,7 +502,7 @@ export async function sanatoriosDelChat(conversacionId) {
   const provincia = c.relevamiento?.provincia ?? (c.zona === 'AMBA' ? 'CABA' : null);
   if (!provincia) return { error: 'Falta la provincia del cliente: cargala en la ficha.' };
   const cotizado = (c.cotizacion?.enviadas ?? []).find((e) => e.tipo === 'cotizacion')?.planes?.[0]?.plan;
-  const plan = c.plan_cotizado ?? cotizado ?? (c.zona === 'AMBA' || ['CABA', 'GBA (zona AMBA)'].includes(provincia) ? 'SMG02' : 'S2');
+  const plan = c.plan_cotizado ?? cotizado ?? (c.zona === 'AMBA' || provincia === 'CABA' || esGba(provincia) ? 'SMG02' : 'S2');
   const texto = mensajeSanatorios(sanatoriosPara({ provincia, localidad: c.relevamiento?.localidad, plan }));
   return texto ? { texto } : { error: provincia === 'Bs.As. Interior' ? 'Falta la localidad del cliente (ej.: Tandil, Junín): cargala en la ficha.' : 'No encontré sanatorios de la cartilla para su zona.' };
 }
