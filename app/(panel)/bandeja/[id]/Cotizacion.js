@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { zonaPorCaracteristica } from '@/lib/caracteristicas';
 import { ZONAS_AUDIO, audiosDelPlan, zonaDeAudio } from '@/lib/audios-plan';
 import { createClient } from '@/lib/supabase/client';
-import { CAMPANIAS, ZONA_ROTULO, campaniaSugerida, cotizar, ordenarPlanes, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
+import { CAMPANIAS, ZONA_ROTULO, campaniaSugerida, cargaBU, cotizar, ordenarPlanes, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
 import { PROVINCIAS, datosProvincia, provinciaDesdeTexto } from '@/lib/provincias';
 import { REGIONES, TIERS, cartillaDe, planPdf, regionSugerida, tierDePlan } from '@/lib/documentos';
 import { fechaCorta, hora } from '@/lib/formato';
@@ -404,6 +404,10 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
               <div key={i}><dt>Aporte sueldo {pesos(a.sueldo)}</dt><dd>−{pesos(a.aporte)}</dd></div>
             ))}
             <div className="total"><dt>{desglose.totalAportes > 0 ? 'A pagar (cuota − aportes)' : 'Total por mes'}</dt><dd>{pesos(desglose.final)}</dd></div>
+            {/* Como en cotizadorsmg.com.ar: lo que se carga en el sistema. Solo para el asesor (no sale en "Copiar detalle") */}
+            <div className="carga-bu" title="Venta directa: la cuota sin IVA (10,5%). Derivación o Tierra del Fuego: la cuota entera.">
+              <dt>Carga BU</dt><dd>{pesos(cargaBU(desglose.conDescuento, modalidad, zona))}</dd>
+            </div>
           </dl>
           {desglose.aumento ? <span className="selector-detalle">Incluye aumento de {desglose.aumento}% sobre la lista.</span> : null}
           <button type="button" className="boton-secundario" onClick={() => copiarDesglose(desplegado, desglose)}>Copiar detalle</button>

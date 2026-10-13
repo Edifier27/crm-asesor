@@ -13,7 +13,7 @@
   --pase: #8A3410;
   --pase-fondo: #FFF7EE;
   display: flex;
-  height: 100dvh;
+  height: var(--alto-visible, 100dvh); /* con el teclado abierto, el alto que se ve (AltoVisible.js) */
   overflow: hidden;
   font-size: 14px;
 }
@@ -380,7 +380,13 @@
   .app:has(.conversacion) .riel { display: none; }
   .riel-marca, .riel-espacio, .riel-usuario { display: none; }
   .app > .lista, .app > .vacio, .app > .pagina { flex: 1; min-height: 0; }
+  /* El chat ocupa la pantalla y no crece con los mensajes: la barra con el nombre queda fija arriba y solo se desplazan
+     los mensajes, como en WhatsApp (Darío, 13-oct-2026). Sin min-height: 0 la columna crecía y la barra se iba */
+  .app > .conversacion, .app > * > .conversacion { flex: 1 1 auto; min-height: 0; }
 }
+.conversacion { min-height: 0; }
+.conv-cabecera { flex: 0 0 auto; }
+.mensajes { min-height: 0; }
 
 /* ───── Cotización en la ficha ───── */
 .cotizacion { border-top: 1px solid var(--linea); padding-top: 16px; gap: 10px; }
@@ -614,6 +620,8 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .desglose dt { color: var(--texto-suave); }
 .desglose dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 600; }
 .desglose dl .total { border-top: 1px solid var(--borde); padding-top: 6px; margin-top: 2px; }
+.desglose dl .carga-bu { border-top: 1px dashed var(--borde); padding-top: 6px; font-size: 12px; }
+.desglose dl .carga-bu dt, .desglose dl .carga-bu dd { color: var(--texto-suave); }
 .desglose dl .total dt, .desglose dl .total dd { color: var(--acento); font-weight: 700; font-size: 15px; }
 .desglose > .boton-secundario { align-self: flex-start; }
 .doc-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
