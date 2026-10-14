@@ -9,7 +9,7 @@ import { CAMPANIAS, ZONA_ROTULO, campaniaSugerida, cargaBU, cotizar, edadCotizab
 import { PROVINCIAS_LISTA, datosProvincia, provinciaDesdeTexto, zonaGbaDe } from '@/lib/provincias';
 import { REGIONES, TIERS, cartillaDe, planPdf, regionSugerida, tierDePlan } from '@/lib/documentos';
 import { fechaCorta, hora } from '@/lib/formato';
-import { enviarDesdeBandeja, verDocumento } from './acciones';
+import { enviarDesdeBandeja, sanatoriosDelChat, verDocumento } from './acciones';
 
 // Carrusel de planes: agarrarlo con el mouse ("manito") y arrastrar para moverse, como en el celular
 function useArrastre() {
@@ -225,6 +225,29 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
       const r = await enviarDesdeBandeja(conversacionId, { tipo: 'documento', documento: { path: doc.path, nombre: doc.nombre, caption } });
       setAviso(r.error ?? `${entrada.tipo === 'plan' ? 'Plan' : 'Cartilla'} enviado`);
       if (!r.error) await registrar(entrada);
+    });
+  }
+
+  // Sanatorios de su zona para el plan elegido (lista de Darío en Capital y GBA, cartilla oficial en el resto): Ver y Enviar
+  const [sanatorios, setSanatorios] = useState(null); // { plan, texto } | null
+  async function textoSanatorios() {
+    const r = await sanatoriosDelChat(conversacionId, { provincia, localidad: relVivo?.localidad, plan: planDocsActivo });
+    if (r.error) { setAviso(r.error); return null; }
+    return r.texto;
+  }
+  async function verSanatorios() {
+    setAviso('');
+    if (sanatorios?.plan === planDocsActivo) return setSanatorios(null);
+    const texto = await textoSanatorios();
+    if (texto) setSanatorios({ plan: planDocsActivo, texto });
+  }
+  function enviarSanatorios() {
+    setAviso('');
+    iniciar(async () => {
+      const texto = await textoSanatorios();
+      if (!texto) return;
+      const r = await enviarDesdeBandeja(conversacionId, { tipo: 'texto', texto });
+      setAviso(r.error ?? 'Sanatorios enviados');
     });
   }
 
@@ -450,6 +473,12 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
               <span className="selector-detalle">El {planDocsActivo} no se comercializa en esta provincia (S1 y SMG02 son solo AMBA).</span>
             )}
           </div>
+          <div className="doc-fila">
+            <span className="doc-nombre">🏥 Sanatorios de su zona</span>
+            <button type="button" className="boton-secundario" onClick={verSanatorios}>{sanatorios?.plan === planDocsActivo ? 'Ocultar' : 'Ver'}</button>
+            <button type="button" className="boton-primario" disabled={enviando} onClick={enviarSanatorios}>Enviar sanatorios</button>
+          </div>
+          {sanatorios?.plan === planDocsActivo && <p className="sanatorios-vista">{sanatorios.texto}</p>}
           {audiosDelPlan(audios, planDocsActivo, zona, zonaAudio).map((a) => (
             <div key={a.id} className="doc-fila">
               <span className="doc-nombre">🎤 {a.titulo}{a.duracion_seg ? ` · ${Math.floor(a.duracion_seg / 60)}:${String(a.duracion_seg % 60).padStart(2, '0')}` : ''}

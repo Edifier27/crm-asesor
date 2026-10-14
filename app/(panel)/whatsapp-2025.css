@@ -286,3 +286,4 @@
 .burbuja-texto, .cita span, .respondiendo-cuerpo span, .panel-chat-texto { overflow-wrap: anywhere; }
 /* "Sin IA": chat bloqueado para la IA (Darío, 13-oct-2026) */
 .conv-cabecera .interruptor-ia.bloqueada { border: 1px solid var(--wa-linea); background: #FFF4E5; color: #8A4B00; border-radius: 100px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 500; }
+.sanatorios-vista { white-space: pre-line; font-size: 12.5px; background: var(--wa-barra, #F0F2F5); border-radius: 8px; padding: 8px 10px; margin: 0; }

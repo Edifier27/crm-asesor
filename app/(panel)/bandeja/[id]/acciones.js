@@ -491,7 +491,7 @@ export async function avisarLectura(conversacionId, { escribiendo = false } = {}
 
 // "Sanatorios" del menú +: arma el mensaje con los principales de la cartilla para la localidad y el plan del cliente
 // (y lo que suma subiendo de plan). Queda en el cuadro para que el asesor lo revise antes de mandarlo.
-export async function sanatoriosDelChat(conversacionId) {
+export async function sanatoriosDelChat(conversacionId, desdeCotizador = {}) {
   const supabase = await createClient();
   const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
@@ -499,10 +499,10 @@ export async function sanatoriosDelChat(conversacionId) {
     .select('contacto:contactos(zona, plan_cotizado, relevamiento, cotizacion)').eq('id', conversacionId).maybeSingle();
   if (!conv) return { error: 'No tenés acceso a esta conversación.' };
   const c = conv.contacto ?? {};
-  const provincia = c.relevamiento?.provincia ?? (c.zona === 'AMBA' ? 'CABA' : null);
+  const provincia = desdeCotizador.provincia ?? c.relevamiento?.provincia ?? (c.zona === 'AMBA' ? 'CABA' : null);
   if (!provincia) return { error: 'Falta la provincia del cliente: cargala en la ficha.' };
   const cotizado = (c.cotizacion?.enviadas ?? []).find((e) => e.tipo === 'cotizacion')?.planes?.[0]?.plan;
-  const plan = c.plan_cotizado ?? cotizado ?? (c.zona === 'AMBA' || provincia === 'CABA' || esGba(provincia) ? 'SMG02' : 'S2');
-  const texto = mensajeSanatorios(sanatoriosPara({ provincia, localidad: c.relevamiento?.localidad, plan }));
+  const plan = desdeCotizador.plan ?? c.plan_cotizado ?? cotizado ?? (c.zona === 'AMBA' || provincia === 'CABA' || esGba(provincia) ? 'SMG02' : 'S2');
+  const texto = mensajeSanatorios(sanatoriosPara({ provincia, localidad: desdeCotizador.localidad ?? c.relevamiento?.localidad, plan }));
   return texto ? { texto } : { error: provincia === 'Bs.As. Interior' ? 'Falta la localidad del cliente (ej.: Tandil, Junín): cargala en la ficha.' : 'No encontré sanatorios de la cartilla para su zona.' };
 }

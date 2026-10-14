@@ -8,7 +8,7 @@ import { SELECT_MENSAJE } from '@/lib/consultas';
 import Redactor from './Redactor';
 import Simulador from './Simulador';
 import Burbuja from '../../componentes/Burbuja';
-import { avisarLectura, enviarDesdeBandeja, reaccionar, registrarDocumento, sanatoriosDelChat } from './acciones';
+import { avisarLectura, enviarDesdeBandeja, reaccionar, registrarDocumento } from './acciones';
 import PanelChat from './PanelChat';
 import Reenviar from './Reenviar';
 import { limpiarAtajo } from '../../asesor/RespuestasRapidas';
@@ -31,21 +31,6 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
   const [respondiendo, setRespondiendo] = useState(null);
   const [corrigiendo, setCorrigiendo] = useState(null);
   const [avisoAccion, setAvisoAccion] = useState('');
-  // Botón 🏥 de la barra: arma el mensaje con los sanatorios de su zona y lo deja en el cuadro para revisarlo
-  const [paraRedactor, setParaRedactor] = useState(null);
-  const [buscandoSanatorios, setBuscandoSanatorios] = useState(false);
-  async function sanatorios() {
-    setAvisoAccion(''); setBuscandoSanatorios(true);
-    const r = await sanatoriosDelChat(conversacion.id).catch(() => ({ error: 'No se pudo armar la lista. Probá de nuevo.' }));
-    setBuscandoSanatorios(false);
-    if (r.error) return setAvisoAccion(r.error);
-    if (!ventana(expira).abierta) {
-      // Con la ventana cerrada no se puede mandar texto libre: queda copiado para usarlo cuando conteste
-      try { await navigator.clipboard.writeText(r.texto); } catch {}
-      return setAvisoAccion('Pasaron 24 h y no se puede mandar texto: te copié la lista de sanatorios para cuando conteste.');
-    }
-    setParaRedactor({ texto: r.texto, n: Date.now() });
-  }
   const [, refrescarReloj] = useState(0);
   const [arrastrando, setArrastrando] = useState(false);
   const [subiendoArchivo, setSubiendoArchivo] = useState(false);
@@ -439,9 +424,6 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
           </span>
         )}
         <span className={`ventana ${v.abierta ? 'abierta' : 'cerrada'}`} title={v.texto}><span className="ventana-largo">{v.texto}</span><span className="ventana-corto">{v.corto}</span></span>
-        <button type="button" className="cabecera-icono boton-sanatorios" aria-label="Sanatorios de su zona" title="Sanatorios de su zona" disabled={buscandoSanatorios} onClick={sanatorios}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21V7l9-4 9 4v14" /><path d="M9 21v-5h6v5" /><path d="M12 7v6M9 10h6" /></svg>
-        </button>
         <button type="button" className={`cabecera-icono${panelChat === 'buscar' ? ' activo' : ''}`} aria-label="Buscar en el chat" title="Buscar"
           onClick={() => setPanelChat(panelChat === 'buscar' ? null : 'buscar')}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
@@ -516,7 +498,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
       {avisoAccion && <p className="aviso-error" role="alert">{avisoAccion}</p>}
       <Redactor conversacion={conversacion} ventanaAbierta={v.abierta} audios={audios} formularios={formularios} plantillas={plantillas} modoPrueba={modoPrueba}
         respondiendo={respondiendo} corrigiendo={corrigiendo} onLimpiar={() => { setRespondiendo(null); setCorrigiendo(null); }}
-        onEnviar={enviarOptimista} respuestas={respuestas} onAdjuntar={(archivo) => subirArchivo(archivo, 'enviar')} onEscribiendo={avisarEscribiendo} insertar={paraRedactor} />
+        onEnviar={enviarOptimista} respuestas={respuestas} onAdjuntar={(archivo) => subirArchivo(archivo, 'enviar')} onEscribiendo={avisarEscribiendo} />
     </main>
   );
 }
