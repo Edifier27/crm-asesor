@@ -23,6 +23,7 @@ import { sugerirPlantillas } from '@/lib/ia/plantillas';
 import { registrarConsumo } from '@/lib/costos';
 import { mensajeSanatorios, sanatoriosPara } from '@/lib/cartilla-swiss';
 import { esGba } from '@/lib/provincias';
+import { fuenteDelLead } from '@/lib/fuentes';
 
 // Solo se pueden ver/enviar los PDF del catálogo (planes y cartillas)
 const DOCUMENTOS_VALIDOS = new Set([...Object.values(PLANES_PDF).map((p) => p.path), ...CARTILLAS_ARCHIVOS.map((c) => c.path)]);
@@ -197,7 +198,7 @@ async function contextoVenta(conversacionId) {
   const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
   const { data: conv } = await supabase.from('conversaciones')
-    .select('id, cuenta, ventana_expira_at, contacto:contactos(id, nombre, venta)').eq('id', conversacionId).maybeSingle();
+    .select('id, cuenta, ventana_expira_at, contacto:contactos(id, nombre, venta, origen, origen_detalle)').eq('id', conversacionId).maybeSingle();
   if (!conv) return { error: 'No tenés acceso a esta conversación.' };
   const { data: etapas } = await supabase.from('etapas').select('id, nombre');
   const etapa = (n) => etapas?.find((e) => e.nombre === n)?.id;
@@ -213,7 +214,7 @@ export async function registrarVenta(conversacionId, { tipo, plan, monto, dni, p
   const link = tipo === 'directo' ? linkBienvenida(dni, precarga) : null;
 
   const venta = {
-    tipo, plan: plan || null, monto: Number(monto) || null, fecha: new Date().toISOString(),
+    tipo, plan: plan || null, monto: Number(monto) || null, fecha: new Date().toISOString(), origen: fuenteDelLead(conv.contacto),
     ...(tipo === 'directo' && link ? { dni: String(dni).replace(/\D/g, ''), precarga: String(precarga).replace(/\D/g, ''), link_pago: link } : {})
   };
   const etapaId = etapa(tipo === 'directo' ? 'Falta de cobro' : 'Ganado');

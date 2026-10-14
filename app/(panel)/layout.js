@@ -5,6 +5,7 @@ import Link from 'next/link';
 import RielLinks from './RielLinks';
 import RielPlegable from './RielPlegable';
 import Avisos from './componentes/Avisos';
+import AlertaEspera from './componentes/AlertaEspera';
 import ReproductorGlobal from './componentes/ReproductorGlobal';
 import VersionNueva from './componentes/VersionNueva';
 import { estadoUso } from '@/lib/uso';
@@ -66,6 +67,7 @@ export default async function PanelLayout({ children }) {
       </RielPlegable>
       {children}
       <Avisos />
+      <AlertaEspera />
       <ReproductorGlobal />
       <VersionNueva actual={process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev'} usuarioId={user.id ?? null} />
     </div>
