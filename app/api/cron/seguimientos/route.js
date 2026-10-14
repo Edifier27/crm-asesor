@@ -8,6 +8,7 @@ import { reprocesarEventos } from '@/lib/whatsapp/procesar';
 import { aprenderSiToca } from '@/lib/ia/aprendizaje';
 import { transcribirPendientes } from '@/lib/transcripcion';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { revisarPlantillasPendientes } from '@/lib/plantillas-estado';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -27,6 +28,8 @@ export async function GET(request) {
     const r = await procesarSeguimientos();
     if (r.procesados) console.log('seguimientos', JSON.stringify(r));
     // Leads con 30 días → a su base del mes; difusiones pendientes → próxima tanda
+    // Plantillas que esperan aprobación de Meta: apenas se aprueban quedan activas (y las campañas arrancan)
+    await revisarPlantillasPendientes(createAdminClient()).catch((e) => console.error('plantillas_pendientes', e));
     const archivados = await archivarVencidos();
     const difusiones = await procesarDifusiones();
     const documentosBorrados = await purgarDocumentos();
