@@ -132,7 +132,8 @@ const fechaAR = (f) => (/^\d{4}-\d{2}-\d{2}$/.test(f ?? '') ? f.split('-').rever
 
 /**
  * Ventana emergente para ver una foto o un PDF sin salir del CRM. Se cierra con Esc, la ✕ o tocando afuera.
- * datos: lo que la IA leyó del documento (DNI, fecha de nacimiento): se muestran arriba con un botón Copiar cada uno
+ * datos: lo que la IA leyó del documento (DNI y fecha de nacimiento; en el recibo, razón social y CUIT del empleador):
+ * se muestran arriba con un botón Copiar cada uno
  * (Darío, 14-oct-2026: para cargarlos en el alta sin tipearlos).
  */
 export default function VisorArchivo({ url, nombre, tipo, descarga, onCerrar, datos }) {
@@ -152,10 +153,13 @@ export default function VisorArchivo({ url, nombre, tipo, descarga, onCerrar, da
           {url && <a className="boton-link-texto" href={url} target="_blank" rel="noreferrer">Abrir aparte</a>}
           <button type="button" className="visor-cerrar" aria-label="Cerrar" onClick={onCerrar}>✕</button>
         </div>
-        {(datos?.dni || datos?.fecha_nacimiento) && (
+        {(datos?.dni || datos?.fecha_nacimiento || datos?.empleador || datos?.cuit_empleador) && (
           <div className="visor-datos">
             {datos.dni && <DatoCopiable rotulo="DNI" valor={String(datos.dni).replace(/\D/g, '')} />}
             {datos.fecha_nacimiento && <DatoCopiable rotulo="Nacimiento" valor={fechaAR(datos.fecha_nacimiento)} />}
+            {/* Recibo de sueldo: razón social y CUIT del empleador */}
+            {datos.empleador && <DatoCopiable rotulo="Razón social" valor={datos.empleador} />}
+            {datos.cuit_empleador && <DatoCopiable rotulo="CUIT" valor={String(datos.cuit_empleador).replace(/\D/g, '')} />}
           </div>
         )}
         <div className="visor-cuerpo">
