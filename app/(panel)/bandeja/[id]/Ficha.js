@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { CHAT_CERRADO } from '@/lib/consultas';
+import { CHAT_CERRADO, TAREA_LINK_PAGO } from '@/lib/consultas';
 import { corregirTelefono } from './acciones';
 import { COLORES_ETIQUETA, MOTIVOS_PERDIDA, colorEtiqueta, nombreVisible } from '@/lib/formato';
 import Cotizacion from './Cotizacion';
@@ -150,6 +150,7 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
             if (etapas.find((x) => x.id === id)?.nombre === 'Perdido') setPerdiendo(id);
             else {
               setPerdiendo(null); guardar({ etapa_id: id });
+              if (etapas.find((x) => x.id === id)?.nombre === 'Falta de cobro') supabase.from('conversaciones').update({ ...TAREA_LINK_PAGO, seguimiento_at: new Date().toISOString() }).eq('id', conversacion.id).then(() => {});
               // Sale de Perdido (se marcó por error o se recuperó): el chat vuelve a Mis chats
               if (etapaActual?.nombre === 'Perdido') supabase.from('conversaciones').update({ modo: 'humano' }).eq('id', conversacion.id).eq('modo', 'pausada').then(() => {});
             }

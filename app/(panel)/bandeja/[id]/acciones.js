@@ -3,6 +3,7 @@
 import crypto from 'node:crypto';
 import { after } from 'next/server';
 import { createClient, usuarioActual } from '@/lib/supabase/server';
+import { TAREA_LINK_PAGO } from '@/lib/consultas';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { enviarMensaje, remitenteDeLaCuenta } from '@/lib/whatsapp/enviar';
 import { enviarReaccion, marcarLeidoMeta } from '@/lib/whatsapp/meta';
@@ -220,12 +221,11 @@ export async function registrarVenta(conversacionId, { tipo, plan, monto, dni, p
   const etapaId = etapa(tipo === 'directo' ? 'Falta de cobro' : 'Ganado');
   await admin.from('contactos').update({ venta, etapa_id: etapaId, ...(venta.monto ? { valor: venta.monto } : {}), ...(plan ? { plan_cotizado: plan } : {}) }).eq('id', conv.contacto.id);
   await admin.from('conversaciones').update(tipo === 'directo'
-    ? { modo: 'ia', seguimiento_responsable: 'ia', seguimiento_at: enHorasHabiles(48).toISOString(),
-        seguimiento_motivo: 'Cobro: a las 48 h hábiles pasa a tu bandeja para mandar el link', seguimiento_cadencia: null, seguimientos_sin_respuesta: 0 }
+    ? { ...TAREA_LINK_PAGO, seguimiento_at: new Date().toISOString() }
     : { modo: 'pausada', seguimiento_at: null, seguimiento_motivo: null, seguimiento_cadencia: null }).eq('id', conv.id);
   await admin.from('mensajes').insert({
     conversacion_id: conv.id, direccion: 'saliente', autor: 'sistema', tipo: 'texto', estado: 'enviado',
-    texto: tipo === 'directo' ? `Venta directa${plan ? ` (${plan})` : ''}: pasa a Falta de cobro. A las 48 h hábiles te aparece en Mis chats para mandarle el link de pago.` : `Venta desregulada${plan ? ` (${plan})` : ''}: ganada.`
+    texto: tipo === 'directo' ? `Venta directa${plan ? ` (${plan})` : ''}: pasa a Falta de cobro. Ya podés mandarle el link de pago desde la ficha.` : `Venta desregulada${plan ? ` (${plan})` : ''}: ganada.`
   });
   return { ok: true, etapaId, venta };
 }

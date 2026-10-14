@@ -50,12 +50,13 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
     </div>
   );
 
-  // ── Falta de cobro ──
-  if (etapa === 'Falta de cobro' && venta) {
-    const dias = diasDesde(venta.fecha);
+  // ── Falta de cobro ── (también si se pasó a mano a esta etapa, sin "Venta hecha": ya se puede mandar el link)
+  if (etapa === 'Falta de cobro') {
+    const venta = contacto.venta ?? {};
+    const dias = venta.fecha ? diasDesde(venta.fecha) : null;
     return (
       <div className="bloque venta cobro">
-        <span className="bloque-titulo">💳 Falta de cobro · {dias === 0 ? 'vendido hoy' : `hace ${dias} día${dias === 1 ? '' : 's'}`}</span>
+        <span className="bloque-titulo">💳 Falta de cobro · {dias === null ? 'mandale el link de pago' : dias === 0 ? 'vendido hoy' : `hace ${dias} día${dias === 1 ? '' : 's'}`}</span>
         <span className="selector-detalle">
           {venta.plan ?? 'Plan'}{venta.monto ? ` · ${pesos(venta.monto)}` : ''} · {venta.link_enviado_at ? `link enviado ${fechaCorta(venta.link_enviado_at)}; si no paga, en 48 h vuelve a tu bandeja` : 'falta mandarle el link de pago'}
         </span>
@@ -121,7 +122,7 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
           </div>
           <p className="pp-explicacion">
             {borrador.tipo === 'directo'
-              ? 'Pasa a "Falta de cobro". A las 48 h hábiles te aparece en Mis chats para mandarle el link de pago (cargás DNI y N° de precarga). Después, cada 48 h hábiles sin pago te vuelve a aparecer para recordárselo. No sale nada automático.'
+              ? 'Pasa a "Falta de cobro" y ya te queda en Mis chats para mandarle el link de pago (cargás DNI y N° de precarga). Después, cada 48 h hábiles sin pago te vuelve a aparecer para recordárselo. No sale nada automático.'
               : 'Pasa directo a "Ganado": al derivar aportes ya queda impactado.'}
           </p>
           <div className="acciones">

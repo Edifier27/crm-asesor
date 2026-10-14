@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { CHAT_CERRADO, SELECT_EMBUDO } from '@/lib/consultas';
+import { CHAT_CERRADO, SELECT_EMBUDO, TAREA_LINK_PAGO } from '@/lib/consultas';
 import { MOTIVOS_PERDIDA, TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, pesosCorto } from '@/lib/formato';
 import EnVivo from './EnVivo';
 import Deslizable from '../componentes/Deslizable';
@@ -111,6 +111,8 @@ export default function Tablero({ etapas, inicial }) {
     if (!error && motivo) await supabase.from('conversaciones').update(CHAT_CERRADO).eq('id', conv.id);
     // Sale de Perdido (se marcó por error o se recuperó): el chat vuelve a Mis chats
     if (!error && !motivo && saleDePerdido) await supabase.from('conversaciones').update({ modo: 'humano' }).eq('id', conv.id).eq('modo', 'pausada');
+    // A Falta de cobro: ya queda en Mis chats para mandarle el link de pago
+    if (!error && destino?.nombre === 'Falta de cobro') await supabase.from('conversaciones').update({ ...TAREA_LINK_PAGO, seguimiento_at: new Date().toISOString() }).eq('id', conv.id);
     if (error) setConversaciones((l) => l.map((c) => (c.id === conv.id ? { ...c, contacto: { ...c.contacto, etapa_id: previo } } : c)));
   }
 
