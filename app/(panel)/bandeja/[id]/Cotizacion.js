@@ -126,7 +126,9 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
     [lista, JSON.stringify(validos), zona, modalidad, campania, JSON.stringify(sueldos)]
   );
   const region = regionSugerida(zona, contacto.relevamiento?.localidad, provincia);
-  const planDocsActivo = planDocs ?? resultados[0]?.plan ?? null;
+  // Ningún plan viene marcado: el folleto, la cartilla y los audios aparecen recién al tocar uno (Darío, 14-oct-2026:
+  // mandaba sin querer el folleto del S1 que venía marcado)
+  const planDocsActivo = planDocs && resultados.some((r) => r.plan === planDocs) ? planDocs : null;
   // Tocar un plan lo suma a la cotización (y muestra su folleto, cartilla y audio); tocarlo de nuevo lo saca
   function alternarPlan(plan) {
     if (elegidos.includes(plan)) {
