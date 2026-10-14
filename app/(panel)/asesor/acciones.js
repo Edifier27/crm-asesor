@@ -130,7 +130,7 @@ export async function enviarAMeta(id) {
     // Botones de respuesta rápida: el cliente contesta con un toque (el texto del botón llega como su mensaje)
     // Se manda a la cuenta de WhatsApp a la que pertenece (la de Darío o la de otra conexión, ej. Gaby)
     const cuenta = await cuentaMeta(createAdminClient(), p.conexion);
-    if (!cuenta.waba || !cuenta.token) return { error: `La cuenta ${p.conexion} todavía no tiene su número conectado.` };
+    if (!cuenta.waba || !cuenta.token) { console.error('enviar_a_meta', p.nombre, 'sin waba o token', p.conexion); return { error: `La cuenta ${p.conexion ?? 'principal'} todavía no tiene su número conectado.` }; }
     const botones = (p.botones ?? []).filter(Boolean);
     const componentes = [cuerpo, ...(botones.length ? [{ type: 'BUTTONS', buttons: botones.map((text) => ({ type: 'QUICK_REPLY', text })) }] : [])];
     // Imagen arriba del texto: Meta pide subirla como ejemplo para revisarla
@@ -148,6 +148,7 @@ export async function enviarAMeta(id) {
     await createAdminClient().from('plantillas').update(cambios).eq('id', id);
     return { ok: true, plantilla: { ...p, ...cambios } };
   } catch (e) {
+    console.error('enviar_a_meta', p.nombre, e.message);
     return { error: /already exists|ya existe/i.test(e.message) ? 'Ya existe una plantilla con ese nombre en Meta: tocá "Traer plantillas de Meta".' : e.message };
   }
 }
