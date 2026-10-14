@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { CHAT_CERRADO } from '@/lib/consultas';
 import { corregirTelefono } from './acciones';
-import { COLORES_ETIQUETA, MOTIVOS_PERDIDA, colorEtiqueta, cuitLindo, nombreVisible } from '@/lib/formato';
+import { COLORES_ETIQUETA, MOTIVOS_PERDIDA, colorEtiqueta, nombreVisible } from '@/lib/formato';
 import Cotizacion from './Cotizacion';
 import ProximoPaso from './ProximoPaso';
 import Venta from './Venta';
@@ -225,12 +225,8 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
 
       <dl className="datos">
         <div><dt>Origen</dt><dd>{ORIGENES[contacto.origen]}{contacto.origen_detalle ? ` · ${contacto.origen_detalle}` : ''}</dd></div>
-        {contacto.relevamiento?.situacion && <div><dt>Situación</dt><dd>{contacto.relevamiento.situacion}</dd></div>}
-        {[['empleador', 'Empleador'], ['empleador_conyuge', 'Empleador cónyuge']].map(([clave, rotulo]) => {
-          const e = contacto.relevamiento?.[clave];
-          if (!e?.razon_social && !e?.cuit) return null;
-          return <div key={clave}><dt>{rotulo}</dt><dd>{e.razon_social ?? 'Sin razón social'}{e.cuit ? ` · CUIT ${cuitLindo(e.cuit)}` : ''}</dd></div>;
-        })}
+        {/* Situación y empleador ya no se muestran acá (Darío, 14-oct-2026): siguen guardados para la IA y el cotizador,
+            y la razón social y el CUIT se copian desde el recibo agrandado */}
       </dl>
 
       {!contacto.telefono && (
