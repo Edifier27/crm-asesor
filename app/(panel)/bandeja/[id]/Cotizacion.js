@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { zonaPorCaracteristica } from '@/lib/caracteristicas';
 import { ZONAS_AUDIO, audiosDelPlan, zonaDeAudio } from '@/lib/audios-plan';
 import { createClient } from '@/lib/supabase/client';
-import { CAMPANIAS, ZONA_ROTULO, campaniaSugerida, cargaBU, cotizar, ordenarPlanes, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
+import { CAMPANIAS, ZONA_ROTULO, campaniaSugerida, cargaBU, cotizar, edadCotizable, ordenarPlanes, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
 import { PROVINCIAS_LISTA, datosProvincia, provinciaDesdeTexto, zonaGbaDe } from '@/lib/provincias';
 import { REGIONES, TIERS, cartillaDe, planPdf, regionSugerida, tierDePlan } from '@/lib/documentos';
 import { fechaCorta, hora } from '@/lib/formato';
@@ -119,7 +119,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
   const [enviando, iniciar] = useTransition();
   const temporizador = useRef();
 
-  const validos = miembros.filter((m) => m.edad !== '' && Number(m.edad) >= 0 && Number(m.edad) < 100).map((m) => ({ edad: Number(m.edad), esHijo: m.esHijo }));
+  const validos = miembros.filter((m) => m.edad !== '' && Number(m.edad) >= 0 && Number(m.edad) < 100).map((m) => ({ edad: edadCotizable(m.edad), esHijo: m.esHijo }));
   const resultados = useMemo(
     () => ordenarPlanes(cotizar(lista, { miembros: validos, zona, modalidad, campania, sueldos: sueldos.map(Number) }), zona),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -294,8 +294,8 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
       <div className="cot-miembros">
         {miembros.map((m, i) => (
           <div key={i} className="cot-miembro">
-            <input type="number" inputMode="numeric" min="0" max="99" value={m.edad} placeholder="Edad"
-              aria-label={`Edad del integrante ${i + 1}`} onChange={(e) => setMiembro(i, { edad: e.target.value })} />
+            <input type="number" inputMode="numeric" min="1" max="99" value={m.edad} placeholder="Edad"
+              aria-label={`Edad del integrante ${i + 1}`} onChange={(e) => setMiembro(i, { edad: e.target.value === '0' ? '1' : e.target.value })} />
             <label className="check"><input type="checkbox" checked={m.esHijo} onChange={(e) => setMiembro(i, { esHijo: e.target.checked })} /> Hijo/a</label>
             {miembros.length > 1 && (
               <button type="button" className="boton-icono" aria-label="Quitar integrante"
