@@ -312,3 +312,8 @@
 .tabla-ranking td { padding: 8px; border-bottom: 1px solid var(--wa-linea, #e9edef); white-space: nowrap; }
 .tabla-ranking td small { color: var(--wa-suave, #667781); }
 @media (max-width: 760px) { .tablero-ventas { padding: 14px 12px; } }
+/* Cuenta sin rojo (perfiles.espera_roja = false): los chats sin responder quedan siempre azules */
+.app[data-espera-roja="no"] .chat.espera.larga { background: #EAF2FB; box-shadow: inset 4px 0 0 #2F6FB7; }
+.app[data-espera-roja="no"] .chat.espera.larga:hover { background: #E0ECF9; }
+.app[data-espera-roja="no"] .chat.espera.larga.activo { background: #D9E7F7; }
+.app[data-espera-roja="no"] .chat.espera.larga .pildora-espera { color: #1F5A99; }

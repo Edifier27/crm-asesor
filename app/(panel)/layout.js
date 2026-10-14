@@ -47,7 +47,8 @@ export default async function PanelLayout({ children }) {
     : [];
 
   return (
-    <div className="app" data-tema={temaValido(perfil?.tema)}>
+    // Chats sin responder: en la cuenta que lo pidió quedan siempre azules, sin pasar a rojo (perfiles.espera_roja, 0055)
+    <div className="app" data-tema={temaValido(perfil?.tema)} data-espera-roja={perfil?.espera_roja === false ? 'no' : undefined}>
       {alerta.nivel !== 'ok' && (
         <Link href="/equipo#uso" className={`aviso-uso ${alerta.nivel}`}>
           {alerta.nivel === 'urgente' ? '⚠ Supabase está casi lleno' : '⚠ Supabase al'} {alerta.max}%{alerta.nivel === 'urgente' ? ': pasá a Pro ya para no perder datos' : ': es momento de pasar a Pro'}
