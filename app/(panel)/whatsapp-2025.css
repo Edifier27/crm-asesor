@@ -297,3 +297,18 @@
 .app:has(.conversacion) .alerta-espera { bottom: calc(84px + env(safe-area-inset-bottom)); }
 @keyframes alerta-sube { from { transform: translateY(20px); opacity: 0; } }
 @media (min-width: 761px) { .alerta-espera { display: none; } }
+/* Tablero de ventas */
+.tablero-ventas { padding: 20px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+.tablero-cabecera { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.tablero-cabecera h1 { font-size: 22px; margin: 0; }
+.tablero-cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.tablero-cifras .tarjeta { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; }
+.tablero-cifras span { font-size: 12px; color: var(--wa-suave, #667781); }
+.tablero-cifras strong { font-size: 24px; }
+.tablero-cifras small { font-size: 12px; color: var(--wa-suave, #667781); }
+.tabla-scroll { overflow-x: auto; }
+.tabla-ranking { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tabla-ranking th { text-align: left; font-size: 12px; color: var(--wa-suave, #667781); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--wa-linea, #e9edef); }
+.tabla-ranking td { padding: 8px; border-bottom: 1px solid var(--wa-linea, #e9edef); white-space: nowrap; }
+.tabla-ranking td small { color: var(--wa-suave, #667781); }
+@media (max-width: 760px) { .tablero-ventas { padding: 14px 12px; } }

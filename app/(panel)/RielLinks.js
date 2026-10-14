@@ -13,6 +13,10 @@ const SECCIONES = [
     icono: <><rect x="3" y="4" width="5" height="16" rx="1" /><rect x="10" y="4" width="5" height="11" rx="1" /><rect x="17" y="4" width="4" height="7" rx="1" /></>
   },
   {
+    href: '/ventas', nombre: 'Ventas (tablero semanal)',
+    icono: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>
+  },
+  {
     href: '/bases', nombre: 'Bases (más de 30 días)',
     icono: <><rect x="3" y="4" width="18" height="5" rx="1" /><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9" /><path d="M10 13h4" /></>
   },
