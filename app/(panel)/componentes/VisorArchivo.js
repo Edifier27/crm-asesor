@@ -113,8 +113,29 @@ export const tipoArchivo = (nombre = '', mime = '') =>
   mime.startsWith('image/') || /\.(jpe?g|png|webp|gif)$/i.test(nombre) ? 'imagen'
     : mime === 'application/pdf' || /\.pdf$/i.test(nombre) ? 'pdf' : 'otro';
 
-/** Ventana emergente para ver una foto o un PDF sin salir del CRM. Se cierra con Esc, la ✕ o tocando afuera. */
-export default function VisorArchivo({ url, nombre, tipo, descarga, onCerrar }) {
+// Botón "Copiar" de un dato del documento (DNI, fecha de nacimiento): al tocarlo dice "Copiado" un momento
+function DatoCopiable({ rotulo, valor }) {
+  const [copiado, setCopiado] = useState(false);
+  async function copiar() {
+    try { await navigator.clipboard.writeText(valor); setCopiado(true); setTimeout(() => setCopiado(false), 1500); } catch {}
+  }
+  return (
+    <span className="visor-dato">
+      <span className="visor-dato-rotulo">{rotulo}</span> <strong>{valor}</strong>
+      <button type="button" className="visor-copiar" onClick={copiar}>{copiado ? '✓ Copiado' : 'Copiar'}</button>
+    </span>
+  );
+}
+
+// AAAA-MM-DD → DD/MM/AAAA
+const fechaAR = (f) => (/^\d{4}-\d{2}-\d{2}$/.test(f ?? '') ? f.split('-').reverse().join('/') : f);
+
+/**
+ * Ventana emergente para ver una foto o un PDF sin salir del CRM. Se cierra con Esc, la ✕ o tocando afuera.
+ * datos: lo que la IA leyó del documento (DNI, fecha de nacimiento): se muestran arriba con un botón Copiar cada uno
+ * (Darío, 14-oct-2026: para cargarlos en el alta sin tipearlos).
+ */
+export default function VisorArchivo({ url, nombre, tipo, descarga, onCerrar, datos }) {
   useEffect(() => {
     const tecla = (e) => e.key === 'Escape' && onCerrar();
     window.addEventListener('keydown', tecla);
@@ -131,6 +152,12 @@ export default function VisorArchivo({ url, nombre, tipo, descarga, onCerrar }) 
           {url && <a className="boton-link-texto" href={url} target="_blank" rel="noreferrer">Abrir aparte</a>}
           <button type="button" className="visor-cerrar" aria-label="Cerrar" onClick={onCerrar}>✕</button>
         </div>
+        {(datos?.dni || datos?.fecha_nacimiento) && (
+          <div className="visor-datos">
+            {datos.dni && <DatoCopiable rotulo="DNI" valor={String(datos.dni).replace(/\D/g, '')} />}
+            {datos.fecha_nacimiento && <DatoCopiable rotulo="Nacimiento" valor={fechaAR(datos.fecha_nacimiento)} />}
+          </div>
+        )}
         <div className="visor-cuerpo">
           {!url ? <span className="adjunto-cargando">Cargando…</span>
             : tipo === 'imagen' ? <ImagenConLupa url={url} nombre={nombre} />

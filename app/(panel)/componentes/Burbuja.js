@@ -27,16 +27,21 @@ async function descargarAudio(path, texto) {
   const { data } = await createClient().storage.from('audios').createSignedUrl(path, 600, { download: nombreDescarga(texto || 'Nota de voz', path) });
   if (data?.signedUrl) window.location.href = data.signedUrl;
 }
-function DocumentoEnviado({ path, texto }) {
+function DocumentoEnviado({ path, texto, mensajeId }) {
   const tipo = ES_IMAGEN.test(path) ? 'imagen' : /\.pdf$/i.test(path) ? 'pdf' : 'otro';
   const url = linkArchivo(path);
   // "Ver": ventana emergente dentro del CRM, con un link nuevo por si el de la vista previa venció
   const [abierto, setAbierto] = useState(null);
-  function ver() {
+  async function ver() {
     if (tipo === 'pdf' && !muestraPdf()) { window.open(url, '_blank'); return; }
     setAbierto({ url });
+    // Si es un DNI que leyó la IA, el visor muestra el número y la fecha de nacimiento con botón Copiar
+    if (mensajeId) {
+      const { data } = await createClient().from('documentos_cliente').select('datos').eq('mensaje_id', mensajeId).maybeSingle();
+      if (data?.datos) setAbierto((a) => (a ? { ...a, datos: data.datos } : a));
+    }
   }
-  const visor = abierto && <VisorArchivo url={abierto.url} nombre={texto} tipo={tipo} descarga={linkDescarga(path, texto)} onCerrar={() => setAbierto(null)} />;
+  const visor = abierto && <VisorArchivo url={abierto.url} nombre={texto} tipo={tipo} descarga={linkDescarga(path, texto)} datos={abierto.datos} onCerrar={() => setAbierto(null)} />;
   if (tipo === 'imagen') {
     return (
       <>
@@ -244,7 +249,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
         {/* Transcripción de la nota de voz (del cliente o tuya), como en WhatsApp */}
         {conTexto && verTexto && <span className="transcripcion">{m.transcripcion}</span>}
 
-        {conArchivo && <DocumentoEnviado path={m.media_path} texto={m.texto ?? (m.tipo === 'imagen' ? 'Foto' : 'Documento')} />}
+        {conArchivo && <DocumentoEnviado path={m.media_path} mensajeId={m.id} texto={m.texto ?? (m.tipo === 'imagen' ? 'Foto' : 'Documento')} />}
         {['imagen', 'documento', 'ubicacion', 'otro'].includes(m.tipo) && !conArchivo && (
           <span className="burbuja-adjunto">{{ imagen: '📷 Foto', documento: '📄 Documento', ubicacion: '📍 Ubicación', otro: 'Mensaje no soportado' }[m.tipo]}</span>
         )}

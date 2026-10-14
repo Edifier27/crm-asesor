@@ -97,12 +97,12 @@ export default function Documentacion({ contacto, etapa, inicial, onContacto }) 
     const tipo = tipoArchivo(d.nombre_archivo ?? '', d.mime ?? '');
     const directo = linkDoc(d);
     if (directo) {
-      if (tipo === 'pdf' && !muestraPdf()) window.open(directo, '_blank'); else setVisor({ url: directo, nombre, tipo });
+      if (tipo === 'pdf' && !muestraPdf()) window.open(directo, '_blank'); else setVisor({ url: directo, nombre, tipo, datos: d.datos });
       return;
     }
-    setVisor({ url: null, nombre, tipo });
+    setVisor({ url: null, nombre, tipo, datos: d.datos });
     const r = await verDocumentoCliente(d.id);
-    if (r.url) setVisor({ url: r.url, nombre, tipo }); else { setVisor(null); setAviso(r.error ?? 'No se pudo abrir'); }
+    if (r.url) setVisor({ url: r.url, nombre, tipo, datos: d.datos }); else { setVisor(null); setAviso(r.error ?? 'No se pudo abrir'); }
   }
 
   async function usarSueldo(d, i) {

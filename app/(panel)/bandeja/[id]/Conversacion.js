@@ -19,6 +19,18 @@ const ORIGENES = { swiss_medical: 'asignado por Swiss Medical', web: 'vía formu
 export const iaEscribiendo = (desde) => Boolean(desde) && Date.now() - new Date(desde) < 120_000;
 const porFecha = (a, b) => new Date(a.creado_at) - new Date(b.creado_at);
 
+// Botón chiquito al lado del teléfono (Darío, 14-oct-2026): copia el número con característica, sin 54 ni 9 (ej. 1136848332)
+function CopiarTelefono({ telefono }) {
+  const [copiado, setCopiado] = useState(false);
+  const nacional = String(telefono).replace(/\D/g, '').replace(/^549?/, '');
+  return (
+    <button type="button" className="copiar-telefono" title={`Copiar ${nacional}`} aria-label="Copiar teléfono"
+      onClick={async (e) => { e.stopPropagation(); try { await navigator.clipboard.writeText(nacional); setCopiado(true); setTimeout(() => setCopiado(false), 1500); } catch {} }}>
+      {copiado ? '✓' : 'C'}
+    </button>
+  );
+}
+
 export default function Conversacion({ conversacion, mensajesIniciales, onFicha, audios, formularios = [], plantillas, modoPrueba, equipo, respuestasIniciales = [], sinConexion = false }) {
   const [respuestas, setRespuestas] = useState(respuestasIniciales);
   const supabase = createClient();
@@ -414,7 +426,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
         <div className="conv-quien">
           <span className="conv-nombre">{nombreVisible(contacto)}</span>
           <span className="conv-detalle">{contacto.telefono
-            ? <a className="conv-telefono" href={`tel:+${contacto.telefono}`} title="Llamar">{telefonoLindo(contacto.telefono)}</a>
+            ? <><a className="conv-telefono" href={`tel:+${contacto.telefono}`} title="Llamar">{telefonoLindo(contacto.telefono)}</a><CopiarTelefono telefono={contacto.telefono} /></>
             : <span className="conv-telefono-revisar" title="Corregilo en la ficha para poder escribirle">⚠️ Teléfono a revisar</span>}<span className="conv-origen"> · {ORIGENES[contacto.origen]}{contacto.origen_detalle ? ` (${contacto.origen_detalle})` : ''}</span></span>
         </div>
         {cliente && (
