@@ -14,7 +14,7 @@ const esTactil = () => typeof window !== 'undefined' && window.matchMedia('(hove
  * Como en WhatsApp: lo que se manda aparece al instante en el chat y sale por detrás (onEnviar lo maneja la conversación).
  * respondiendo: mensaje citado (responder); corrigiendo: mensaje propio a corregir; onLimpiar: sale de esos modos.
  */
-export default function Redactor({ conversacion, ventanaAbierta, audios, formularios = [], plantillas, modoPrueba, respondiendo, corrigiendo, onLimpiar, onEnviar, respuestas = [], onAdjuntar, onEscribiendo }) {
+export default function Redactor({ conversacion, ventanaAbierta, audios, formularios = [], plantillas, modoPrueba, respondiendo, corrigiendo, onLimpiar, onEnviar, respuestas = [], onAdjuntar, onEscribiendo, insertar }) {
   const archivoRef = useRef(null);
   const [grabando, setGrabando] = useState(null); // 'audio' (nota de voz) | 'dictado' | null
   const [dictando, setDictando] = useState(false); // pasando lo dictado a texto
@@ -39,6 +39,8 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, formula
   const campo = useRef(null);
 
   useEffect(() => { if (respondiendo || corrigiendo) campo.current?.focus(); }, [respondiendo, corrigiendo]);
+  // Texto que manda la conversación (ej.: la lista de sanatorios del botón 🏥): queda en el cuadro para revisarlo
+  useEffect(() => { if (insertar?.texto) { setTexto(insertar.texto); setPanel(null); requestAnimationFrame(() => campo.current?.focus()); } }, [insertar]);
 
   const nombre = conversacion.contacto.nombre?.trim().split(/\s+/)[0] || 'qué tal';
   // Buscador de plantillas: todas las palabras, en cualquier orden, sin importar tildes ni mayúsculas
