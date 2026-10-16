@@ -337,3 +337,17 @@
 /* Buscador: resultados dentro de los mensajes */
 .buscar-mensajes-titulo { list-style: none; padding: 14px 16px 6px; font-size: 15px; color: var(--wa-verde-oscuro); font-weight: 500; border-top: 1px solid var(--wa-linea); }
 .resultado-mensaje .chat-ultimo mark { background: none; color: var(--wa-verde-oscuro); font-weight: 600; }
+
+/* Cuenta "sin colores" (perfiles.espera_roja = false, hoy solo Darío; 16-oct-2026): los chats sin responder no se
+   pintan; quedan blancos como el resto y llevan solo una pelotita verde a la derecha (o el contador si hay sin leer) */
+.punto-espera { display: none; }
+.app[data-espera-roja="no"] .chat.espera,
+.app[data-espera-roja="no"] .chat.espera.larga { background: transparent; box-shadow: none; }
+.app[data-espera-roja="no"] .chat.espera:hover,
+.app[data-espera-roja="no"] .chat.espera.larga:hover { background: var(--wa-hover); }
+.app[data-espera-roja="no"] .chat.espera.activo,
+.app[data-espera-roja="no"] .chat.espera.larga.activo { background: var(--wa-activa); }
+.app[data-espera-roja="no"] .chat.espera:not(.sin-leer) .chat-nombre { font-weight: 400; }
+.app[data-espera-roja="no"] .chat.espera .pildora-espera { display: none; }
+.app[data-espera-roja="no"] .punto-espera { display: block; flex: 0 0 auto; width: 12px; height: 12px; border-radius: 50%; background: var(--wa-noleido); margin-left: 6px; }
+.lista.achicada .punto-espera { display: none; }

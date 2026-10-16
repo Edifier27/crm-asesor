@@ -345,6 +345,8 @@ export default function ListaChats({ inicial, iaInicial }) {
                   <span className="chat-ultimo">{!espera && c.ultimo_es_propio && c.ultimo_mensaje_texto && <span className="chat-vos" title="Ya le respondiste">✓ Vos: </span>}{resumenUltimo(c.ultimo_mensaje_texto)}</span>
                   {espera && <span className="pildora-espera" title="Hace cuánto espera tu respuesta">{espera.texto === 'recién' ? 'Recién escribió' : `Espera ${espera.texto}`}</span>}
                   {c.no_leidos > 0 && <span className="contador" aria-label={`${c.no_leidos} sin leer`}>{c.no_leidos}</span>}
+                  {/* Cuenta "sin colores" (Darío): en vez de la fila pintada, una pelotita verde a la derecha (CSS) */}
+                  {espera && !(c.no_leidos > 0) && <span className="punto-espera" title="Te falta contestarle" aria-label="Te falta contestarle" />}
                   {c.fijada_at && (
                     <span className="chat-fijado" title="Chat fijado" aria-label="Chat fijado">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 3l5 5-3 1-4 4 1 5-2 2-4-4-5 5-1-1 5-5-4-4 2-2 5 1 4-4z" /></svg>
