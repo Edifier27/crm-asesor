@@ -434,7 +434,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
             <div className="total"><dt>{desglose.totalAportes > 0 ? 'A pagar (cuota − aportes)' : 'Total por mes'}</dt><dd>{pesos(desglose.final)}</dd></div>
             {/* Como en cotizadorsmg.com.ar: lo que se carga en el sistema. Solo para el asesor (no sale en "Copiar detalle") */}
             <div className="carga-bu" title="Venta directa: la cuota sin IVA (10,5%). Derivación o Tierra del Fuego: la cuota entera.">
-              <dt>Carga BU</dt><dd>{pesos(cargaBU(desglose.conDescuento, modalidad, zona))}</dd>
+              <dt>Carga BU{zona === 'TDF' ? ' (Tierra del Fuego: sin IVA)' : modalidad === 'derivacion' ? ' (derivación: sin descontar IVA)' : ' (sin IVA 10,5%)'}</dt><dd>{pesos(cargaBU(desglose.conDescuento, modalidad, zona))}</dd>
             </div>
           </dl>
           {desglose.aumento ? <span className="selector-detalle">Incluye aumento de {desglose.aumento}% sobre la lista.</span> : null}
@@ -462,7 +462,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
             </div>
           )}
           <div className="doc-fila">
-            <span className="doc-nombre">Cartilla {TIERS[tierDePlan(planDocsActivo)]} · {REGIONES[region]}</span>
+            <span className="doc-nombre">Cartilla {TIERS[tierDePlan(planDocsActivo, region)]} · {REGIONES[region]}</span>
             {cartilla ? (
               <>
                 <button type="button" className="boton-secundario" onClick={() => ver(cartilla.path)}>Ver</button>
