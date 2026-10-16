@@ -16,8 +16,10 @@ const SIN_TEXTO = { audio: 'Audio de voz', imagen: 'Imagen', documento: 'Documen
 const resumenUltimo = (t) => (t ? SIN_TEXTO[t.match(/^\[(\w+)\]$/)?.[1]] ?? t : 'Sin mensajes');
 
 const pasoMio = (c) => (c.seguimiento_responsable === 'asesor' ? cuandoSeguimiento(c.seguimiento_at) : null);
-// Orden como WhatsApp: el chat con el mensaje más nuevo va arriba
-const reciente = (c) => new Date(c.ultimo_mensaje_at ?? 0).getTime();
+// Orden: el cliente que escribió último va arriba (Darío, 16-oct-2026). Lo que mandamos nosotros (respuestas, plantillas,
+// seguimientos de la IA) no mueve el chat: si no, tapaba a los que acababan de escribir. Si nunca escribió, cuenta cuando entró.
+const cuando = (c) => c.orden_bandeja ?? c.ultimo_mensaje_at;
+const reciente = (c) => new Date(cuando(c) ?? 0).getTime();
 
 // Venta hecha (Falta de cobro), Ganado o Perdido con el chat en manos del sistema: no van en Mis chats (Darío, 13-oct-2026).
 // Vuelven solos cuando toca mandar el link de pago (pasan a modo humano) o si el cliente escribe.
@@ -81,7 +83,7 @@ export default function ListaChats({ inicial, iaInicial }) {
   const recargar = useCallback(async () => {
     const [{ data }, { count }] = await Promise.all([
       supabase.from('conversaciones').select(SELECT_LISTA).in('modo', ['humano', 'ia'])
-        .order('ultimo_mensaje_at', { ascending: false, nullsFirst: false }).limit(300),
+        .order('orden_bandeja', { ascending: false, nullsFirst: false }).limit(300),
       supabase.from('conversaciones').select('id', { count: 'exact', head: true }).eq('modo', 'ia')
     ]);
     if (data) setConversaciones(data);
@@ -293,7 +295,7 @@ export default function ListaChats({ inicial, iaInicial }) {
                     {TEMPERATURAS[c.contacto?.temperatura] && <span className="punto-temp" style={{ background: TEMPERATURAS[c.contacto.temperatura].color }} title={TEMPERATURAS[c.contacto.temperatura].rotulo} />}
                     {nombreVisible(c.contacto)}
                   </span>
-                  <span className={`chat-hora${c.no_leidos > 0 ? ' nueva' : ''}`}>{fechaCorta(c.ultimo_mensaje_at)}</span>
+                  <span className={`chat-hora${c.no_leidos > 0 ? ' nueva' : ''}`}>{fechaCorta(cuando(c))}</span>
                 </span>
                 <span className="chat-fila">
                   <span className="chat-ultimo">{!espera && c.ultimo_es_propio && c.ultimo_mensaje_texto && <span className="chat-vos" title="Ya le respondiste">✓ Vos: </span>}{resumenUltimo(c.ultimo_mensaje_texto)}</span>
@@ -305,13 +307,7 @@ export default function ListaChats({ inicial, iaInicial }) {
                     </span>
                   )}
                 </span>
-                {pasoMio(c) && (
-                  <span className={`tarjeta-paso${espera ? ' de-espera' : pasoMio(c).vencido ? ' vencido' : ''}`}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-                    {/* Si espera respuesta, el reloj ya está en la píldora: acá queda solo el consejo */}
-                    {espera && c.seguimiento_motivo ? c.seguimiento_motivo : <>{pasoMio(c).texto}{c.seguimiento_motivo ? ` — ${c.seguimiento_motivo}` : ''}</>}
-                  </span>
-                )}
+                {/* Sin el próximo paso ni el consejo de la IA: eso está en la ficha (Darío, 16-oct-2026). Solo etiquetas */}
                 <span className="chat-etiquetas">
                   {etiquetasDe(c).map((e) => <span key={e.id} className="etiqueta" style={colorEtiqueta(e.color)}>{e.nombre}</span>)}
                   {c.modo === 'ia' && <span className="etiqueta etiqueta-ia">IA</span>}

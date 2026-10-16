@@ -10,7 +10,7 @@ async function Lista() {
   const supabase = await createClient();
   const [{ data: conversaciones }, { count: enIA }] = await Promise.all([
     supabase.from('conversaciones').select(SELECT_LISTA).in('modo', ['humano', 'ia'])
-      .order('ultimo_mensaje_at', { ascending: false, nullsFirst: false }).limit(300),
+      .order('orden_bandeja', { ascending: false, nullsFirst: false }).limit(300),
     supabase.from('conversaciones').select('id', { count: 'exact', head: true }).eq('modo', 'ia')
   ]);
   return <ListaChats inicial={conversaciones ?? []} iaInicial={enIA ?? 0} />;
