@@ -200,9 +200,13 @@
   .orejita {
     display: flex; align-items: center; justify-content: center; position: fixed; left: 0; top: 50%; z-index: 58;
     width: 16px; height: 64px; margin-top: -32px; padding: 0; border: 0; border-radius: 0 10px 10px 0;
-    background: var(--riel); color: #9FC2BA; cursor: pointer; opacity: 0.85; transition: width 0.12s, opacity 0.12s;
+    /* Gris y casi escondida, como en WhatsApp Web (Darío, 16-oct-2026): asoma un filito; al pasar el mouse se ve entera */
+    width: 6px; background: #D1D7DB; color: transparent; cursor: pointer; opacity: 0.7;
+    transition: width 0.15s, opacity 0.15s, background 0.15s, color 0.15s;
   }
-  .orejita:hover { width: 22px; opacity: 1; color: #fff; }
+  /* Zona invisible más ancha: no hace falta apuntarle al filito */
+  .orejita::before { content: ""; position: absolute; inset: -12px -14px -12px 0; }
+  .orejita:hover, .orejita:focus-visible { width: 22px; opacity: 1; background: #C4CBD0; color: #54656F; }
   .orejita.oculta { opacity: 0; pointer-events: none; }
 }
 

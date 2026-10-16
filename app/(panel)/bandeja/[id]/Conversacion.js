@@ -125,6 +125,20 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
     if (window.matchMedia('(max-width: 760px)').matches) setPanelChat(null);
   }
 
+  // Desde el buscador de Mis chats (?m=<mensaje>): al abrir el chat va directo a ese mensaje y lo resalta
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('m');
+    if (!id) return;
+    const t = setTimeout(() => {
+      irA(id);
+      const url = new URL(window.location.href); url.searchParams.delete('m');
+      window.history.replaceState(window.history.state, '', url.pathname + url.search);
+    }, 400);
+    return () => clearTimeout(t);
+  // irA lee el chat ya dibujado: solo hace falta al abrir otro chat
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversacion.id]);
+
   // Tilde azul para el cliente al leer, y "escribiendo…" mientras escribís (como mucho uno cada 20 s)
   const ultimoEscribiendo = useRef(0);
   const avisarEscribiendo = () => {

@@ -14,6 +14,7 @@ const AUTORES = { ia: 'Asesor IA', asesor: 'Vos' };
 
 // Foto o PDF (enviado o recibido): vista previa dentro de la burbuja, como en WhatsApp.
 const ES_IMAGEN = /\.(jpe?g|png|webp|gif)$/i;
+const ES_VIDEO = /\.(mp4|3gp|mov|webm)$/i;
 const linkArchivo = (path) => `/api/archivo?path=${encodeURIComponent(path)}`;
 // Nombre con el que se baja: el texto del mensaje ("DNI TITULAR frente") + la extensión del archivo
 const nombreDescarga = (texto, path) => {
@@ -28,7 +29,7 @@ async function descargarAudio(path, texto) {
   if (data?.signedUrl) window.location.href = data.signedUrl;
 }
 function DocumentoEnviado({ path, texto, mensajeId }) {
-  const tipo = ES_IMAGEN.test(path) ? 'imagen' : /\.pdf$/i.test(path) ? 'pdf' : 'otro';
+  const tipo = ES_IMAGEN.test(path) ? 'imagen' : ES_VIDEO.test(path) ? 'video' : /\.pdf$/i.test(path) ? 'pdf' : 'otro';
   const url = linkArchivo(path);
   // "Ver": ventana emergente dentro del CRM, con un link nuevo por si el de la vista previa venció
   const [abierto, setAbierto] = useState(null);
@@ -42,6 +43,14 @@ function DocumentoEnviado({ path, texto, mensajeId }) {
     }
   }
   const visor = abierto && <VisorArchivo url={abierto.url} nombre={texto} tipo={tipo} descarga={linkDescarga(path, texto)} datos={abierto.datos} onCerrar={() => setAbierto(null)} />;
+  // Video: se ve ahí mismo, con su reproductor (como en WhatsApp)
+  if (tipo === 'video') {
+    return (
+      <span className="adjunto-video">
+        <video src={url} controls preload="metadata" playsInline />
+      </span>
+    );
+  }
   if (tipo === 'imagen') {
     return (
       <>
@@ -172,7 +181,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
   const tieneAudio = esAudio && (m.urlLocal || m.media_path);
   // Transcripción oculta: se despliega tocando el círculo de la nota de voz
   const conTexto = esAudio && m.transcripcion && m.transcripcion !== '(sin palabras)';
-  const conArchivo = ['documento', 'imagen'].includes(m.tipo) && m.media_path;
+  const conArchivo = ['documento', 'imagen', 'video'].includes(m.tipo) && m.media_path;
   // Texto visible: en audios solo la transcripción del cliente o el título de la biblioteca
   const texto = esAudio ? null : conArchivo ? null : m.texto;
 
@@ -249,7 +258,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
         {/* Transcripción de la nota de voz (del cliente o tuya), como en WhatsApp */}
         {conTexto && verTexto && <span className="transcripcion">{m.transcripcion}</span>}
 
-        {conArchivo && <DocumentoEnviado path={m.media_path} mensajeId={m.id} texto={m.texto ?? (m.tipo === 'imagen' ? 'Foto' : 'Documento')} />}
+        {conArchivo && <DocumentoEnviado path={m.media_path} mensajeId={m.id} texto={m.texto ?? (m.tipo === 'imagen' ? 'Foto' : m.tipo === 'video' ? 'Video' : 'Documento')} />}
         {['imagen', 'documento', 'ubicacion', 'otro'].includes(m.tipo) && !conArchivo && (
           <span className="burbuja-adjunto">{{ imagen: '📷 Foto', documento: '📄 Documento', ubicacion: '📍 Ubicación', otro: 'Mensaje no soportado' }[m.tipo]}</span>
         )}

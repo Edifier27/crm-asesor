@@ -7,6 +7,7 @@ import { medirUso } from '@/lib/uso';
 import { reprocesarEventos } from '@/lib/whatsapp/procesar';
 import { aprenderSiToca } from '@/lib/ia/aprendizaje';
 import { transcribirPendientes } from '@/lib/transcripcion';
+import { guardarVideosPendientes } from '@/lib/videos';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revisarPlantillasPendientes } from '@/lib/plantillas-estado';
 
@@ -25,6 +26,9 @@ export async function GET(request) {
     // Notas de voz sin transcribir (sobre todo las del asesor; las del cliente se transcriben al llegar)
     const transcriptos = await transcribirPendientes(createAdminClient()).catch((e) => { console.error('transcripcion', e); return 0; });
     if (transcriptos) console.log('audios_transcriptos', transcriptos);
+    // Videos del cliente que llegaron antes de poder verse en el chat (o fallaron al bajar)
+    const videos = await guardarVideosPendientes(createAdminClient()).catch((e) => { console.error('videos', e); return 0; });
+    if (videos) console.log('videos_guardados', videos);
     const r = await procesarSeguimientos();
     if (r.procesados) console.log('seguimientos', JSON.stringify(r));
     // Leads con 30 días → a su base del mes; difusiones pendientes → próxima tanda

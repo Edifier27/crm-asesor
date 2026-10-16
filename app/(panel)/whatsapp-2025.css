@@ -325,3 +325,15 @@
 .visor-copiar:hover { background: #E7F6EC; }
 .copiar-telefono { margin-left: 6px; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--wa-linea, #d1d7db); background: #fff; color: var(--wa-suave, #667781); font-size: 11px; font-weight: 700; line-height: 1; cursor: pointer; padding: 0; vertical-align: middle; }
 .copiar-telefono:hover { background: #E7F6EC; color: #008069; }
+
+/* Video del cliente: se ve en la burbuja, como en WhatsApp */
+.adjunto-video { display: block; margin: -3px -6px 4px; }
+.adjunto-video video { display: block; width: 280px; max-width: 100%; max-height: 360px; border-radius: 6px; background: #000; }
+
+/* Botón "Nuevo chat": ícono gris sin fondo, como WhatsApp Web */
+.lista .boton-nuevo { background: transparent; color: var(--wa-icono); border-radius: 50%; width: 40px; height: 40px; }
+.lista .boton-nuevo:hover { background: var(--wa-hover); color: var(--wa-texto); }
+
+/* Buscador: resultados dentro de los mensajes */
+.buscar-mensajes-titulo { list-style: none; padding: 14px 16px 6px; font-size: 15px; color: var(--wa-verde-oscuro); font-weight: 500; border-top: 1px solid var(--wa-linea); }
+.resultado-mensaje .chat-ultimo mark { background: none; color: var(--wa-verde-oscuro); font-weight: 600; }

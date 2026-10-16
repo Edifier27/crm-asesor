@@ -8,7 +8,7 @@ import EnVivo from './EnVivo';
 import Deslizable from '../componentes/Deslizable';
 import { eliminarLead } from './acciones';
 
-const SIN_TEXTO = { audio: 'Audio de voz', imagen: 'Imagen', documento: 'Documento', ubicacion: 'Ubicación', plantilla: 'Plantilla', otro: 'Mensaje' };
+const SIN_TEXTO = { audio: 'Audio de voz', imagen: 'Imagen', video: 'Video', documento: 'Documento', ubicacion: 'Ubicación', plantilla: 'Plantilla', otro: 'Mensaje' };
 const resumenUltimo = (t) => (t ? SIN_TEXTO[t.match(/^\[(\w+)\]$/)?.[1]] ?? t : 'Sin mensajes');
 const escribiendo = (desde) => Boolean(desde) && Date.now() - new Date(desde) < 120_000;
 

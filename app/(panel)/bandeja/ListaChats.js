@@ -12,7 +12,7 @@ import { TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta
 import { abrirHaciaArriba } from '../componentes/haciaArriba';
 
 // Los mensajes sin texto llegan como "[audio]", "[imagen]", etc.
-const SIN_TEXTO = { audio: 'Audio de voz', imagen: 'Imagen', documento: 'Documento', ubicacion: 'Ubicación', plantilla: 'Plantilla', otro: 'Mensaje' };
+const SIN_TEXTO = { audio: 'Audio de voz', imagen: 'Imagen', video: 'Video', documento: 'Documento', ubicacion: 'Ubicación', plantilla: 'Plantilla', otro: 'Mensaje' };
 const resumenUltimo = (t) => (t ? SIN_TEXTO[t.match(/^\[(\w+)\]$/)?.[1]] ?? t : 'Sin mensajes');
 
 const pasoMio = (c) => (c.seguimiento_responsable === 'asesor' ? cuandoSeguimiento(c.seguimiento_at) : null);
@@ -28,6 +28,25 @@ const fueraDeBandeja = (c) => c.modo === 'ia' && CERRADAS.includes(c.contacto?.e
 
 const etiquetasDe = (c) => (c.contacto?.etiquetas ?? []).map((e) => e.etiqueta).filter(Boolean);
 
+// Buscar en lo que se habló (Darío, 16-oct-2026): sin tildes ni mayúsculas. Un número se busca también con puntos
+// ("100000" encuentra "$ 100.000") y sin ellos.
+const plano = (t) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+function variantesDe(q) {
+  const v = new Set([plano(q)]);
+  const digitos = q.replace(/\./g, '');
+  if (/^\d{4,}$/.test(digitos)) { v.add(digitos); v.add(Number(digitos).toLocaleString('es-AR')); }
+  return [...v];
+}
+// Pedacito del mensaje alrededor de lo buscado, con lo buscado resaltado
+function Fragmento({ texto, variantes }) {
+  const bajo = plano(texto);
+  let j = -1, largo = 0;
+  for (const v of variantes) { const k = bajo.indexOf(v); if (k >= 0 && (j < 0 || k < j)) { j = k; largo = v.length; } }
+  if (j < 0 || bajo.length !== texto.length) return texto.slice(0, 90);
+  const desde = Math.max(0, j - 30);
+  return <>{desde > 0 ? '…' : ''}{texto.slice(desde, j)}<mark>{texto.slice(j, j + largo)}</mark>{texto.slice(j + largo, j + largo + 60)}</>;
+}
+
 // Bandeja = todos los chats activos, como WhatsApp: los que atendés vos (modo humano) y los que atiende la IA (modo ia, con su marca).
 // "pausada" = cerrado (venta cerrada, perdido, importado de Kommo): no aparece; vuelve solo si el cliente escribe.
 export default function ListaChats({ inicial, iaInicial }) {
@@ -38,6 +57,8 @@ export default function ListaChats({ inicial, iaInicial }) {
   const [filtro, setFiltro] = useState('todos');
   const [busqueda, setBusqueda] = useState('');
   const temporizador = useRef();
+  // Mensajes que coinciden con la búsqueda (desde 3 letras), con el nombre de su chat
+  const [enMensajes, setEnMensajes] = useState({ q: '', lista: [], buscando: false });
   // "Espera hace…" avanza solo: la lista se vuelve a dibujar una vez por minuto
   const [, latir] = useState(0);
   useEffect(() => {
@@ -111,6 +132,29 @@ export default function ListaChats({ inicial, iaInicial }) {
       document.removeEventListener('visibilitychange', alVolver); window.removeEventListener('online', recargar);
     };
   }, [supabase, recargar]);
+
+  // Buscar también en los mensajes: se espera a que deje de escribir y se busca en la base (cada uno ve solo sus chats)
+  useEffect(() => {
+    const q = busqueda.trim();
+    if (q.length < 3) { setEnMensajes({ q: '', lista: [], buscando: false }); return; }
+    setEnMensajes((r) => ({ ...r, buscando: true }));
+    let vigente = true;
+    const espera = setTimeout(async () => {
+      const variantes = variantesDe(q);
+      const { data } = await supabase.rpc('buscar_mensajes', { variantes });
+      const lista = data ?? [];
+      // Nombres de los chats que no están en la lista cargada (ej.: chats cerrados)
+      const faltan = [...new Set(lista.map((m) => m.conversacion_id))].filter((id) => !conversaciones.some((c) => c.id === id));
+      const { data: otros } = faltan.length
+        ? await supabase.from('conversaciones').select('id, contacto:contactos(nombre, telefono)').in('id', faltan)
+        : { data: [] };
+      const contactoDe = new Map([...conversaciones, ...(otros ?? [])].map((c) => [c.id, c.contacto]));
+      if (vigente) setEnMensajes({ q, variantes, buscando: false, lista: lista.map((m) => ({ ...m, contacto: contactoDe.get(m.conversacion_id) })) });
+    }, 350);
+    return () => { vigente = false; clearTimeout(espera); };
+  // La lista de chats cambia seguido (tiempo real): solo se vuelve a buscar cuando cambia lo escrito
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busqueda, supabase]);
 
   // Volver de un chat deja la lista donde estaba, como WhatsApp. En el celular la lista se oculta mientras el chat
   // está abierto y el navegador pierde la posición: se guarda al desplazarse (solo con la lista a la vista) y se
@@ -247,7 +291,7 @@ export default function ListaChats({ inicial, iaInicial }) {
         <label className="buscador">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
           <span className="oculto">Buscar</span>
-          <input type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar nombre, teléfono o etiqueta" />
+          <input type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar un chat o lo que se habló" />
         </label>
         <Deslizable className="filtros">
           <Filtro valor="todos">Todos</Filtro>
@@ -329,7 +373,27 @@ export default function ListaChats({ inicial, iaInicial }) {
           </li>
           );
         })}
-        {visibles.length === 0 && (
+        {/* Resultados en los mensajes, como en WhatsApp: abajo de los chats, con el pedacito donde aparece */}
+        {busqueda.trim().length >= 3 && (
+          <li className="buscar-mensajes-titulo">{enMensajes.buscando ? 'Buscando en los mensajes…' : enMensajes.lista.length ? 'Mensajes' : 'Ningún mensaje con eso'}</li>
+        )}
+        {busqueda.trim().length >= 3 && !enMensajes.buscando && enMensajes.lista.map((m) => (
+          <li key={m.id} className="chat-item">
+            <Link href={`/bandeja/${m.conversacion_id}?m=${m.id}`} className={`chat resultado-mensaje${m.conversacion_id === activo ? ' activo' : ''}`}>
+              <span className="avatar" style={colorAvatar(m.contacto?.telefono)}>{iniciales(m.contacto)}</span>
+              <span className="chat-cuerpo">
+                <span className="chat-fila">
+                  <span className="chat-nombre">{nombreVisible(m.contacto)}</span>
+                  <span className="chat-hora">{fechaCorta(m.creado_at)}</span>
+                </span>
+                <span className="chat-fila">
+                  <span className="chat-ultimo">{m.tipo === 'audio' ? '🎤 ' : ''}<Fragmento texto={(m.tipo === 'audio' ? m.transcripcion || m.texto : m.texto) ?? ''} variantes={enMensajes.variantes ?? []} /></span>
+                </span>
+              </span>
+            </Link>
+          </li>
+        ))}
+        {visibles.length === 0 && busqueda.trim().length < 3 && (
           <li className="lista-vacia">{verArchivados ? 'No hay chats archivados.' : conversaciones.length ? 'Ningún chat coincide con el filtro.' : <>No tenés chats para atender. La IA está atendiendo {enIA} en el <Link href="/embudo">Embudo</Link>.</>}</li>
         )}
       </ul>
