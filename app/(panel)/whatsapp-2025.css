@@ -351,3 +351,14 @@
 .app[data-espera-roja="no"] .chat.espera .pildora-espera { display: none; }
 .app[data-espera-roja="no"] .punto-espera { display: block; flex: 0 0 auto; width: 12px; height: 12px; border-radius: 50%; background: var(--wa-noleido); margin-left: 6px; }
 .lista.achicada .punto-espera { display: none; }
+
+/* Barra de secciones gris claro, como la de WhatsApp Web (Darío, 16-oct-2026). Solo en el tema verde (el de WhatsApp):
+   los otros temas de persona conservan su color. */
+.app[data-tema="verde"] .riel { background: var(--wa-barra); border-right: 1px solid var(--wa-linea); }
+.app[data-tema="verde"] .riel-boton { color: var(--wa-icono); }
+.app[data-tema="verde"] .riel-boton:hover { background: rgba(0, 0, 0, 0.06); color: var(--wa-texto); }
+.app[data-tema="verde"] .riel-boton.activo { background: rgba(0, 0, 0, 0.1); color: var(--wa-texto); }
+.app[data-tema="verde"] .riel-usuario { background: #DFE5E7; color: #54656F; }
+@media (max-width: 760px) {
+  .app[data-tema="verde"] .riel { border-right: 0; border-top: 1px solid var(--wa-linea); }
+}
