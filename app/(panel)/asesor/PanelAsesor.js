@@ -13,6 +13,17 @@ const costo = (e) =>
 
 const RESULTADOS = { respondio: 'Respondió', paso_a_humano: 'Pasó a humano', sin_accion: 'Sin acción', error: 'Error', omitida: 'Omitida' };
 
+const MODOS_IA = [
+  { id: 'copiloto', rotulo: 'Manual', config: { modo_ia: 'copiloto' },
+    detalle: 'Atendés vos. La IA no le escribe a nadie: ordena la ficha, te deja la tarea con un consejo y siguen las automatizaciones (plantillas de recontacto a quien no contesta).' },
+  { id: 'datos', rotulo: 'Automático, solo datos', config: { modo_ia: 'automatico', ia_cotiza: false },
+    aviso: '¿Pasar a "solo datos"? La IA les va a escribir a los leads nuevos para pedirles los datos.',
+    detalle: 'La IA les escribe solo a los leads nuevos: les pide los datos, los deja en el cotizador y te pasa el chat. Con los que ya atendiste no habla (te quedan a vos). Siguen las automatizaciones.' },
+  { id: 'automatico', rotulo: 'Automático, todo', config: { modo_ia: 'automatico', ia_cotiza: true },
+    aviso: '¿Pasar a "automático, todo"? La IA va a asesorar, cotizar y responder preguntas por WhatsApp.',
+    detalle: 'La IA asesora a los leads nuevos y responde a los que hacen preguntas: cotiza, manda audios y te pasa el chat cuando corresponde.' }
+];
+
 export default function PanelAsesor({ config: configInicial, conocimientoInicial, ejecuciones, tieneClave, plantillas, aprendizajes, miPerfil }) {
   const supabase = createClient();
   const [config, setConfig] = useState(configInicial ?? { activo: true, instrucciones: '', firma: '' });
@@ -21,6 +32,8 @@ export default function PanelAsesor({ config: configInicial, conocimientoInicial
   const [aviso, setAviso] = useState('');
 
   const avisar = (t) => { setAviso(t); setTimeout(() => setAviso(''), 2500); };
+  // Tres modos (Darío, 15-oct-2026); en la base son modo_ia + ia_cotiza
+  const modoActual = config.modo_ia !== 'automatico' ? 'copiloto' : config.ia_cotiza === false ? 'datos' : 'automatico';
 
   async function guardarConfig(campos) {
     // La configuración es de cada cuenta: lo que cambia uno no toca la IA del otro
@@ -89,23 +102,14 @@ export default function PanelAsesor({ config: configInicial, conocimientoInicial
         </label>
         <div className="campo"><span>Qué hace la IA</span>
           <div className="pp-atajos" role="radiogroup" aria-label="Modo de la IA">
-            {[['copiloto', 'Copiloto', 'Ordena los datos, te deja tareas y consejos, y solo manda plantillas aprobadas a quien no responde. Cuando el cliente contesta, lo atendés vos.'],
-              ['automatico', 'Automático', 'La IA asesora y conversa con los leads por WhatsApp.']].map(([v, r, t]) => (
-              <button key={v} type="button" role="radio" aria-checked={(config.modo_ia ?? 'copiloto') === v} title={t}
-                className={`chip-filtro${(config.modo_ia ?? 'copiloto') === v ? ' activo' : ''}`}
-                onClick={() => (v !== 'automatico' || confirm('¿Pasar a modo automático? La IA va a empezar a conversar con los leads.')) && guardarConfig({ modo_ia: v })}>{r}</button>
+            {MODOS_IA.map((m) => (
+              <button key={m.id} type="button" role="radio" aria-checked={modoActual === m.id} title={m.detalle}
+                className={`chip-filtro${modoActual === m.id ? ' activo' : ''}`}
+                onClick={() => modoActual !== m.id && (!m.aviso || confirm(m.aviso)) && guardarConfig(m.config)}>{m.rotulo}</button>
             ))}
           </div>
-          <span className="selector-detalle">{(config.modo_ia ?? 'copiloto') === 'copiloto'
-            ? 'Copiloto: la IA no conversa. Ordena la ficha, te deja la tarea con un consejo y manda solo plantillas aprobadas a quien no responde.'
-            : 'Automático: la IA asesora y conversa con los leads.'}</span>
+          <span className="selector-detalle">{MODOS_IA.find((m) => m.id === modoActual)?.detalle}</span>
         </div>
-        {config.modo_ia === 'automatico' && (
-          <label className="check">
-            <input type="checkbox" checked={config.ia_cotiza !== false} onChange={(e) => guardarConfig({ ia_cotiza: e.target.checked })} />
-            La IA cotiza y manda audios (si lo apagás, pide los datos, los deja cargados en el cotizador y te pasa el chat para que asesores vos)
-          </label>
-        )}
         <label className="campo"><span>Cómo te presentás (tu firma: la usa la IA en tus chats)</span>
           <input defaultValue={miPerfil?.firma ?? config.firma ?? ''} placeholder="Ej.: Gabriela, asesora de Swiss Medical"
             onBlur={async (e) => {

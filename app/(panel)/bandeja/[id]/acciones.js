@@ -133,7 +133,7 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
     after(async () => {
       const admin = createAdminClient();
       if (await esperarSiEstaEnAuditoria(admin, conversacionId)) return;
-      if ((await modoIa(admin, conv.cuenta)) === 'copiloto') await programarSecuencia(admin, conversacionId);
+      if ((await modoIa(admin, conv.cuenta)) !== 'automatico') await programarSecuencia(admin, conversacionId);
     });
     return { ok: true, id: r.id, simulado: r.simulado, ...(etapaId ? { etapaId } : {}) };
   } catch (e) {
