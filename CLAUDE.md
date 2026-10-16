@@ -87,6 +87,9 @@ Nunca commitear secretos.
   `lib/ia/plantillas.js`); `seguimiento_cadencia` son horas ENTRE envíos (`marcasDe` las muestra acumuladas). Si falta una
   plantilla, la IA la deja como propuesta (`plantillas.propuesta_ia_at`) en Asesor IA → Plantillas para aprobar. Las
   secuencias con lista fija (`seguimiento_plantillas`) solo quedan para las que ya estaban en curso.
+- CAMPAÑAS A CONTACTOS EN PAUSA (Kommo, 2026-10-16): un "Si…" a la plantilla (`alResponderCampania` en `lib/bases.js`)
+  pasa el chat a la IA si la cuenta está en automático; con respuesta a una difusión en los últimos 3 días la IA va en
+  "solo datos" + `INSTRUCCIONES_CAMPANIA`: pide edades y particular/recibo y pasa a humano para que cotice el asesor.
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.
