@@ -287,16 +287,6 @@
 /* "Sin IA": chat bloqueado para la IA (Darío, 13-oct-2026) */
 .conv-cabecera .interruptor-ia.bloqueada { border: 1px solid var(--wa-linea); background: #FFF4E5; color: #8A4B00; border-radius: 100px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 500; }
 .sanatorios-vista { white-space: pre-line; font-size: 12.5px; background: var(--wa-barra, #F0F2F5); border-radius: 8px; padding: 8px 10px; margin: 0; }
-/* Burbuja "X espera hace 12 min" (solo celular, AlertaEspera.js) */
-.alerta-espera { position: fixed; left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 60; display: flex; align-items: stretch;
-  background: #fff; border: 1px solid #F3C9A8; border-left: 4px solid #E8590C; border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,.18); animation: alerta-sube .25s ease-out; }
-.alerta-espera-cuerpo { flex: 1; display: flex; gap: 10px; align-items: center; padding: 10px 12px; background: none; border: 0; text-align: left; font: inherit; font-size: 14px; color: var(--wa-texto, #111); }
-.alerta-espera-cuerpo small { color: var(--wa-suave, #667781); }
-.alerta-espera-reloj { font-size: 20px; }
-.alerta-espera-cerrar { background: none; border: 0; padding: 0 14px; font-size: 22px; color: var(--wa-suave, #667781); }
-.app:has(.conversacion) .alerta-espera { bottom: calc(84px + env(safe-area-inset-bottom)); }
-@keyframes alerta-sube { from { transform: translateY(20px); opacity: 0; } }
-@media (min-width: 761px) { .alerta-espera { display: none; } }
 /* Tablero de ventas */
 .tablero-ventas { padding: 20px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
 .tablero-cabecera { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
