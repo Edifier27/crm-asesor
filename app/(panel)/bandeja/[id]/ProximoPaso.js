@@ -48,7 +48,8 @@ export default function ProximoPaso({ conversacionId, contactoId, inicial, tempe
         ({ new: f }) => setPaso({
           seguimiento_at: f.seguimiento_at, seguimiento_motivo: f.seguimiento_motivo, seguimiento_responsable: f.seguimiento_responsable,
           seguimiento_cadencia: f.seguimiento_cadencia, seguimientos_sin_respuesta: f.seguimientos_sin_respuesta,
-          seguimiento_plantillas: f.seguimiento_plantillas, consejo_ia: f.consejo_ia, espera_desde: f.espera_desde, modo: f.modo
+          seguimiento_plantillas: f.seguimiento_plantillas, consejo_ia: f.consejo_ia, espera_desde: f.espera_desde, modo: f.modo,
+          ia_bloqueada: f.ia_bloqueada
         }))
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'contactos', filter: `id=eq.${contactoId}` },
         ({ new: f }) => setTemperatura(f.temperatura))
@@ -175,6 +176,12 @@ export default function ProximoPaso({ conversacionId, contactoId, inicial, tempe
         ) : (
           <button type="button" className="pp-vacio" onClick={abrirEditor}>Sin próximo paso · <strong>Programar</strong></button>
         )
+      )}
+
+      {/* "Sin IA" (la IA no toca este chat): lo que tenga a cargo la IA no va a salir (Gaby, 16-oct-2026: Ciro y Carla
+          figuraban "vencidos" esperando una plantilla que nunca iba a salir) */}
+      {!editando && cuando && esIA && paso.ia_bloqueada && (
+        <p className="pp-bloqueada">Este chat está en <strong>Sin IA</strong>: la IA no le va a mandar nada. Escribile vos o sacale el bloqueo desde el menú del chat (⋮).</p>
       )}
 
       {!editando && paso.consejo_ia && !esIA && (

@@ -366,3 +366,6 @@
 /* Ficha: lo que ya se le mandó (audio, plan, cartilla) queda con su check */
 .doc-fila .boton-primario.ya-enviado { background: #E7F8EE; color: #15603E; border: 1px solid #A6DDBF; }
 .doc-fila .boton-primario.ya-enviado:hover { background: #D6F2E2; }
+
+/* Próximo paso a cargo de la IA en un chat "Sin IA": no va a salir */
+.pp-bloqueada { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: #FFF4E5; color: #8A4B00; font-size: 12.5px; line-height: 1.4; }
