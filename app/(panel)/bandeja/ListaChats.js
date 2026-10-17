@@ -31,10 +31,10 @@ const etiquetasDe = (c) => (c.contacto?.etiquetas ?? []).map((e) => e.etiqueta).
 // De dónde vino el dato, para la cuenta que en la bandeja solo quiere ver eso (Darío, 16-oct-2026: PrepagaYa, SGC,
 // Botmaker o Salesforce). Sale de origen_detalle; los traídos de Kommo que entraron por Botmaker cuentan como Botmaker.
 const ORIGENES_BANDEJA = [
-  ['PrepagaYa', /^prepaga\s*ya/i, '#0E7490'],
-  ['SGC', /^sgc/i, '#7C3AED'],
-  ['Salesforce', /^salesforce/i, '#0176D3'],
-  ['Botmaker', /botmaker|^bot/i, '#DB2777']
+  ['PrepagaYa', /^prepaga\s*ya/i, '#E6007E'],   // rosa fuerte
+  ['SGC', /^sgc\b/i, '#D32F2F'],                // rojo
+  ['Salesforce', /^salesforce/i, '#0291D1'],    // celeste
+  ['Botmaker', /botmaker|^bot\b/i, '#1E4FD8']   // azul
 ];
 const origenDelDato = (c) => {
   const detalle = String(c.contacto?.origen_detalle ?? '').trim();
