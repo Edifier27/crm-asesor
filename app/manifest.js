@@ -1,7 +1,13 @@
-export default function manifest() {
+import { headers } from 'next/headers';
+
+// Nombre de la app instalada según la dirección (Darío, 16-oct-2026): en las notificaciones del celular se lee
+// "Gaby CRM" en gaby.asesorcrm.com.ar y "Daro CRM" en asesorcrm.com.ar, así cada uno sabe de qué cuenta es el aviso.
+export default async function manifest() {
+  const host = (await headers()).get('host') ?? '';
+  const nombre = /^gaby\./i.test(host) ? 'Gaby CRM' : 'Daro CRM';
   return {
-    name: 'AsesorCRM',
-    short_name: 'AsesorCRM',
+    name: nombre,
+    short_name: nombre,
     description: 'El CRM de los asesores de prepaga: chats de WhatsApp, embudo y cotizador',
     start_url: '/bandeja',
     display: 'standalone',
