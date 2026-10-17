@@ -378,7 +378,9 @@
     display: flex; flex: 0 0 auto; flex-direction: row; justify-content: space-around; padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
   }
   .app:has(.conversacion) .riel { display: none; }
-  .riel-marca, .riel-espacio, .riel-usuario { display: none; }
+  .riel-marca, .riel-espacio { display: none; }
+  /* Tu círculo (Mi perfil: color, avisos y notificaciones) también en la barra de abajo (Darío, 16-oct-2026) */
+  .riel-usuario { flex: 0 0 auto; width: 30px; height: 30px; font-size: 11px; align-self: center; }
   .app > .lista, .app > .vacio, .app > .pagina { flex: 1; min-height: 0; }
   /* El chat ocupa la pantalla y no crece con los mensajes: la barra con el nombre queda fija arriba y solo se desplazan
      los mensajes, como en WhatsApp (Darío, 13-oct-2026). Sin min-height: 0 la columna crecía y la barra se iba */
