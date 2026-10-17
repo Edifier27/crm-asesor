@@ -28,8 +28,30 @@ export default function Grabador({ deshabilitado, onListo, onError, onEstado, di
   const tramo = useRef(0);          // inicio del tramo actual
   const temporizador = useRef(null);
   const medidor = useRef(null);     // { contexto, analizador, stream, intervalo }
+  // Pantalla siempre prendida mientras se graba (Darío, 16-oct-2026: en el celular se bloqueaba a mitad de un audio)
+  const pantalla = useRef(null);    // WakeLockSentinel
+  const grabandoRef = useRef(false);
 
-  const cambiar = (e) => { setEstado(e); onEstado?.(e !== 'quieto'); };
+  async function mantenerPantalla() {
+    try { if (!pantalla.current && navigator.wakeLock) pantalla.current = await navigator.wakeLock.request('screen'); } catch { /* sin permiso: sigue igual */ }
+    pantalla.current?.addEventListener?.('release', () => { pantalla.current = null; }, { once: true });
+  }
+  function soltarPantalla() {
+    pantalla.current?.release?.().catch(() => {});
+    pantalla.current = null;
+  }
+  // Si cambiás de app y volvés con la grabación en curso, el navegador suelta el bloqueo: se vuelve a pedir
+  useEffect(() => {
+    const alVolver = () => { if (document.visibilityState === 'visible' && grabandoRef.current) mantenerPantalla(); };
+    document.addEventListener('visibilitychange', alVolver);
+    return () => { document.removeEventListener('visibilitychange', alVolver); soltarPantalla(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const cambiar = (e) => {
+    setEstado(e); onEstado?.(e !== 'quieto');
+    grabandoRef.current = e !== 'quieto';
+    if (e === 'quieto') soltarPantalla(); else mantenerPantalla();
+  };
   const transcurrido = () => acumulado.current + (tramo.current ? Date.now() - tramo.current : 0);
 
   useEffect(() => () => { clearInterval(temporizador.current); apagarMedidor(); try { motor.current?.rec?.stop(); } catch {} }, []); // eslint-disable-line react-hooks/exhaustive-deps

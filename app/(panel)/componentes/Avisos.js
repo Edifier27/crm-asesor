@@ -46,7 +46,10 @@ export default function Avisos() {
         const p = leerPreferencias();
 
         if (p.sonido) sonarAviso();
-        if (!mirando) notificarSistema(nombre, texto, conv.id, () => router.push(`/bandeja/${conv.id}`));
+        // Si este dispositivo tiene activadas las notificaciones con el CRM cerrado, esa ya llega sola (no se repite)
+        let conPush = false;
+        try { conPush = localStorage.getItem('crm-push') === '1'; } catch {}
+        if (!mirando && !conPush) notificarSistema(nombre, texto, conv.id, () => router.push(`/bandeja/${conv.id}`));
         if (p.cartel) {
           const aviso = { id: m.id, conversacionId: conv.id, nombre, texto };
           setCarteles((l) => [aviso, ...l.filter((x) => x.conversacionId !== conv.id)].slice(0, 3));

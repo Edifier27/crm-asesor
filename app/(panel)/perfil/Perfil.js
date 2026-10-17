@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { TEMAS } from '@/lib/temas';
+import NotificacionesPush from '../componentes/NotificacionesPush';
 
 export default function Perfil({ id, email, nombreInicial, temaInicial }) {
   const router = useRouter();
@@ -101,6 +102,7 @@ export default function Perfil({ id, email, nombreInicial, temaInicial }) {
           </>
         )}
         {permiso === 'denied' && <p className="selector-detalle">Las notificaciones están bloqueadas para este sitio: activalas desde el candadito de la barra de direcciones.</p>}
+        <NotificacionesPush />
       </section>
 
       <section className="tarjeta">

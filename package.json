@@ -17,6 +17,7 @@
     "opus-recorder": "8.0.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "server-only": "0.0.1"
+    "server-only": "0.0.1",
+    "web-push": "3.6.7"
   }
 }
