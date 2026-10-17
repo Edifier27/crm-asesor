@@ -359,3 +359,10 @@
 
 /* Próximo paso a cargo de la IA en un chat "Sin IA": no va a salir */
 .pp-bloqueada { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: #FFF4E5; color: #8A4B00; font-size: 12.5px; line-height: 1.4; }
+
+/* Etiquetas de la bandeja. Por defecto, todas las del contacto. En la cuenta "sin colores" (perfiles.espera_roja = false,
+   hoy solo Darío; 16-oct-2026) solo se ve de dónde vino el dato: PrepagaYa, SGC, Botmaker o Salesforce */
+.chat-etiquetas .etiqueta-origen { display: none; }
+.app[data-espera-roja="no"] .lista .chat-etiquetas .etiqueta { display: none; }
+.app[data-espera-roja="no"] .lista .chat-etiquetas .etiqueta.etiqueta-origen { display: inline-flex; }
+.app[data-espera-roja="no"] .lista .chat-etiquetas:not(:has(.etiqueta-origen)) { display: none; }

@@ -28,6 +28,20 @@ const fueraDeBandeja = (c) => c.modo === 'ia' && CERRADAS.includes(c.contacto?.e
 
 const etiquetasDe = (c) => (c.contacto?.etiquetas ?? []).map((e) => e.etiqueta).filter(Boolean);
 
+// De dónde vino el dato, para la cuenta que en la bandeja solo quiere ver eso (Darío, 16-oct-2026: PrepagaYa, SGC,
+// Botmaker o Salesforce). Sale de origen_detalle; los traídos de Kommo que entraron por Botmaker cuentan como Botmaker.
+const ORIGENES_BANDEJA = [
+  ['PrepagaYa', /^prepaga\s*ya/i, '#0E7490'],
+  ['SGC', /^sgc/i, '#7C3AED'],
+  ['Salesforce', /^salesforce/i, '#0176D3'],
+  ['Botmaker', /botmaker|^bot/i, '#DB2777']
+];
+const origenDelDato = (c) => {
+  const detalle = String(c.contacto?.origen_detalle ?? '').trim();
+  const o = ORIGENES_BANDEJA.find(([, re]) => re.test(detalle));
+  return o ? { nombre: o[0], color: o[2] } : null;
+};
+
 // Buscar en lo que se habló (Darío, 16-oct-2026): sin tildes ni mayúsculas. Un número se busca también con puntos
 // ("100000" encuentra "$ 100.000") y sin ellos.
 const plano = (t) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
@@ -355,6 +369,8 @@ export default function ListaChats({ inicial, iaInicial }) {
                 </span>
                 {/* Sin el próximo paso ni el consejo de la IA: eso está en la ficha (Darío, 16-oct-2026). Solo etiquetas */}
                 <span className="chat-etiquetas">
+                  {/* Cuenta con "bandeja simple" (CSS): solo se ve esta, de dónde vino el dato; el resto, todas las etiquetas */}
+                  {origenDelDato(c) && <span className="etiqueta etiqueta-origen" style={colorEtiqueta(origenDelDato(c).color)}>{origenDelDato(c).nombre}</span>}
                   {etiquetasDe(c).map((e) => <span key={e.id} className="etiqueta" style={colorEtiqueta(e.color)}>{e.nombre}</span>)}
                   {c.modo === 'ia' && <span className="etiqueta etiqueta-ia">IA</span>}
                         </span>
