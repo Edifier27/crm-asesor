@@ -71,16 +71,25 @@ export default function Vigia() {
       };
     }
 
-    // Errores de JavaScript (los de hidratación de React se recuperan solos y saldrían en cada carga: no se avisan)
+    // Errores de JavaScript. No se avisan: los de hidratación de React (se recuperan solos y saldrían en cada carga),
+    // la animación de cambio de pantalla que el navegador corta cuando la app queda en segundo plano ("Transition was
+    // aborted… Document hidden", inofensivo) y los que vienen de extensiones del navegador (no son del CRM).
     const vistos = new Set();
-    function alError(mensaje, origen) {
+    const NO_AVISAR = /ResizeObserver loop|Script error|React error #(418|423|425)|Transition was (aborted|skipped)/;
+    const DE_EXTENSION = /(chrome|moz|safari(-web)?)-extension:\/\//;
+    function alError(mensaje, origen, error) {
       const texto = String(mensaje ?? '').slice(0, 300);
-      if (!texto || /ResizeObserver loop|Script error|React error #(418|423|425)/.test(texto) || vistos.has(texto)) return;
+      const pila = String(error?.stack ?? '');
+      if (!texto || NO_AVISAR.test(texto) || DE_EXTENSION.test(`${origen} ${pila}`) || vistos.has(texto)) return;
       vistos.add(texto);
-      avisarDiagnostico('error', { mensaje: texto, origen: String(origen ?? '').slice(0, 160) });
+      // Con el tipo y el comienzo de la pila: un "Uncaught" pelado (llegaron varios) no dice de dónde vino
+      avisarDiagnostico('error', {
+        mensaje: texto, origen: String(origen ?? '').slice(0, 160), nombre: error?.name ?? typeof error,
+        pila: pila.split('\n').slice(0, 4).map((l) => l.trim()).join(' | ').slice(0, 400)
+      });
     }
-    const errorComun = (e) => alError(e.message, `${e.filename ?? ''}:${e.lineno ?? ''}`);
-    const promesaRota = (e) => alError(e.reason?.message ?? e.reason, 'promesa');
+    const errorComun = (e) => alError(e.message, `${e.filename ?? ''}:${e.lineno ?? ''}`, e.error);
+    const promesaRota = (e) => alError(e.reason?.message ?? e.reason, 'promesa', e.reason);
 
     // Cada tanto: ¿la pantalla se está redibujando sola? (dos medidas seguidas, sin nadie tocando y sin audio sonando)
     let avisado = false;

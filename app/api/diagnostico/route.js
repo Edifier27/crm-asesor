@@ -8,7 +8,7 @@ import { cuentaDeLaCookie } from '@/lib/cuenta-cookie';
 
 export const dynamic = 'force-dynamic';
 
-const TIPOS = ['navegacion_trabada', 'redibujado_continuo', 'error', 'error_pantalla'];
+const TIPOS = ['navegacion_trabada', 'redibujado_continuo', 'error', 'error_pantalla', 'audio_vacio'];
 const MAX_BYTES = 4000;
 
 export async function POST(request) {
