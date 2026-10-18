@@ -14,6 +14,9 @@ import AuditoriaMedica from './AuditoriaMedica';
 
 const ORIGENES = { swiss_medical: 'Swiss Medical', web: 'Web', whatsapp: 'WhatsApp', manual: 'Manual' };
 
+// Las etapas que el asesor pasa a mano desde la ficha; el resto las mueve el CRM solo (en el Embudo se pueden arrastrar todas)
+const ETAPAS_A_MANO = ['Ganado', 'Perdido', 'Falta de cobro', 'Auditoría médica'];
+
 export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, audios = [], formularios = [], abierta, onCerrar }) {
   const supabase = createClient();
   const router = useRouter();
@@ -88,6 +91,18 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
     if (error) { setEtiquetas((l) => [...l, etiqueta]); avisar('No se pudo quitar'); }
   }
 
+  function cambiarEtapa(id) {
+    if (id === contacto.etapa_id && !perdiendo) return;
+    // Pasar a Perdido pide el motivo (sirve para el reporte de pérdidas)
+    if (etapas.find((x) => x.id === id)?.nombre === 'Perdido') return setPerdiendo(id);
+    setPerdiendo(null);
+    if (id === contacto.etapa_id) return;
+    guardar({ etapa_id: id });
+    if (etapas.find((x) => x.id === id)?.nombre === 'Falta de cobro') supabase.from('conversaciones').update({ ...TAREA_LINK_PAGO, seguimiento_at: new Date().toISOString() }).eq('id', conversacion.id).then(() => {});
+    // Sale de Perdido (se marcó por error o se recuperó): el chat vuelve a Mis chats
+    if (etapaActual?.nombre === 'Perdido') supabase.from('conversaciones').update({ modo: 'humano' }).eq('id', conversacion.id).eq('modo', 'pausada').then(() => {});
+  }
+
   const etapaActual = etapas.find((e) => e.id === contacto.etapa_id);
   const embudo = etapas.filter((e) => e.nombre !== 'Perdido');
   const disponibles = catalogo.filter((e) => !etiquetas.some((x) => x.id === e.id));
@@ -136,27 +151,25 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
       </label>
 
       <div className="bloque">
-        <span className="bloque-titulo">Etapa</span>
+        <span className="bloque-titulo">Etapa{etapaActual ? ` (${etapaActual.nombre})` : ''}</span>
         <div className="embudo" aria-hidden="true">
           {embudo.map((e) => (
             <span key={e.id} className="embudo-paso"
               style={{ background: etapaActual && etapaActual.nombre !== 'Perdido' && e.orden <= etapaActual.orden ? etapaActual.color : '#DDE2E0' }} />
           ))}
         </div>
-        <select value={perdiendo ?? contacto.etapa_id ?? ''} aria-label="Etapa del embudo"
-          onChange={(e) => {
-            const id = Number(e.target.value);
-            // Pasar a Perdido pide el motivo (sirve para el reporte de pérdidas)
-            if (etapas.find((x) => x.id === id)?.nombre === 'Perdido') setPerdiendo(id);
-            else {
-              setPerdiendo(null); guardar({ etapa_id: id });
-              if (etapas.find((x) => x.id === id)?.nombre === 'Falta de cobro') supabase.from('conversaciones').update({ ...TAREA_LINK_PAGO, seguimiento_at: new Date().toISOString() }).eq('id', conversacion.id).then(() => {});
-              // Sale de Perdido (se marcó por error o se recuperó): el chat vuelve a Mis chats
-              if (etapaActual?.nombre === 'Perdido') supabase.from('conversaciones').update({ modo: 'humano' }).eq('id', conversacion.id).eq('modo', 'pausada').then(() => {});
-            }
-          }}>
-          {etapas.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
-        </select>
+        {/* Globitos solo con las etapas que se pasan a mano (Darío, 18-oct-2026): las demás avanzan solas. La de ahora, rellena */}
+        <div className="etapas-mano" role="group" aria-label="Pasar a otra etapa">
+          {ETAPAS_A_MANO.map((nombre) => etapas.find((e) => e.nombre === nombre)).filter(Boolean).map((e) => {
+            const actual = (perdiendo ?? contacto.etapa_id) === e.id;
+            return (
+              <button key={e.id} type="button" className="etiqueta etapa-globito" aria-pressed={actual} onClick={() => cambiarEtapa(e.id)}
+                style={actual ? { background: e.color ?? '#3E4A47', color: '#fff' } : colorEtiqueta(e.color ?? '#3E4A47')}>
+                {e.nombre}
+              </button>
+            );
+          })}
+        </div>
         {perdiendo && (
           <div className="motivo-perdida">
             <span className="bloque-titulo">¿Por qué se perdió?</span>

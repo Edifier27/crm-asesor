@@ -109,7 +109,8 @@ export default function VistaPrevia() {
         formularios={[{ id: 'f1', nombre: 'Resumen de historia clínica', descripcion: 'Lo completa y firma el médico tratante', path: 'ejemplo-1.pdf', auditoria_medica: true },
           { id: 'f2', nombre: 'Certificado de buena salud', descripcion: 'Menores de 2 años: firmado y sellado por el pediatra', path: 'ejemplo-2.pdf', auditoria_medica: true },
           { id: 'f3', nombre: 'Declaración jurada', descripcion: null, path: 'ejemplo-3.pdf', auditoria_medica: false }]}
-        etapas={[{ id: 1, nombre: 'Nuevo', orden: 1, color: '#999' }, { id: 4, nombre: 'Cotizado', orden: 4, color: '#7C3AED' }, { id: 5, nombre: 'Por cerrar', orden: 5, color: '#B45309' }, { id: 8, nombre: 'Perdido', orden: 8, color: '#999' }]} />
+        etapas={[{ id: 1, nombre: 'Nuevo', orden: 1, color: '#999' }, { id: 4, nombre: 'Cotizado', orden: 4, color: '#7C3AED' }, { id: 5, nombre: 'Por cerrar', orden: 5, color: '#B45309' },
+          { id: 6, nombre: 'Auditoría médica', orden: 6, color: '#0E7490' }, { id: 7, nombre: 'Falta de cobro', orden: 7, color: '#C2410C' }, { id: 9, nombre: 'Ganado', orden: 9, color: '#15803D' }, { id: 8, nombre: 'Perdido', orden: 10, color: '#B91C1C' }]} />
     </div>
   );
 }
