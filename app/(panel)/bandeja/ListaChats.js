@@ -8,6 +8,7 @@ import NuevoLead from './NuevoLead';
 import Deslizable from '../componentes/Deslizable';
 import GestorEtiquetas from './GestorEtiquetas';
 import { SELECT_LISTA } from '@/lib/consultas';
+import { MAX_FILAS_SUELTAS, anotarCambio, mezclarFilas, pendientesVacios } from '@/lib/en-vivo';
 import { TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, tiempoDeEspera } from '@/lib/formato';
 import { abrirHaciaArriba } from '../componentes/haciaArriba';
 import { useAhora } from '../componentes/Reloj';
@@ -123,21 +124,46 @@ export default function ListaChats({ inicial, iaInicial }) {
     await supabase.from('conversaciones').update(cambios).eq('id', c.id);
   }
 
-  const recargar = useCallback(async () => {
-    const [{ data }, { count }] = await Promise.all([
-      supabase.from('conversaciones').select(SELECT_LISTA).in('modo', ['humano', 'ia'])
-        .order('orden_bandeja', { ascending: false, nullsFirst: false }).limit(300),
-      supabase.from('conversaciones').select('id', { count: 'exact', head: true }).eq('modo', 'ia')
-    ]);
-    if (data) setConversaciones(data);
+  const contarIA = useCallback(async () => {
+    const { count } = await supabase.from('conversaciones').select('id', { count: 'exact', head: true }).eq('modo', 'ia');
     if (count != null) setEnIA(count);
   }, [supabase]);
 
-  // Tiempo real: varios cambios seguidos (mensaje + conversación) se agrupan en una sola recarga
+  // La lista entera: al volver a la pestaña o la conexión, al tirar la lista hacia abajo
+  const recargar = useCallback(async () => {
+    const [{ data }] = await Promise.all([
+      supabase.from('conversaciones').select(SELECT_LISTA).in('modo', ['humano', 'ia'])
+        .order('orden_bandeja', { ascending: false, nullsFirst: false }).limit(300),
+      contarIA()
+    ]);
+    if (data) setConversaciones(data);
+  }, [supabase, contarIA]);
+
+  // Tiempo real liviano (lib/en-vivo.js): cada aviso trae solo los chats que cambiaron, no los 300 de nuevo
+  const actual = useRef(conversaciones);
+  useEffect(() => { actual.current = conversaciones; }, [conversaciones]);
+  const pendientes = useRef(pendientesVacios());
+  const traerCambios = useCallback(async () => {
+    const p = pendientes.current;
+    pendientes.current = pendientesVacios();
+    if (p.todo || p.conversaciones.size + p.contactos.size > MAX_FILAS_SUELTAS) return recargar();
+    // Mismos filtros que la lista entera: lo que no vuelve (pasó a "pausada", se borró) sale de la lista
+    const consulta = () => supabase.from('conversaciones').select(SELECT_LISTA).in('modo', ['humano', 'ia']);
+    const respuestas = await Promise.all([
+      p.conversaciones.size ? consulta().in('id', [...p.conversaciones]) : { data: [] },
+      p.contactos.size ? consulta().in('contacto_id', [...p.contactos]) : { data: [] }
+    ]);
+    if (respuestas.some((r) => r.error)) return recargar();
+    setConversaciones((lista) => mezclarFilas(lista, respuestas.flatMap((r) => r.data ?? []), p));
+    if (p.contar) contarIA();
+  }, [supabase, recargar, contarIA]);
+
+  // Varios avisos seguidos (mensaje + conversación + ficha) se juntan en un solo pedido
   useEffect(() => {
-    const programar = () => {
+    const programar = (aviso) => {
+      if (!anotarCambio(pendientes.current, aviso, actual.current)) return;
       clearTimeout(temporizador.current);
-      temporizador.current = setTimeout(recargar, 250);
+      temporizador.current = setTimeout(traerCambios, 250);
     };
     const canal = supabase.channel('lista-chats');
     for (const tabla of ['conversaciones', 'contactos', 'contacto_etiquetas']) {
@@ -153,7 +179,7 @@ export default function ListaChats({ inicial, iaInicial }) {
       clearTimeout(temporizador.current); supabase.removeChannel(canal);
       document.removeEventListener('visibilitychange', alVolver); window.removeEventListener('online', recargar);
     };
-  }, [supabase, recargar]);
+  }, [supabase, recargar, traerCambios]);
 
   // Buscar también en los mensajes: se espera a que deje de escribir y se busca en la base (cada uno ve solo sus chats)
   useEffect(() => {

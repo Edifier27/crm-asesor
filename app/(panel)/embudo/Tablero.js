@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { CHAT_CERRADO, SELECT_EMBUDO, TAREA_LINK_PAGO } from '@/lib/consultas';
+import { MAX_FILAS_SUELTAS, anotarCambio, mezclarFilas, pendientesVacios } from '@/lib/en-vivo';
 import { MOTIVOS_PERDIDA, TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, pesosCorto } from '@/lib/formato';
 import EnVivo from './EnVivo';
 import { useAhora } from '../componentes/Reloj';
@@ -11,6 +12,8 @@ import { eliminarLead } from './acciones';
 
 const SIN_TEXTO = { audio: 'Audio de voz', imagen: 'Imagen', video: 'Video', documento: 'Documento', ubicacion: 'Ubicación', plantilla: 'Plantilla', otro: 'Mensaje' };
 const resumenUltimo = (t) => (t ? SIN_TEXTO[t.match(/^\[(\w+)\]$/)?.[1]] ?? t : 'Sin mensajes');
+// Como la consulta: el último mensaje más nuevo primero (dentro de cada columna se respeta este orden)
+const porUltimoMensaje = (a, b) => { const x = a.ultimo_mensaje_at ?? '', y = b.ultimo_mensaje_at ?? ''; return x === y ? 0 : x < y ? 1 : -1; };
 const escribiendo = (desde, ahora) => Boolean(desde) && ahora - new Date(desde) < 120_000;
 
 export default function Tablero({ etapas, inicial }) {
@@ -85,8 +88,29 @@ export default function Tablero({ etapas, inicial }) {
     if (data) setConversaciones(data);
   }, [supabase]);
 
+  // Tiempo real liviano (lib/en-vivo.js): cada aviso trae solo los leads que cambiaron, no los 1000 de nuevo
+  const actual = useRef(conversaciones);
+  useEffect(() => { actual.current = conversaciones; }, [conversaciones]);
+  const pendientes = useRef(pendientesVacios());
+  const traerCambios = useCallback(async () => {
+    const p = pendientes.current;
+    pendientes.current = pendientesVacios();
+    if (p.todo || p.conversaciones.size + p.contactos.size > MAX_FILAS_SUELTAS) return recargar();
+    // Mismo filtro que el tablero entero: lo que no vuelve (se archivó en su base del mes, se borró) sale
+    const consulta = () => supabase.from('conversaciones').select(SELECT_EMBUDO).is('archivada_at', null);
+    const respuestas = await Promise.all([
+      p.conversaciones.size ? consulta().in('id', [...p.conversaciones]) : { data: [] },
+      p.contactos.size ? consulta().in('contacto_id', [...p.contactos]) : { data: [] }
+    ]);
+    if (respuestas.some((r) => r.error)) return recargar();
+    setConversaciones((lista) => mezclarFilas(lista, respuestas.flatMap((r) => r.data ?? []), p).sort(porUltimoMensaje));
+  }, [supabase, recargar]);
+
   useEffect(() => {
-    const programar = () => { clearTimeout(temporizador.current); temporizador.current = setTimeout(recargar, 300); };
+    const programar = (aviso) => {
+      if (!anotarCambio(pendientes.current, aviso, actual.current)) return;
+      clearTimeout(temporizador.current); temporizador.current = setTimeout(traerCambios, 300);
+    };
     const canal = supabase.channel('embudo');
     for (const tabla of ['conversaciones', 'contactos', 'contacto_etiquetas']) {
       canal.on('postgres_changes', { event: '*', schema: 'public', table: tabla }, programar);
@@ -97,9 +121,18 @@ export default function Tablero({ etapas, inicial }) {
       setActividad((a) => ({ ...a, [m.conversacion_id]: quien }));
       setTimeout(() => setActividad((a) => { const b = { ...a }; if (b[m.conversacion_id] === quien) delete b[m.conversacion_id]; return b; }), 4000);
     });
-    canal.subscribe();
-    return () => { clearTimeout(temporizador.current); supabase.removeChannel(canal); };
-  }, [supabase, recargar]);
+    // Si la conexión en vivo se cortó y volvió (celular bloqueado, sin señal) o se vuelve a la pestaña, se pone al día
+    // con el tablero entero (los avisos de mientras tanto se perdieron)
+    let reconectado = false;
+    canal.subscribe((estado) => { if (estado === 'SUBSCRIBED') { if (reconectado) recargar(); reconectado = true; } });
+    const alVolver = () => document.visibilityState === 'visible' && recargar();
+    document.addEventListener('visibilitychange', alVolver);
+    window.addEventListener('online', recargar);
+    return () => {
+      clearTimeout(temporizador.current); supabase.removeChannel(canal);
+      document.removeEventListener('visibilitychange', alVolver); window.removeEventListener('online', recargar);
+    };
+  }, [supabase, recargar, traerCambios]);
 
   async function moverEtapa(conv, etapaId, motivo) {
     if (conv.contacto.etapa_id === etapaId) return;
