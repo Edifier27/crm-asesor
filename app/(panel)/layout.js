@@ -7,6 +7,7 @@ import RielPlegable from './RielPlegable';
 import Avisos from './componentes/Avisos';
 import ReproductorGlobal from './componentes/ReproductorGlobal';
 import VersionNueva from './componentes/VersionNueva';
+import { Reloj } from './componentes/Reloj';
 import { estadoUso } from '@/lib/uso';
 import { temaValido } from '@/lib/temas';
 import { SALDO_BAJO_USD, saldosIa } from '@/lib/costos';
@@ -65,7 +66,8 @@ export default async function PanelLayout({ children }) {
         <Link href="/perfil" className="riel-usuario" title={`${user.email} · mi perfil y color`}>{inicial}</Link>
         <BotonSalir />
       </RielPlegable>
-      {children}
+      {/* Hora con la que se dibujó esta página: las pantallas la usan para "Espera 5 min", "Vencido hace…" (componentes/Reloj.js) */}
+      <Reloj inicial={Date.now()}>{children}</Reloj>
       <Avisos />
       <ReproductorGlobal />
       <VersionNueva actual={process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev'} usuarioId={user.id ?? null} />

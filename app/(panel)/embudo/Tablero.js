@@ -5,15 +5,18 @@ import { createClient } from '@/lib/supabase/client';
 import { CHAT_CERRADO, SELECT_EMBUDO, TAREA_LINK_PAGO } from '@/lib/consultas';
 import { MOTIVOS_PERDIDA, TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, pesosCorto } from '@/lib/formato';
 import EnVivo from './EnVivo';
+import { useAhora } from '../componentes/Reloj';
 import Deslizable from '../componentes/Deslizable';
 import { eliminarLead } from './acciones';
 
 const SIN_TEXTO = { audio: 'Audio de voz', imagen: 'Imagen', video: 'Video', documento: 'Documento', ubicacion: 'Ubicación', plantilla: 'Plantilla', otro: 'Mensaje' };
 const resumenUltimo = (t) => (t ? SIN_TEXTO[t.match(/^\[(\w+)\]$/)?.[1]] ?? t : 'Sin mensajes');
-const escribiendo = (desde) => Boolean(desde) && Date.now() - new Date(desde) < 120_000;
+const escribiendo = (desde, ahora) => Boolean(desde) && ahora - new Date(desde) < 120_000;
 
 export default function Tablero({ etapas, inicial }) {
   const supabase = createClient();
+  // Reloj compartido del panel ("Vencido hace…", "IA escribiendo…"): igual en el servidor y al hidratar, avanza cada minuto
+  const ahora = useAhora();
   const [conversaciones, setConversaciones] = useState(inicial);
   const [abierta, setAbierta] = useState(null);       // id de la conversación en el panel en vivo
   const [modo, setModo] = useState('todos');
@@ -95,8 +98,7 @@ export default function Tablero({ etapas, inicial }) {
       setTimeout(() => setActividad((a) => { const b = { ...a }; if (b[m.conversacion_id] === quien) delete b[m.conversacion_id]; return b; }), 4000);
     });
     canal.subscribe();
-    const reloj = setInterval(() => setConversaciones((c) => [...c]), 30_000); // vence el "escribiendo" viejo
-    return () => { clearTimeout(temporizador.current); clearInterval(reloj); supabase.removeChannel(canal); };
+    return () => { clearTimeout(temporizador.current); supabase.removeChannel(canal); };
   }, [supabase, recargar]);
 
   async function moverEtapa(conv, etapaId, motivo) {
@@ -131,14 +133,14 @@ export default function Tablero({ etapas, inicial }) {
     return conversaciones.filter((c) => {
       if (modo === 'ia' && c.modo !== 'ia') return false;
       if (modo === 'humano' && c.modo !== 'humano') return false;
-      if (modo === 'vencidos' && !cuandoSeguimiento(c.seguimiento_at)?.vencido) return false;
+      if (modo === 'vencidos' && !cuandoSeguimiento(c.seguimiento_at, ahora)?.vencido) return false;
       if (modo === 'sin_paso' && (c.seguimiento_at || cerrada(c))) return false;
       if (temperaturaFiltro && c.contacto?.temperatura !== temperaturaFiltro) return false;
       if (!q) return true;
       return [c.contacto?.nombre, c.contacto?.telefono, ...(c.contacto?.etiquetas ?? []).map((e) => e.etiqueta?.nombre)]
         .some((v) => v?.toLowerCase().includes(q));
     });
-  }, [conversaciones, modo, busqueda, temperaturaFiltro]);
+  }, [conversaciones, modo, busqueda, temperaturaFiltro, ahora]);
 
   const porEtapa = useMemo(() => {
     const mapa = Object.fromEntries(etapas.map((e) => [e.id, []]));
@@ -150,8 +152,8 @@ export default function Tablero({ etapas, inicial }) {
   }, [visibles, etapas]);
 
   const enIA = conversaciones.filter((c) => c.modo === 'ia').length;
-  const vencidos = conversaciones.filter((c) => cuandoSeguimiento(c.seguimiento_at)?.vencido).length;
-  const pensandoAhora = conversaciones.filter((c) => escribiendo(c.ia_pensando_desde)).length;
+  const vencidos = conversaciones.filter((c) => cuandoSeguimiento(c.seguimiento_at, ahora)?.vencido).length;
+  const pensandoAhora = conversaciones.filter((c) => escribiendo(c.ia_pensando_desde, ahora)).length;
   const convAbierta = conversaciones.find((c) => c.id === abierta);
 
   return (
@@ -227,8 +229,8 @@ export default function Tablero({ etapas, inicial }) {
             </header>
             <div className="columna-tarjetas">
               {(porEtapa[etapa.id] ?? []).map((c) => {
-                const vivo = escribiendo(c.ia_pensando_desde);
-                const paso = cuandoSeguimiento(c.seguimiento_at);
+                const vivo = escribiendo(c.ia_pensando_desde, ahora);
+                const paso = cuandoSeguimiento(c.seguimiento_at, ahora);
                 const temp = TEMPERATURAS[c.contacto?.temperatura];
                 // Con grupo (edades) y zona el cotizador ya tiene precio: el asesor solo tiene que enviarlo
                 const etapaNombre = etapas.find((e) => e.id === c.contacto?.etapa_id)?.nombre;
@@ -246,7 +248,7 @@ export default function Tablero({ etapas, inicial }) {
                         {temp && <span className="punto-temp" style={{ background: temp.color }} title={temp.rotulo} />}
                         {nombreVisible(c.contacto)}
                       </span>
-                      <span className="chat-hora">{fechaCorta(c.ultimo_mensaje_at)}</span>
+                      <span className="chat-hora">{fechaCorta(c.ultimo_mensaje_at, ahora)}</span>
                       {/* span y no button: la tarjeta ya es un botón */}
                       <span role="button" tabIndex={0} className="tarjeta-eliminar" title="Eliminar lead" aria-label={`Eliminar a ${nombreVisible(c.contacto)}`}
                         onClick={(e) => { e.stopPropagation(); setEliminando({ conv: c }); }}
