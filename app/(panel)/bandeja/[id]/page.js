@@ -1,12 +1,15 @@
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { SELECT_MENSAJE } from '@/lib/consultas';
+import { SELECT_MENSAJE, MENSAJES_POR_TANDA } from '@/lib/consultas';
 import { modoPrueba } from '@/lib/whatsapp/meta';
 import ChatVista from './ChatVista';
 import { datosDelEquipo } from '@/lib/datos-equipo';
 
-export default async function ChatPage({ params }) {
-  const { id } = await params;
+export default async function ChatPage({ params, searchParams }) {
+  const [{ id }, { m: buscado }] = await Promise.all([params, searchParams]);
+  // Los últimos mensajes (los más nuevos primero y después se dan vuelta). Desde el buscador (?m=) se traen más,
+  // para que el mensaje buscado esté en pantalla. Uno de más para saber si quedan anteriores
+  const limite = buscado ? 500 : MENSAJES_POR_TANDA;
   const supabase = await createClient();
   // De quién es la sesión (se verifica acá mismo, sin viajar): audios, respuestas y formularios son los de esa cuenta
   const { data: sesion } = await supabase.auth.getClaims();
@@ -20,7 +23,7 @@ export default async function ChatPage({ params }) {
         documentos:documentos_cliente(id, path, tipo, estado, datos, observacion, nombre_archivo, mime, creado_at, etiqueta, persona))`)
     .eq('id', id)
     .maybeSingle(),
-    supabase.from('mensajes').select(SELECT_MENSAJE).eq('conversacion_id', id).order('creado_at').limit(500),
+    supabase.from('mensajes').select(SELECT_MENSAJE).eq('conversacion_id', id).order('creado_at', { ascending: false }).limit(limite + 1),
     datosDelEquipo(sesion?.claims?.sub),
     supabase.from('numeros_whatsapp').select('conexion').maybeSingle(), // la base solo devuelve el propio
     supabase.from('etiquetas').select('id, nombre, color').order('nombre')
@@ -29,6 +32,9 @@ export default async function ChatPage({ params }) {
   if (error) throw new Error(`No se pudo cargar la conversación: ${error.message}`);
   if (!conversacion) notFound();
 
+  const hayAnteriores = (mensajes ?? []).length > limite;
+  const ultimos = (mensajes ?? []).slice(0, limite).reverse();
+
   const { etapas, audios, plantillas: todasPlantillas, lista, perfiles, respuestas, formularios } = datos;
   // Cada asesor ve solo las plantillas de su cuenta de WhatsApp (las de Darío o las de Gaby)
   const plantillas = todasPlantillas.filter((p) => (p.conexion ?? null) === (miNumero?.conexion ?? null));
@@ -36,7 +42,7 @@ export default async function ChatPage({ params }) {
 
   // key: al cambiar de chat se reinicia el estado de los componentes de cliente
   return (
-    <ChatVista key={id} conversacion={conversacion} mensajesIniciales={mensajes ?? []}
+    <ChatVista key={id} conversacion={conversacion} mensajesIniciales={ultimos} hayAnteriores={hayAnteriores}
       etapas={etapas ?? []} etiquetas={etiquetas ?? []} audios={audios ?? []} formularios={formularios ?? []} plantillas={plantillas ?? []}
       modoPrueba={modoPrueba()} lista={lista} equipo={equipo} respuestas={respuestas ?? []} />
   );

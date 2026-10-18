@@ -448,3 +448,24 @@
   .app[data-tema="verde"] .riel-boton::before { background: rgba(0, 0, 0, 0.1); }
   .riel-boton.activo::before { opacity: 1; transform: none; }
 }
+
+/* Mensajes anteriores (se traen solos al subir hasta arriba; el botón queda por si no hay lugar para desplazarse) */
+.cargar-anteriores {
+  display: block; margin: 6px auto 10px; padding: 5px 14px; border: 0; border-radius: 8px; cursor: pointer;
+  font: inherit; font-size: 12.5px; color: var(--wa-suave, #54656F); background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+}
+.cargar-anteriores:disabled { cursor: default; opacity: 0.8; }
+
+/* ═════════ Vista previa del chat mientras carga (bandeja/[id]/loading.js) ═════════ */
+.chat-cargando .avatar.esqueleto { border-radius: 50%; }
+.chat-cargando .conv-quien { display: flex; flex-direction: column; gap: 6px; }
+.chat-cargando .mensajes { display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; padding: 12px 16px; overflow: hidden; }
+.chat-cargando-fila { display: flex; }
+.chat-cargando-fila.saliente { justify-content: flex-end; }
+.chat-cargando-burbuja { display: block; height: 34px; max-width: 420px; border-radius: 8px; opacity: 0.7; }
+.chat-cargando-redactor { min-height: 44px; }
+/* El chat real reemplaza a la vista previa con un fundido corto (en el celular y en la compu) */
+::view-transition-new(.chat-revela) { animation: 150ms ease-out both wa-fondo; }
+::view-transition-old(.chat-revela-sale) { animation: 150ms ease-in both wa-desvanece; }
+@media (prefers-reduced-motion: reduce) { .chat-cargando .esqueleto { animation: none; } }
