@@ -433,7 +433,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
                 <span className="plan-final">{pesos(r.final)}<small> /mes</small></span>
                 <button type="button" className={`plan-docs${desplegado === r.plan ? ' activo' : ''}`} aria-expanded={desplegado === r.plan}
                   onClick={() => { setDesplegado(desplegado === r.plan ? null : r.plan); setPlanDocs(r.plan); }}>
-                  {desplegado === r.plan ? 'Ocultar cotización' : 'Ver cotización'}
+                  {desplegado === r.plan ? 'Ocultar' : 'Ver detalle'}
                 </button>
               </article>
             );
@@ -458,9 +458,18 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
                 </tr>
               ))}
             </tbody>
+            {/* Total del grupo: lo que pagaría sin ningún descuento y lo que paga con la campaña */}
+            <tfoot>
+              <tr>
+                <td>Total</td>
+                <td className="num sin-dto" title="Cuota total sin descuentos">{pesos(desglose.lista)}</td>
+                <td className="num desc">{desglose.descuentos > 0 ? `−${pesos(desglose.descuentos)}` : ''}</td>
+                <td className="num">{pesos(desglose.conDescuento)}</td>
+              </tr>
+            </tfoot>
           </table>
           <dl>
-            <div><dt>Cuota sin descuento</dt><dd>{pesos(desglose.lista)}</dd></div>
+            <div className="sin-dto"><dt>Cuota total sin descuentos</dt><dd>{pesos(desglose.lista)}</dd></div>
             {desglose.descuentos > 0 && <div><dt>{campania === 'individual50' ? 'Descuento menores de 26' : `Descuentos (${rotuloCampania(campania)})`}</dt><dd>−{pesos(desglose.descuentos)}</dd></div>}
             <div><dt>Cuota con descuento</dt><dd>{pesos(desglose.conDescuento)}</dd></div>
             {desglose.aportes.map((a, i) => (

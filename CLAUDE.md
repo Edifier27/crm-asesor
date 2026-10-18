@@ -68,7 +68,7 @@ Nunca commitear secretos.
   y la cotización aparece armada en la ficha ("Cotización lista" en el embudo). El envío lo hace el asesor.
 - Documentos: PDF de planes y cartillas en el bucket privado `documentos` (`lib/documentos.js` = reglas del index.html:
   tier por plan, región por provincia). `npm run documentos -- "<carpeta del cotizador>"` los sube/actualiza. En la ficha:
-  "Ver cotización" (desglose por integrante, `detalleCotizacion`) y "Plan y cartilla" (ver/enviar PDF por WhatsApp).
+  "Ver detalle" en cada plan del carrusel (desglose por integrante con fila Total sin descuentos, `detalleCotizacion`) y "Plan y cartilla" (ver/enviar PDF por WhatsApp).
   Todo lo enviado queda en `contactos.cotizacion.enviadas` (historial en la ficha y "Enviado" en cada plan).
 - CADA CUENTA ES UN CRM APARTE (migración 0042, 2026-10-08): además de contactos/chats/mensajes/etiquetas, son de cada
   asesor (columna `cuenta`, RLS `cuenta = auth.uid()`) los audios y `audios_pedidos`, la configuración del Asesor IA
