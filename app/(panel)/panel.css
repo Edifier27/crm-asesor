@@ -268,6 +268,10 @@
 .bloque p { margin: 0; line-height: 1.5; }
 .embudo { display: flex; gap: 4px; }
 .embudo-paso { flex: 1; height: 6px; border-radius: 3px; }
+/* Ficha: etapas que se pasan a mano, en globitos como las etiquetas (la actual, rellena con su color) */
+.etapas-mano { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.etapa-globito { border: 0; font-family: inherit; font-size: 12.5px; padding: 5px 12px; cursor: pointer; }
+.etapa-globito[aria-pressed='true'] { cursor: default; }
 .resumen { background: var(--ia-fondo); border-radius: 10px; padding: 12px; }
 .resumen .bloque-titulo { color: var(--ia); }
 .agregar-etiqueta { display: flex; gap: 6px; }
