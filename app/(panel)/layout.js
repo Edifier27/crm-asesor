@@ -1,4 +1,5 @@
 import { cache } from 'react';
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import BotonSalir from './componentes/BotonSalir';
 import Link from 'next/link';
@@ -7,6 +8,7 @@ import RielPlegable from './RielPlegable';
 import Avisos from './componentes/Avisos';
 import ReproductorGlobal from './componentes/ReproductorGlobal';
 import VersionNueva from './componentes/VersionNueva';
+import Intro from './componentes/Intro';
 import { estadoUso } from '@/lib/uso';
 import { temaValido } from '@/lib/temas';
 import { SALDO_BAJO_USD, saldosIa } from '@/lib/costos';
@@ -32,10 +34,13 @@ export async function generateMetadata() {
 
 export default async function PanelLayout({ children }) {
   const supabase = await createClient();
-  const [{ user, perfil }, { data: usoTodos }] = await Promise.all([
+  const [{ user, perfil }, { data: usoTodos }, galletas] = await Promise.all([
     perfilActual(),
-    supabase.from('uso_sistema').select('*').maybeSingle()
+    supabase.from('uso_sistema').select('*').maybeSingle(),
+    cookies()
   ]);
+  // Animación de entrada solo al abrir el CRM (no al recargar ni al cambiar de sección): ver componentes/Intro.js
+  const conIntro = !galletas.get('intro');
   const inicial = (perfil?.nombre ?? user.email ?? '?').slice(0, 2).toUpperCase();
   // Aviso para pasar Supabase a Pro (solo lo ve el administrador)
   const uso = perfil?.rol === 'admin' ? usoTodos : null;
@@ -48,6 +53,7 @@ export default async function PanelLayout({ children }) {
   return (
     // Chats sin responder: en la cuenta que lo pidió quedan siempre azules, sin pasar a rojo (perfiles.espera_roja, 0055)
     <div className="app" data-tema={temaValido(perfil?.tema)} data-espera-roja={perfil?.espera_roja === false ? 'no' : undefined}>
+      <Intro mostrar={conIntro} nombre={(perfil?.nombre ?? '').trim().split(/\s+/)[0] || null} />
       {alerta.nivel !== 'ok' && (
         <Link href="/equipo#uso" className={`aviso-uso ${alerta.nivel}`}>
           {alerta.nivel === 'urgente' ? '⚠ Supabase está casi lleno' : '⚠ Supabase al'} {alerta.max}%{alerta.nivel === 'urgente' ? ': pasá a Pro ya para no perder datos' : ': es momento de pasar a Pro'}

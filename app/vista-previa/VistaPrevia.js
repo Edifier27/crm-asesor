@@ -8,6 +8,7 @@ import Ficha from '../(panel)/bandeja/[id]/Ficha';
 import RielLinks from '../(panel)/RielLinks';
 import VisorArchivo from '../(panel)/componentes/VisorArchivo';
 import ReproductorGlobal from '../(panel)/componentes/ReproductorGlobal';
+import Intro from '../(panel)/componentes/Intro';
 import Tablero from '../(panel)/embudo/Tablero';
 
 // Tono de prueba (WAV) para escuchar la nota de voz sin servidor
@@ -63,6 +64,8 @@ export default function VistaPrevia() {
   useEffect(() => { setEmbudo(new URLSearchParams(location.search).has('embudo')); }, []);
   const [audio, setAudio] = useState(null);
   const [visor, setVisor] = useState(false);
+  const [intro, setIntro] = useState(false);
+  useEffect(() => { setIntro(new URLSearchParams(location.search).has('intro')); }, []);
   const [conChat, setConChat] = useState(true); // probar la barrita: window.__salirDelChat()
   useEffect(() => { window.__salirDelChat = () => setConChat(false); }, []);
   useEffect(() => { setAudio(tono()); setVisor(new URLSearchParams(location.search).has('visor')); }, []);
@@ -93,6 +96,8 @@ export default function VistaPrevia() {
 
   return (
     <div className="app">
+      {/* Probar la animación de entrada: /vista-previa?intro=1 (en el celular) */}
+      {intro && <Intro mostrar nombre="Darío" />}
       {/* Probar la lupa del visor: /vista-previa?visor=1 */}
       {visor && <VisorArchivo url="/icono-512.png" nombre="Foto de prueba" tipo="imagen" onCerrar={() => setVisor(false)} />}
       <RielPlegable><div className="riel-marca">AC</div><RielLinks esAdmin /></RielPlegable>
