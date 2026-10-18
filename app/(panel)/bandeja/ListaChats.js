@@ -8,14 +8,16 @@ import NuevoLead from './NuevoLead';
 import Deslizable from '../componentes/Deslizable';
 import GestorEtiquetas from './GestorEtiquetas';
 import { SELECT_LISTA } from '@/lib/consultas';
+import { MAX_FILAS_SUELTAS, anotarCambio, mezclarFilas, pendientesVacios } from '@/lib/en-vivo';
 import { TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, tiempoDeEspera } from '@/lib/formato';
 import { abrirHaciaArriba } from '../componentes/haciaArriba';
+import { useAhora } from '../componentes/Reloj';
 
 // Los mensajes sin texto llegan como "[audio]", "[imagen]", etc.
 const SIN_TEXTO = { audio: 'Audio de voz', imagen: 'Imagen', video: 'Video', documento: 'Documento', ubicacion: 'Ubicación', plantilla: 'Plantilla', otro: 'Mensaje' };
 const resumenUltimo = (t) => (t ? SIN_TEXTO[t.match(/^\[(\w+)\]$/)?.[1]] ?? t : 'Sin mensajes');
 
-const pasoMio = (c) => (c.seguimiento_responsable === 'asesor' ? cuandoSeguimiento(c.seguimiento_at) : null);
+const pasoMio = (c, ahora) => (c.seguimiento_responsable === 'asesor' ? cuandoSeguimiento(c.seguimiento_at, ahora) : null);
 // Orden: el cliente que escribió último va arriba (Darío, 16-oct-2026). Lo que mandamos nosotros (respuestas, plantillas,
 // seguimientos de la IA) no mueve el chat: si no, tapaba a los que acababan de escribir. Si nunca escribió, cuenta cuando entró.
 const cuando = (c) => c.orden_bandeja ?? c.ultimo_mensaje_at;
@@ -27,6 +29,17 @@ const CERRADAS = ['Falta de cobro', 'Ganado', 'Perdido'];
 const fueraDeBandeja = (c) => c.modo === 'ia' && CERRADAS.includes(c.contacto?.etapa?.nombre);
 
 const etiquetasDe = (c) => (c.contacto?.etiquetas ?? []).map((e) => e.etiqueta).filter(Boolean);
+
+// Chip de filtro. Va afuera de ListaChats: definido adentro era un componente nuevo en cada dibujo y los botones se
+// desmontaban y se volvían a montar cada vez que se redibujaba la lista.
+function Filtro({ valor, filtro, setFiltro, children }) {
+  return (
+    <button type="button" className={`chip-filtro${filtro === valor ? ' activo' : ''}`} aria-pressed={filtro === valor}
+      onClick={() => setFiltro(filtro === valor && valor !== 'todos' ? 'todos' : valor)}>
+      {children}
+    </button>
+  );
+}
 
 // De dónde vino el dato, para la cuenta que en la bandeja solo quiere ver eso (Darío, 16-oct-2026: PrepagaYa, SGC,
 // Botmaker o Salesforce). Sale de origen_detalle; los traídos de Kommo que entraron por Botmaker cuentan como Botmaker.
@@ -73,12 +86,8 @@ export default function ListaChats({ inicial, iaInicial }) {
   const temporizador = useRef();
   // Mensajes que coinciden con la búsqueda (desde 3 letras), con el nombre de su chat
   const [enMensajes, setEnMensajes] = useState({ q: '', lista: [], buscando: false });
-  // "Espera hace…" avanza solo: la lista se vuelve a dibujar una vez por minuto
-  const [, latir] = useState(0);
-  useEffect(() => {
-    const reloj = setInterval(() => latir((n) => n + 1), 60_000);
-    return () => clearInterval(reloj);
-  }, []);
+  // "Espera hace…" avanza solo, con el reloj compartido del panel (una vez por minuto; ver componentes/Reloj.js)
+  const ahora = useAhora();
   // Menú de cada chat (la flechita): marcar como leído / no leído
   const [menuDe, setMenuDe] = useState(null);
   useEffect(() => {
@@ -115,21 +124,46 @@ export default function ListaChats({ inicial, iaInicial }) {
     await supabase.from('conversaciones').update(cambios).eq('id', c.id);
   }
 
-  const recargar = useCallback(async () => {
-    const [{ data }, { count }] = await Promise.all([
-      supabase.from('conversaciones').select(SELECT_LISTA).in('modo', ['humano', 'ia'])
-        .order('orden_bandeja', { ascending: false, nullsFirst: false }).limit(300),
-      supabase.from('conversaciones').select('id', { count: 'exact', head: true }).eq('modo', 'ia')
-    ]);
-    if (data) setConversaciones(data);
+  const contarIA = useCallback(async () => {
+    const { count } = await supabase.from('conversaciones').select('id', { count: 'exact', head: true }).eq('modo', 'ia');
     if (count != null) setEnIA(count);
   }, [supabase]);
 
-  // Tiempo real: varios cambios seguidos (mensaje + conversación) se agrupan en una sola recarga
+  // La lista entera: al volver a la pestaña o la conexión, al tirar la lista hacia abajo
+  const recargar = useCallback(async () => {
+    const [{ data }] = await Promise.all([
+      supabase.from('conversaciones').select(SELECT_LISTA).in('modo', ['humano', 'ia'])
+        .order('orden_bandeja', { ascending: false, nullsFirst: false }).limit(300),
+      contarIA()
+    ]);
+    if (data) setConversaciones(data);
+  }, [supabase, contarIA]);
+
+  // Tiempo real liviano (lib/en-vivo.js): cada aviso trae solo los chats que cambiaron, no los 300 de nuevo
+  const actual = useRef(conversaciones);
+  useEffect(() => { actual.current = conversaciones; }, [conversaciones]);
+  const pendientes = useRef(pendientesVacios());
+  const traerCambios = useCallback(async () => {
+    const p = pendientes.current;
+    pendientes.current = pendientesVacios();
+    if (p.todo || p.conversaciones.size + p.contactos.size > MAX_FILAS_SUELTAS) return recargar();
+    // Mismos filtros que la lista entera: lo que no vuelve (pasó a "pausada", se borró) sale de la lista
+    const consulta = () => supabase.from('conversaciones').select(SELECT_LISTA).in('modo', ['humano', 'ia']);
+    const respuestas = await Promise.all([
+      p.conversaciones.size ? consulta().in('id', [...p.conversaciones]) : { data: [] },
+      p.contactos.size ? consulta().in('contacto_id', [...p.contactos]) : { data: [] }
+    ]);
+    if (respuestas.some((r) => r.error)) return recargar();
+    setConversaciones((lista) => mezclarFilas(lista, respuestas.flatMap((r) => r.data ?? []), p));
+    if (p.contar) contarIA();
+  }, [supabase, recargar, contarIA]);
+
+  // Varios avisos seguidos (mensaje + conversación + ficha) se juntan en un solo pedido
   useEffect(() => {
-    const programar = () => {
+    const programar = (aviso) => {
+      if (!anotarCambio(pendientes.current, aviso, actual.current)) return;
       clearTimeout(temporizador.current);
-      temporizador.current = setTimeout(recargar, 250);
+      temporizador.current = setTimeout(traerCambios, 250);
     };
     const canal = supabase.channel('lista-chats');
     for (const tabla of ['conversaciones', 'contactos', 'contacto_etiquetas']) {
@@ -145,7 +179,7 @@ export default function ListaChats({ inicial, iaInicial }) {
       clearTimeout(temporizador.current); supabase.removeChannel(canal);
       document.removeEventListener('visibilitychange', alVolver); window.removeEventListener('online', recargar);
     };
-  }, [supabase, recargar]);
+  }, [supabase, recargar, traerCambios]);
 
   // Buscar también en los mensajes: se espera a que deje de escribir y se busca en la base (cada uno ve solo sus chats)
   useEffect(() => {
@@ -249,16 +283,16 @@ export default function ListaChats({ inicial, iaInicial }) {
   const conteos = useMemo(() => ({
     sinResponder: enBandeja.filter((c) => c.espera_desde).length,
     respondidos: enBandeja.filter((c) => !c.espera_desde).length,
-    hoy: enBandeja.filter((c) => pasoMio(c)?.hoy).length,
+    hoy: enBandeja.filter((c) => pasoMio(c, ahora)?.hoy).length,
     ia: enBandeja.filter((c) => c.modo === 'ia' && !c.chat_archivado_at).length,
     yo: enBandeja.filter((c) => c.modo === 'humano' && !c.chat_archivado_at).length
-  }), [enBandeja]);
+  }), [enBandeja, ahora]);
 
-  // Etiquetas presentes en la lista, para filtrar
+  // Etiquetas presentes en la lista, para filtrar (orden en español fijo: el servidor ordena en inglés por defecto)
   const etiquetas = useMemo(() => {
     const mapa = new Map();
     enBandeja.forEach((c) => etiquetasDe(c).forEach((e) => mapa.set(e.id, e)));
-    return [...mapa.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
+    return [...mapa.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   }, [enBandeja]);
 
   const visibles = useMemo(() => {
@@ -267,7 +301,7 @@ export default function ListaChats({ inicial, iaInicial }) {
       if (Boolean(c.chat_archivado_at) !== verArchivados) return false;
       if (filtro === 'sin_responder' && !c.espera_desde) return false;
       if (filtro === 'respondidos' && c.espera_desde) return false;
-      if (filtro === 'hoy' && !pasoMio(c)?.hoy) return false;
+      if (filtro === 'hoy' && !pasoMio(c, ahora)?.hoy) return false;
       if (filtro === 'ia' && c.modo !== 'ia') return false;
       if (filtro === 'yo' && c.modo !== 'humano') return false;
       if (filtro.startsWith('et:') && !etiquetasDe(c).some((e) => `et:${e.id}` === filtro)) return false;
@@ -276,14 +310,8 @@ export default function ListaChats({ inicial, iaInicial }) {
         .some((v) => v?.toLowerCase().includes(q));
     // Fijados arriba (el último fijado primero); el resto, el mensaje más nuevo arriba
     }).sort((a, b) => (b.fijada_at ? new Date(b.fijada_at).getTime() : 0) - (a.fijada_at ? new Date(a.fijada_at).getTime() : 0) || reciente(b) - reciente(a));
-  }, [enBandeja, filtro, busqueda, verArchivados]);
-
-  const Filtro = ({ valor, children }) => (
-    <button type="button" className={`chip-filtro${filtro === valor ? ' activo' : ''}`} aria-pressed={filtro === valor}
-      onClick={() => setFiltro(filtro === valor && valor !== 'todos' ? 'todos' : valor)}>
-      {children}
-    </button>
-  );
+  }, [enBandeja, filtro, busqueda, verArchivados, ahora]);
+  const chip = { filtro, setFiltro };
 
   return (
     <section className={`lista${activo ? ' con-chat' : ''}${panel.achicada ? ' achicada' : panel.ancho && panel.ancho < 330 ? ' angosta' : ''}`} aria-label="Lista de chats"
@@ -308,13 +336,13 @@ export default function ListaChats({ inicial, iaInicial }) {
           <input type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar un chat o lo que se habló" />
         </label>
         <Deslizable className="filtros">
-          <Filtro valor="todos">Todos</Filtro>
-          <Filtro valor="sin_responder">Sin responder{conteos.sinResponder ? ` ${conteos.sinResponder}` : ''}</Filtro>
-          <Filtro valor="hoy">Para hoy{conteos.hoy ? ` ${conteos.hoy}` : ''}</Filtro>
-          <Filtro valor="respondidos">Respondidos{conteos.respondidos ? ` ${conteos.respondidos}` : ''}</Filtro>
-          <Filtro valor="yo">Atendés vos{conteos.yo ? ` ${conteos.yo}` : ''}</Filtro>
-          <Filtro valor="ia">Atiende la IA{conteos.ia ? ` ${conteos.ia}` : ''}</Filtro>
-          {etiquetas.map((e) => <Filtro key={e.id} valor={`et:${e.id}`}>{e.nombre}</Filtro>)}
+          <Filtro {...chip} valor="todos">Todos</Filtro>
+          <Filtro {...chip} valor="sin_responder">Sin responder{conteos.sinResponder ? ` ${conteos.sinResponder}` : ''}</Filtro>
+          <Filtro {...chip} valor="hoy">Para hoy{conteos.hoy ? ` ${conteos.hoy}` : ''}</Filtro>
+          <Filtro {...chip} valor="respondidos">Respondidos{conteos.respondidos ? ` ${conteos.respondidos}` : ''}</Filtro>
+          <Filtro {...chip} valor="yo">Atendés vos{conteos.yo ? ` ${conteos.yo}` : ''}</Filtro>
+          <Filtro {...chip} valor="ia">Atiende la IA{conteos.ia ? ` ${conteos.ia}` : ''}</Filtro>
+          {etiquetas.map((e) => <Filtro key={e.id} {...chip} valor={`et:${e.id}`}>{e.nombre}</Filtro>)}
           <GestorEtiquetas onFiltrar={(id) => setFiltro(`et:${id}`)} />
         </Deslizable>
       </div>
@@ -341,7 +369,7 @@ export default function ListaChats({ inicial, iaInicial }) {
       <ul className="chats" ref={listaRef} onScroll={guardarPosicion} onTouchStart={alTocar} onTouchMove={alArrastrar} onTouchEnd={alSoltar} onTouchCancel={alSoltar}>
         {visibles.map((c) => {
           // Te escribió y todavía no le respondiste: fila resaltada (azul; roja si espera hace más de una hora)
-          const espera = tiempoDeEspera(c.espera_desde);
+          const espera = tiempoDeEspera(c.espera_desde, ahora);
           return (
           <li key={c.id} className="chat-item">
             <Link href={`/bandeja/${c.id}`} className={`chat${c.id === activo ? ' activo' : ''}${c.no_leidos > 0 ? ' sin-leer' : ''}${espera ? ` espera${espera.larga ? ' larga' : ''}` : ''}`} aria-current={c.id === activo ? 'page' : undefined}
@@ -353,7 +381,7 @@ export default function ListaChats({ inicial, iaInicial }) {
                     {TEMPERATURAS[c.contacto?.temperatura] && <span className="punto-temp" style={{ background: TEMPERATURAS[c.contacto.temperatura].color }} title={TEMPERATURAS[c.contacto.temperatura].rotulo} />}
                     {nombreVisible(c.contacto)}
                   </span>
-                  <span className={`chat-hora${c.no_leidos > 0 ? ' nueva' : ''}`}>{fechaCorta(cuando(c))}</span>
+                  <span className={`chat-hora${c.no_leidos > 0 ? ' nueva' : ''}`}>{fechaCorta(cuando(c), ahora)}</span>
                 </span>
                 <span className="chat-fila">
                   <span className="chat-ultimo">{!espera && c.ultimo_es_propio && c.ultimo_mensaje_texto && <span className="chat-vos" title="Ya le respondiste">✓ Vos: </span>}{resumenUltimo(c.ultimo_mensaje_texto)}</span>
@@ -402,7 +430,7 @@ export default function ListaChats({ inicial, iaInicial }) {
               <span className="chat-cuerpo">
                 <span className="chat-fila">
                   <span className="chat-nombre">{nombreVisible(m.contacto)}</span>
-                  <span className="chat-hora">{fechaCorta(m.creado_at)}</span>
+                  <span className="chat-hora">{fechaCorta(m.creado_at, ahora)}</span>
                 </span>
                 <span className="chat-fila">
                   <span className="chat-ultimo">{m.tipo === 'audio' ? '🎤 ' : ''}<Fragmento texto={(m.tipo === 'audio' ? m.transcripcion || m.texto : m.texto) ?? ''} variantes={enMensajes.variantes ?? []} /></span>

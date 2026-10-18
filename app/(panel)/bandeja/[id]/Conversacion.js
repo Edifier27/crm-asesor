@@ -12,11 +12,12 @@ import { avisarLectura, enviarDesdeBandeja, reaccionar, registrarDocumento } fro
 import PanelChat from './PanelChat';
 import Reenviar from './Reenviar';
 import { limpiarAtajo } from '../../asesor/RespuestasRapidas';
+import { useAhora } from '../../componentes/Reloj';
 import { colorAvatar, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo, ultimoDelCliente, ventana } from '@/lib/formato';
 
 const ORIGENES = { swiss_medical: 'asignado por Swiss Medical', web: 'vía formulario', whatsapp: 'escribió por WhatsApp', manual: 'cargado a mano' };
 // La marca vence a los 2 minutos por si una ejecución se cortó sin limpiarla
-export const iaEscribiendo = (desde) => Boolean(desde) && Date.now() - new Date(desde) < 120_000;
+export const iaEscribiendo = (desde, ahora = Date.now()) => Boolean(desde) && ahora - new Date(desde) < 120_000;
 const porFecha = (a, b) => new Date(a.creado_at) - new Date(b.creado_at);
 
 // Botón chiquito al lado del teléfono (Darío, 14-oct-2026): copia el número con característica, sin 54 ni 9 (ej. 1136848332)
@@ -43,7 +44,8 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
   const [respondiendo, setRespondiendo] = useState(null);
   const [corrigiendo, setCorrigiendo] = useState(null);
   const [avisoAccion, setAvisoAccion] = useState('');
-  const [, refrescarReloj] = useState(0);
+  // Reloj compartido del panel: "quedan 3 h", "hace 5 min" y "IA escribiendo" se actualizan solos cada minuto
+  const ahora = useAhora();
   const [arrastrando, setArrastrando] = useState(false);
   const [subiendoArchivo, setSubiendoArchivo] = useState(false);
 
@@ -295,8 +297,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
         ({ new: fila }) => { setModo(fila.modo); setExpira(fila.ventana_expira_at); setPensando(fila.ia_pensando_desde); })
       // Si la conexión en vivo se cortó y volvió, se trae lo que pudo haberse perdido
       .subscribe((estado) => { if (estado === 'SUBSCRIBED') { if (reconectado) sincronizar(); reconectado = true; } });
-    const reloj = setInterval(() => refrescarReloj((n) => n + 1), 60_000);
-    return () => { supabase.removeChannel(canal); clearInterval(reloj); };
+    return () => { supabase.removeChannel(canal); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversacion.id]);
 
@@ -333,7 +334,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
     if (error) setModo(anterior);
   }
 
-  const v = ventana(expira);
+  const v = ventana(expira, ahora);
   const porId = Object.fromEntries(mensajes.map((x) => [x.id, x]));
   // Si el mensaje "oficial" ya llegó por la conexión en vivo, la copia dibujada al instante se esconde (nunca se ven dos)
   const usados = new Set();
@@ -407,7 +408,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
     await subirArchivo(archivo, destino);
   }
 
-  const cliente = ultimoDelCliente(mensajes);
+  const cliente = ultimoDelCliente(mensajes, ahora);
 
   return (
     <main className="conversacion"
@@ -416,7 +417,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
       onDrop={(e) => { e.preventDefault(); setArrastrando(false); }}>
       {pegada && (
         <ImagenPegada key={pegada.url} pegada={pegada} titulo={`Imagen pegada · ${nombreVisible(contacto)}`}
-          puedeEnviar={ventana(expira).abierta} onCerrar={cerrarPegada} onUsar={usarPegada} />
+          puedeEnviar={v.abierta} onCerrar={cerrarPegada} onUsar={usarPegada} />
       )}
       {(arrastrando || subiendoArchivo) && (
         <div className="soltar-capa" onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setArrastrando(false); }}>
@@ -489,9 +490,9 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
         {lista.map((m, i) => {
           const nuevoDia = i === 0 || !mismoDia(lista[i - 1].creado_at, m.creado_at);
           return (
-            <div key={m.id} data-id={m.id} data-dia={separadorDia(m.creado_at)}
+            <div key={m.id} data-id={m.id} data-dia={separadorDia(m.creado_at, ahora)}
               className={`mensaje-fila${i > 0 && lista[i - 1].direccion === m.direccion && lista[i - 1].autor !== 'sistema' ? ' seguido' : ''}${idsIniciales.has(m.id) || (!m.local && m.direccion === 'saliente' && m.autor === 'asesor') ? '' : ' recien'}`}>
-              {nuevoDia && <div className="dia">{separadorDia(m.creado_at)}</div>}
+              {nuevoDia && <div className="dia">{separadorDia(m.creado_at, ahora)}</div>}
               {primerNoLeido?.id === m.id && (
                 <div className="no-leidos-franja"><span>{primerNoLeido.cantidad === 1 ? '1 mensaje no leído' : `${primerNoLeido.cantidad} mensajes no leídos`}</span></div>
               )}
@@ -501,7 +502,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
             </div>
           );
         })}
-        {iaEscribiendo(pensando) && <div className="escribiendo"><span /><span /><span />Asesor IA está escribiendo…</div>}
+        {iaEscribiendo(pensando, ahora) && <div className="escribiendo"><span /><span /><span />Asesor IA está escribiendo…</div>}
         {mensajes.length === 0 && <div className="evento">Todavía no hay mensajes en esta conversación.</div>}
         {modo === 'humano' && conversacion.resumen_ia && (
           <div className="pase">

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { CHAT_CERRADO } from '@/lib/consultas';
 import { GLOBITOS, TEMPERATURAS, cuandoSeguimiento, marcasDe } from '@/lib/formato';
 import { ajustarAHorarioHabil } from '@/lib/horario';
+import { useAhora } from '../../componentes/Reloj';
 
 // Atajos de un toque (hora local del navegador)
 function enHoras(h) { return new Date(Date.now() + h * 3_600_000); }
@@ -38,7 +39,7 @@ export default function ProximoPaso({ conversacionId, contactoId, inicial, tempe
   const [temperatura, setTemperatura] = useState(temperaturaInicial);
   const [editando, setEditando] = useState(false);
   const [borrador, setBorrador] = useState(null);
-  const [, refrescar] = useState(0);
+  const ahora = useAhora(); // reloj compartido del panel: "Vencido hace…" avanza solo cada minuto
   const [aviso, setAviso] = useState('');
 
   // En vivo: la IA puede reprogramar mientras la ficha está abierta
@@ -54,8 +55,7 @@ export default function ProximoPaso({ conversacionId, contactoId, inicial, tempe
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'contactos', filter: `id=eq.${contactoId}` },
         ({ new: f }) => setTemperatura(f.temperatura))
       .subscribe();
-    const reloj = setInterval(() => refrescar((n) => n + 1), 60_000);
-    return () => { supabase.removeChannel(canal); clearInterval(reloj); };
+    return () => { supabase.removeChannel(canal); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversacionId, contactoId]);
 
@@ -119,7 +119,7 @@ export default function ProximoPaso({ conversacionId, contactoId, inicial, tempe
     await supabase.from('conversaciones').update(vuelta).eq('id', conversacionId);
   }
 
-  const cuando = cuandoSeguimiento(paso.seguimiento_at);
+  const cuando = cuandoSeguimiento(paso.seguimiento_at, ahora);
   const esIA = paso.seguimiento_responsable !== 'asesor';
 
   return (

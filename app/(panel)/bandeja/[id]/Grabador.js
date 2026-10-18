@@ -1,11 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { avisarDiagnostico } from '@/lib/avisar-diagnostico';
 
 const MAX_SEGUNDOS = 300;
 // Respaldo si no se puede codificar Opus: formatos nativos que acepta WhatsApp (como archivo de audio). WebM no.
 const FORMATOS_NATIVOS = [['audio/ogg;codecs=opus', 'ogg'], ['audio/mp4;codecs=mp4a.40.2', 'm4a'], ['audio/mp4', 'm4a']];
 const BARRAS = 42;
+// Una nota de voz con sonido pesa unos 6 KB por segundo (medido en 400 audios del CRM: ninguno por debajo de 4,4 KB/s).
+// Si pesa menos de 1 KB por segundo, el micrófono no mandó sonido.
+const BYTES_MINIMOS_POR_SEGUNDO = 1000;
 
 const reloj = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
@@ -167,6 +171,15 @@ export default function Grabador({ deshabilitado, onListo, onError, onEstado, di
     const duracion = Math.max(1, Math.round(acumulado.current / 1000));
     cambiar('quieto');
     if (cancelado.current || !blob.size) return;
+    // Audio vacío: del 9 al 16-oct salieron 7 notas de voz de 10 a 46 s que pesaban 128 a 305 bytes (sin sonido) y los
+    // clientes las recibieron. No se manda: se avisa para grabar de nuevo y queda en los registros en qué equipo pasó.
+    if (blob.size < BYTES_MINIMOS_POR_SEGUNDO * duracion) {
+      avisarDiagnostico('audio_vacio', {
+        segundos: duracion, bytes: blob.size, motor: motor.current?.tipo ?? null, dictado,
+        contexto: motor.current?.rec?.audioContext?.state ?? null, pantalla: document.visibilityState
+      });
+      return onError('No se grabó sonido: el micrófono no mandó audio. Probá grabar de nuevo.');
+    }
     onListo({ blob, extension, mime, duracion });
   }
 

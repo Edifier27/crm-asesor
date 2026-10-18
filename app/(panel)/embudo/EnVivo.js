@@ -9,8 +9,9 @@ import { colorAvatar, cuandoSeguimiento, iniciales, mismoDia, nombreVisible, sep
 import Burbuja from '../componentes/Burbuja';
 import BordeAjustable from '../componentes/BordeAjustable';
 import Simulador from '../bandeja/[id]/Simulador';
+import { useAhora } from '../componentes/Reloj';
 
-const escribiendo = (desde) => Boolean(desde) && Date.now() - new Date(desde) < 120_000;
+const escribiendo = (desde, ahora) => Boolean(desde) && ahora - new Date(desde) < 120_000;
 
 // Panel lateral del embudo: la conversación en vivo (sin marcarla como leída) y acciones rápidas
 export default function EnVivo({ conversacion, etapas, onEtapa, onCerrar }) {
@@ -19,9 +20,8 @@ export default function EnVivo({ conversacion, etapas, onEtapa, onCerrar }) {
   const { contacto } = conversacion;
   const [mensajes, setMensajes] = useState(null);
   const fondo = useRef(null);
-  const [, refrescarReloj] = useState(0);
-  useEffect(() => { const t = setInterval(() => refrescarReloj((n) => n + 1), 60_000); return () => clearInterval(t); }, []);
-  const cliente = mensajes ? ultimoDelCliente(mensajes) : null;
+  const ahora = useAhora(); // reloj compartido del panel: avanza cada minuto
+  const cliente = mensajes ? ultimoDelCliente(mensajes, ahora) : null;
 
   useEffect(() => {
     let vivo = true;
@@ -75,7 +75,7 @@ export default function EnVivo({ conversacion, etapas, onEtapa, onCerrar }) {
         <div className="en-vivo-acciones">
           {conversacion.modo === 'ia' ? (
             <>
-              <span className="etiqueta etiqueta-ia">{escribiendo(conversacion.ia_pensando_desde) ? 'IA escribiendo…' : 'Atiende la IA'}</span>
+              <span className="etiqueta etiqueta-ia">{escribiendo(conversacion.ia_pensando_desde, ahora) ? 'IA escribiendo…' : 'Atiende la IA'}</span>
               <button type="button" className="boton-primario" onClick={() => cambiarModo('humano', true)}>Tomar conversación</button>
             </>
           ) : (
@@ -97,8 +97,8 @@ export default function EnVivo({ conversacion, etapas, onEtapa, onCerrar }) {
           </div>
         )}
         {conversacion.seguimiento_at && (
-          <div className={`en-vivo-paso${cuandoSeguimiento(conversacion.seguimiento_at).vencido ? ' vencido' : ''}`}>
-            <strong>Próximo paso · {conversacion.seguimiento_responsable === 'asesor' ? 'vos' : 'IA'}:</strong> {cuandoSeguimiento(conversacion.seguimiento_at).texto}
+          <div className={`en-vivo-paso${cuandoSeguimiento(conversacion.seguimiento_at, ahora).vencido ? ' vencido' : ''}`}>
+            <strong>Próximo paso · {conversacion.seguimiento_responsable === 'asesor' ? 'vos' : 'IA'}:</strong> {cuandoSeguimiento(conversacion.seguimiento_at, ahora).texto}
             {conversacion.seguimiento_motivo ? ` — ${conversacion.seguimiento_motivo}` : ''}
           </div>
         )}
@@ -110,11 +110,11 @@ export default function EnVivo({ conversacion, etapas, onEtapa, onCerrar }) {
           {mensajes === null && <div className="evento">Cargando…</div>}
           {mensajes?.map((m, i) => (
             <div key={m.id} className="mensaje-fila">
-              {(i === 0 || !mismoDia(mensajes[i - 1].creado_at, m.creado_at)) && <div className="dia">{separadorDia(m.creado_at)}</div>}
+              {(i === 0 || !mismoDia(mensajes[i - 1].creado_at, m.creado_at)) && <div className="dia">{separadorDia(m.creado_at, ahora)}</div>}
               <Burbuja m={m} />
             </div>
           ))}
-          {escribiendo(conversacion.ia_pensando_desde) && <div className="escribiendo"><span /><span /><span />Asesor IA está escribiendo…</div>}
+          {escribiendo(conversacion.ia_pensando_desde, ahora) && <div className="escribiendo"><span /><span /><span />Asesor IA está escribiendo…</div>}
           <div ref={fondo} />
         </div>
 

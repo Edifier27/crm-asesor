@@ -109,7 +109,7 @@ export default function Equipo({ miembros: iniciales, yo, uso, saldos: saldosIni
               </div>
               {s.credito && <span className="uso-barra"><span className={bajo ? 'urgente' : pct < 30 ? 'atencion' : ''} style={{ width: `${Math.min(100, Math.max(2, pct))}%` }} /></span>}
               <span className="selector-detalle">
-                {s.credito ? `Anotaste ${usd(s.credito.saldo_usd)} el ${new Date(s.credito.desde).toLocaleDateString('es-AR')} · gastado desde entonces ${usd(s.gastadoDesdeCarga)} · ` : ''}
+                {s.credito ? `Anotaste ${usd(s.credito.saldo_usd)} el ${new Date(s.credito.desde).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })} · gastado desde entonces ${usd(s.gastadoDesdeCarga)} · ` : ''}
                 Este mes: {usd(s.gastadoMes)}
                 {' · '}<a className="boton-link-texto" href={CONSOLA_SERVICIO[s.servicio]} target="_blank" rel="noreferrer">Abrir consola</a>
                 {' · '}<button type="button" className="boton-link-texto" onClick={() => setAnotando(anotando === s.servicio ? null : s.servicio)}>Cargué crédito</button>
@@ -149,7 +149,7 @@ export default function Equipo({ miembros: iniciales, yo, uso, saldos: saldosIni
             <span className="selector-detalle">{mb(usado)} de {mb(limite)} · {pct}%</span>
           </div>
         ))}
-        {uso?.medido_at && <span className="selector-detalle">Medido {new Date(uso.medido_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}</span>}
+        {uso?.medido_at && <span className="selector-detalle">Medido {new Date(uso.medido_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Argentina/Buenos_Aires' })}</span>}
       </section>
 
       <section className="tarjeta">

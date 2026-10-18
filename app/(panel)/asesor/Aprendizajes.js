@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/client';
 import { analizarAprendizaje } from './acciones';
 import { CATEGORIAS } from '@/lib/ia/categorias-aprendizaje';
 
-const fecha = (iso) => new Date(iso).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+// Hora argentina fija: el servidor corre en UTC y, sin esto, escribía 3 h distinto que el navegador
+const fecha = (iso) => new Date(iso).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Argentina/Buenos_Aires' });
 
 /**
  * Modo aprendizaje: lo que la IA propone de cómo asesoran Darío y Gaby.
