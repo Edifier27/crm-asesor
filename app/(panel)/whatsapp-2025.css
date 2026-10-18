@@ -236,10 +236,11 @@
 ::view-transition-old(.seccion-sale) { animation: 90ms var(--curva-sale, ease-in) both wa-desvanece; }
 ::view-transition-new(.seccion-entra) { animation: 210ms var(--curva-entra, ease-out) 90ms both wa-aparece-zoom; }
 
-/* Celular: abrir un chat lo hace subir y aparecer; volver lo hace bajar y desaparecer */
+/* Celular: abrir un chat lo trae desde la derecha, como una pantalla nueva en una app; volver lo devuelve a la derecha
+   (Darío, 18-oct-2026: antes subía desde abajo) */
 @media (max-width: 760px) {
-  ::view-transition-new(.chat-entra) { animation: 260ms var(--curva-entra, ease-out) both wa-sube; }
-  ::view-transition-old(.chat-sale) { animation: 180ms var(--curva-sale, ease-in) both wa-baja; }
+  ::view-transition-new(.chat-entra) { animation: 280ms var(--curva-entra, ease-out) both wa-entra-derecha; }
+  ::view-transition-old(.chat-sale) { animation: 190ms var(--curva-sale, ease-in) both wa-sale-derecha; }
 }
 /* Compu: entre chats no hay transición (igual que WhatsApp Web) */
 @media (min-width: 761px) {
@@ -248,8 +249,8 @@
 
 @keyframes wa-desvanece { to { opacity: 0; } }
 @keyframes wa-aparece-zoom { from { opacity: 0; transform: scale(0.96); } }
-@keyframes wa-sube { from { opacity: 0; transform: translateY(12%); } }
-@keyframes wa-baja { to { opacity: 0; transform: translateY(12%); } }
+@keyframes wa-entra-derecha { from { opacity: 0; transform: translateX(30%); } }
+@keyframes wa-sale-derecha { to { opacity: 0; transform: translateX(30%); } }
 
 /* Menús, adjuntar y reacciones: crecen desde donde se tocaron */
 .menu-mensaje { animation: wa-menu 140ms var(--curva-entra) both; transform-origin: top right; }
@@ -276,6 +277,9 @@
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(*), ::view-transition-new(*), ::view-transition-group(*) { animation-duration: 0s !important; animation-delay: 0s !important; }
   .menu-mensaje, .menu-adjuntar, .selector-reacciones, .barra-mantenido, .bajar-al-final, .mensaje-fila.recien, .reenviar-fondo, .reenviar-caja, .panel-chat { animation: none !important; }
+  .intro { display: none !important; }
+  .app:has(> .intro) :is(.chat-item, .lista-cabecera, .riel), .riel-boton.activo svg { animation: none !important; }
+  :is(.chat, .riel-boton, .riel-usuario, .boton-primario, .boton-secundario, .chip-filtro, .cabecera-icono, .boton-icono, .boton-herramienta, .interruptor-ia):active { transform: none !important; }
 }
 
 /* Un link largo (sin espacios) en la caja de escribir: crece hacia abajo, nunca hacia los costados.
@@ -366,3 +370,81 @@
 .app[data-espera-roja="no"] .lista .chat-etiquetas .etiqueta { display: none; }
 .app[data-espera-roja="no"] .lista .chat-etiquetas .etiqueta.etiqueta-origen { display: inline-flex; }
 .app[data-espera-roja="no"] .lista .chat-etiquetas:not(:has(.etiqueta-origen)) { display: none; }
+
+/* ═════════ Entrada al abrir el CRM (componentes/Intro.js, Darío 18-oct-2026) ═════════
+   El ícono aparece con un rebote, se dibuja el globito, saluda y la pantalla se descubre: la barra de abajo sube y
+   los chats entran en cascada. Todo dura poco más de un segundo y no frena la carga. Solo en el celular/tablet. */
+.intro { display: none; }
+@media (max-width: 1180px) {
+  .intro {
+    display: grid; place-items: center; position: fixed; inset: 0; z-index: 1000; cursor: pointer;
+    /* El mismo fondo que la pantalla de arranque de la app instalada (manifest): no se nota el cambio */
+    background: #F4F5F4; color: var(--acento);
+    animation: intro-sale 300ms var(--curva-sale) 880ms both;
+  }
+  .intro-centro { position: relative; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  .intro-icono {
+    position: relative; display: block;
+    filter: drop-shadow(0 10px 22px color-mix(in srgb, var(--acento) 35%, transparent));
+    animation: intro-icono 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .intro-globo { stroke-dasharray: 1; stroke-dashoffset: 1; animation: intro-trazo 460ms var(--curva-entra) 200ms both; }
+  .intro-onda {
+    position: absolute; top: 0; left: 50%; width: 88px; height: 88px; margin-left: -44px; border-radius: 24px;
+    background: var(--acento); opacity: 0; animation: intro-onda 820ms var(--curva-entra) 220ms both;
+  }
+  .intro-hola { font-size: 20px; font-weight: 500; color: var(--texto); animation: intro-hola 380ms var(--curva-entra) 320ms both; }
+
+  /* Lo de abajo entra cuando el ícono se va */
+  .app:has(> .intro) { --intro-espera: 860ms; }
+  .app:has(> .intro) .lista-cabecera { animation: intro-aparece 320ms var(--curva-entra) var(--intro-espera) both; }
+  .app:has(> .intro) .chat-item { animation: intro-fila 360ms var(--curva-entra) both; animation-delay: calc(var(--intro-espera) + 40ms + var(--i, 0) * 32ms); }
+  .app:has(> .intro) .chat-item:nth-child(2) { --i: 1; }
+  .app:has(> .intro) .chat-item:nth-child(3) { --i: 2; }
+  .app:has(> .intro) .chat-item:nth-child(4) { --i: 3; }
+  .app:has(> .intro) .chat-item:nth-child(5) { --i: 4; }
+  .app:has(> .intro) .chat-item:nth-child(6) { --i: 5; }
+  .app:has(> .intro) .chat-item:nth-child(7) { --i: 6; }
+  .app:has(> .intro) .chat-item:nth-child(8) { --i: 7; }
+  .app:has(> .intro) .chat-item:nth-child(n+9) { --i: 8; }
+}
+@media (max-width: 760px) {
+  .app:has(> .intro) .riel { animation: intro-barra 380ms var(--curva-entra) var(--intro-espera) both; }
+}
+@keyframes intro-icono { from { opacity: 0; transform: scale(0.4) rotate(-14deg); } }
+@keyframes intro-trazo { to { stroke-dashoffset: 0; } }
+@keyframes intro-onda { 0% { opacity: 0; transform: scale(0.9); } 15% { opacity: 0.28; } 100% { opacity: 0; transform: scale(2.8); } }
+@keyframes intro-hola { from { opacity: 0; transform: translateY(10px); } }
+@keyframes intro-sale { to { opacity: 0; visibility: hidden; transform: scale(1.08); } }
+@keyframes intro-aparece { from { opacity: 0; transform: translateY(-6px); } }
+@keyframes intro-fila { from { opacity: 0; transform: translateY(14px); } }
+@keyframes intro-barra { from { transform: translateY(100%); } }
+
+/* ═════════ Respuesta al toque (Darío, 18-oct-2026: "que sea bien interactivo y rápido") ═════════
+   Sin el gris del navegador al tocar: cada cosa responde a su manera, al instante */
+.app { -webkit-tap-highlight-color: transparent; }
+.chat { transition: background-color 140ms ease; }
+.chat:active { background: rgba(11, 20, 26, 0.06); transition-duration: 0ms; }
+:is(.riel-usuario, .boton-primario, .boton-secundario, .chip-filtro, .cabecera-icono, .boton-icono, .boton-herramienta, .interruptor-ia) {
+  transition: transform 120ms var(--curva-entra), background-color 150ms ease, color 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+:is(.riel-usuario, .boton-primario, .boton-secundario, .chip-filtro, .cabecera-icono, .boton-icono, .boton-herramienta, .interruptor-ia):active:not(:disabled) {
+  transform: scale(0.94); transition-duration: 60ms;
+}
+
+/* Barra de secciones: el ícono elegido hace un pequeño salto y, en el celular, una pastilla crece detrás (Material 3) */
+.riel-boton { position: relative; transition: background-color 160ms ease, color 160ms ease, transform 120ms var(--curva-entra); }
+.riel-boton:active { transform: scale(0.9); transition-duration: 60ms; }
+.riel-boton svg { position: relative; }
+.riel-boton.activo svg { animation: riel-salto 360ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes riel-salto { 0% { transform: scale(0.82); } 55% { transform: scale(1.12); } 100% { transform: none; } }
+@media (max-width: 760px) {
+  .app[data-tema] .riel-boton.activo, .app[data-tema] .riel-boton:hover { background: transparent; }
+  .riel-boton::before {
+    content: ''; position: absolute; top: 9px; bottom: 9px; left: -6px; right: -6px; border-radius: 999px;
+    background: var(--riel-3); opacity: 0; transform: scaleX(0.35);
+    transition: transform 280ms var(--curva-entra), opacity 160ms ease;
+  }
+  .app[data-tema="verde"] .riel-boton::before { background: rgba(0, 0, 0, 0.1); }
+  .riel-boton.activo::before { opacity: 1; transform: none; }
+}
