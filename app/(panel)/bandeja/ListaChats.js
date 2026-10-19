@@ -394,6 +394,12 @@ export default function ListaChats({ inicial, iaInicial }) {
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 3l5 5-3 1-4 4 1 5-2 2-4-4-5 5-1-1 5-5-4-4 2-2 5 1 4-4z" /></svg>
                     </span>
                   )}
+                  {/* Flechita como en WhatsApp: aparece al pasar el mouse al final de la segunda fila y corre suave lo que haya (fijado, contador) */}
+                  <span role="button" tabIndex={0} className="chat-flecha" aria-label="Opciones del chat" aria-expanded={menuDe === c.id}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenuDe(menuDe === c.id ? null : c.id); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setMenuDe(menuDe === c.id ? null : c.id); } }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 10l5 5 5-5" /></svg>
+                  </span>
                 </span>
                 {/* Sin el próximo paso ni el consejo de la IA: eso está en la ficha (Darío, 16-oct-2026). Solo etiquetas */}
                 <span className="chat-etiquetas">
@@ -404,10 +410,6 @@ export default function ListaChats({ inicial, iaInicial }) {
                         </span>
               </span>
             </Link>
-            <button type="button" className="chat-flecha" aria-label="Opciones del chat" aria-expanded={menuDe === c.id}
-              onClick={() => setMenuDe(menuDe === c.id ? null : c.id)}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
-            </button>
             {menuDe === c.id && (
               <div className="menu-mensaje chat-menu" role="menu" ref={abrirHaciaArriba}>
                 <button type="button" role="menuitem" onClick={() => marcar(c, true)}>Marcar como leído</button>
