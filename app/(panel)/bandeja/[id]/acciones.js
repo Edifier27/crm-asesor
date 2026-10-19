@@ -134,7 +134,8 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
     after(async () => {
       const admin = createAdminClient();
       if (await esperarSiEstaEnAuditoria(admin, conversacionId)) return;
-      if ((await modoIa(admin, conv.cuenta)) !== 'automatico') await programarSecuencia(admin, conversacionId);
+      // En automático la IA maneja sus seguimientos; el del cotizado ("pudiste ver el plan?") corre en todos los modos
+      await programarSecuencia(admin, conversacionId, { soloCotizado: (await modoIa(admin, conv.cuenta)) === 'automatico' });
     });
     return { ok: true, id: r.id, mensaje: r.mensaje, simulado: r.simulado, ...(etapaId ? { etapaId } : {}) };
   } catch (e) {
