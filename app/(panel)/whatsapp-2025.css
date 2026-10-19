@@ -469,3 +469,8 @@
 ::view-transition-new(.chat-revela) { animation: 150ms ease-out both wa-fondo; }
 ::view-transition-old(.chat-revela-sale) { animation: 150ms ease-in both wa-desvanece; }
 @media (prefers-reduced-motion: reduce) { .chat-cargando .esqueleto { animation: none; } }
+
+/* Carpeta Importante (19-oct-2026): la gestiona el asesor, la IA no la toca. Se ve también en la bandeja simple de Darío */
+.chat-etiquetas .etiqueta.etiqueta-importante { background: #FFF4D6; color: #8A5A00; }
+.app[data-espera-roja="no"] .lista .chat-etiquetas .etiqueta.etiqueta-importante { display: inline-flex; }
+.app[data-espera-roja="no"] .lista .chat-etiquetas:has(.etiqueta-importante) { display: flex; }

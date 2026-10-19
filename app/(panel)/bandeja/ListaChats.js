@@ -27,7 +27,7 @@ const reciente = (c) => new Date(cuando(c) ?? 0).getTime();
 // Venta hecha (Falta de cobro), Ganado o Perdido con el chat en manos del sistema: no van en Mis chats (Darío, 13-oct-2026).
 // Vuelven solos cuando toca mandar el link de pago (pasan a modo humano) o si el cliente escribe.
 const CERRADAS = ['Falta de cobro', 'Ganado', 'Perdido'];
-const fueraDeBandeja = (c) => c.modo === 'ia' && CERRADAS.includes(c.contacto?.etapa?.nombre);
+const fueraDeBandeja = (c) => !c.importante_at && c.modo === 'ia' && CERRADAS.includes(c.contacto?.etapa?.nombre);
 
 const etiquetasDe = (c) => (c.contacto?.etiquetas ?? []).map((e) => e.etiqueta).filter(Boolean);
 
@@ -113,6 +113,11 @@ export default function ListaChats({ inicial, iaInicial }) {
     }
     cambiarChat(c, { fijada_at: c.fijada_at ? null : new Date().toISOString() }, c.fijada_at ? 'Chat desfijado' : 'Chat fijado');
   }
+  // Importante (Darío, 19-oct-2026): lo gestiona el asesor. La IA no responde, no hay seguimientos, plantillas ni campañas
+  const importante = (c) => cambiarChat(c, c.importante_at
+    ? { importante_at: null, ia_bloqueada: false }
+    : { importante_at: new Date().toISOString(), ia_bloqueada: true, modo: 'humano', ...(c.seguimiento_responsable === 'ia' ? { seguimiento_at: null, seguimiento_motivo: null } : {}) },
+  c.importante_at ? 'Salió de Importante: la IA vuelve a trabajarlo' : 'Pasó a Importante: la IA no lo toca');
   const archivar = (c) => cambiarChat(c, { chat_archivado_at: c.chat_archivado_at ? null : new Date().toISOString() }, c.chat_archivado_at ? 'Chat desarchivado' : 'Chat archivado');
 
   // Leído: se le va el resaltado de "le debo respuesta" (ej.: escribió "gracias"). No leído: vuelve a quedar resaltado.
@@ -283,6 +288,7 @@ export default function ListaChats({ inicial, iaInicial }) {
   const archivados = useMemo(() => enBandeja.filter((c) => c.chat_archivado_at), [enBandeja]);
   const conteos = useMemo(() => ({
     sinResponder: enBandeja.filter((c) => c.espera_desde).length,
+    importante: enBandeja.filter((c) => c.importante_at).length,
     respondidos: enBandeja.filter((c) => !c.espera_desde).length,
     hoy: enBandeja.filter((c) => pasoMio(c, ahora)?.hoy).length,
     ia: enBandeja.filter((c) => c.modo === 'ia' && !c.chat_archivado_at).length,
@@ -302,6 +308,7 @@ export default function ListaChats({ inicial, iaInicial }) {
       if (Boolean(c.chat_archivado_at) !== verArchivados) return false;
       if (filtro === 'sin_responder' && !c.espera_desde) return false;
       if (filtro === 'respondidos' && c.espera_desde) return false;
+      if (filtro === 'importante' && !c.importante_at) return false;
       if (filtro === 'hoy' && !pasoMio(c, ahora)?.hoy) return false;
       if (filtro === 'ia' && c.modo !== 'ia') return false;
       if (filtro === 'yo' && c.modo !== 'humano') return false;
@@ -339,6 +346,7 @@ export default function ListaChats({ inicial, iaInicial }) {
         <Deslizable className="filtros">
           <Filtro {...chip} valor="todos">Todos</Filtro>
           <Filtro {...chip} valor="sin_responder">Sin responder{conteos.sinResponder ? ` ${conteos.sinResponder}` : ''}</Filtro>
+          <Filtro {...chip} valor="importante">Importante{conteos.importante ? ` ${conteos.importante}` : ''}</Filtro>
           <Filtro {...chip} valor="hoy">Para hoy{conteos.hoy ? ` ${conteos.hoy}` : ''}</Filtro>
           <Filtro {...chip} valor="respondidos">Respondidos{conteos.respondidos ? ` ${conteos.respondidos}` : ''}</Filtro>
           <Filtro {...chip} valor="yo">Atendés vos{conteos.yo ? ` ${conteos.yo}` : ''}</Filtro>
@@ -408,6 +416,7 @@ export default function ListaChats({ inicial, iaInicial }) {
                   {origenDelDato(c) && <span className="etiqueta etiqueta-origen" style={colorEtiqueta(origenDelDato(c).color)}>{origenDelDato(c).nombre}</span>}
                   {etiquetasDe(c).map((e) => <span key={e.id} className="etiqueta" style={colorEtiqueta(e.color)}>{e.nombre}</span>)}
                   {c.modo === 'ia' && <span className="etiqueta etiqueta-ia">IA</span>}
+                  {c.importante_at && <span className="etiqueta etiqueta-importante">⭐ Importante</span>}
                         </span>
               </span>
             </Link>
@@ -415,6 +424,7 @@ export default function ListaChats({ inicial, iaInicial }) {
               <div className="menu-mensaje chat-menu" role="menu" ref={abrirHaciaArriba}>
                 <button type="button" role="menuitem" onClick={() => marcar(c, true)}>Marcar como leído</button>
                 <button type="button" role="menuitem" onClick={() => marcar(c, false)}>Marcar como no leído</button>
+                <button type="button" role="menuitem" onClick={() => importante(c)}>{c.importante_at ? 'Sacar de Importante' : '⭐ Mover a Importante'}</button>
                 <button type="button" role="menuitem" onClick={() => fijar(c)}>{c.fijada_at ? 'Desfijar chat' : 'Fijar chat'}</button>
                 <button type="button" role="menuitem" onClick={() => archivar(c)}>{c.chat_archivado_at ? 'Desarchivar chat' : 'Archivar chat'}</button>
               </div>
