@@ -263,7 +263,8 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
         {conTexto && verTexto && <span className="transcripcion">{m.transcripcion}</span>}
 
         {conArchivo && <DocumentoEnviado path={m.media_path} mensajeId={m.id} texto={m.texto ?? (m.tipo === 'imagen' ? 'Foto' : m.tipo === 'video' ? 'Video' : 'Documento')} />}
-        {['imagen', 'documento', 'ubicacion', 'otro'].includes(m.tipo) && !conArchivo && (
+        {/* "Mensaje no soportado" solo si no trae nada para mostrar (contactos compartidos y stickers ya traen texto) */}
+        {(['imagen', 'documento', 'ubicacion'].includes(m.tipo) || (m.tipo === 'otro' && !m.texto)) && !conArchivo && (
           <span className="burbuja-adjunto">{{ imagen: '📷 Foto', documento: '📄 Documento', ubicacion: '📍 Ubicación', otro: 'Mensaje no soportado' }[m.tipo]}</span>
         )}
 
