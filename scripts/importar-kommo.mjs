@@ -92,6 +92,9 @@ if (LISTAR || BANDEJAS.length || EMBUDOS.length) {
   if (LISTAR) process.exit(0);
   const faltan = BANDEJAS.filter((b) => !Object.values(etapa).some((n) => normal(n) === b));
   if (faltan.length) throw new Error(`Estas bandejas no existen en Kommo (revisá el nombre con --listar): ${faltan.join(', ')}`);
+  const faltanEmbudos = EMBUDOS.filter((e) => !pipes.some((p) => normal(p.name) === e));
+  if (faltanEmbudos.length) throw new Error(`Estos embudos no existen en Kommo (revisá el nombre con --listar): ${faltanEmbudos.join(', ')}`);
+  if (!leads.some(elegido)) throw new Error('Ningún lead de Kommo está en esas bandejas de ese embudo (revisá con --listar)');
 }
 
 const contactos = await todos('contacts?with=leads', 'contacts');
