@@ -531,14 +531,15 @@ html:has(.app), body:has(.app) { overflow: hidden; height: 100%; overscroll-beha
 .tarjeta-paso.de-espera { color: #3E4A47; font-weight: 400; }
 /* Flechita de cada chat: marcar como leído / no leído */
 .chat-flecha {
-  position: absolute; top: 8px; right: 6px; z-index: 2; width: 26px; height: 22px; border: 0; padding: 0; border-radius: 6px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; color: var(--wa-suave); background: #fff; opacity: 0;
-  box-shadow: 0 0 0 1px var(--wa-linea);
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: flex-end; color: var(--wa-suave); cursor: pointer;
+  width: 0; height: 20px; margin-left: 0; overflow: hidden; opacity: 0; border-radius: 4px;
+  transition: width 160ms ease, margin-left 160ms ease, opacity 120ms ease;
 }
-.chat-item:hover .chat-flecha, .chat-flecha:focus-visible, .chat-flecha[aria-expanded="true"] { opacity: 1; }
-@media (hover: none) { .chat-flecha { opacity: 0.75; } }
+.chat-flecha:hover { color: var(--wa-texto); }
+.chat-item:hover .chat-flecha, .chat-flecha:focus-visible, .chat-flecha[aria-expanded="true"] { width: 22px; margin-left: 4px; opacity: 1; }
+@media (hover: none) { .chat-flecha { width: 22px; margin-left: 4px; opacity: 0.75; } }
 .lista.achicada .chat-flecha, .lista.achicada .pildora-espera { display: none; }
-.chat-menu { top: 32px; right: 6px; left: auto; }
+.chat-menu { top: 52px; right: 10px; left: auto; }
 .menu-mensaje.chat-menu.arriba { top: auto; bottom: calc(100% - 6px); }
 /* Menú de un mensaje que está al fondo del chat: se abre hacia arriba */
 .menu-mensaje.arriba { top: auto; bottom: 26px; }
