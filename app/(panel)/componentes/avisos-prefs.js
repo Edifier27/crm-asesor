@@ -115,7 +115,7 @@ export function notificarSistema(titulo, texto, tag, alTocar) {
   if (typeof Notification === 'undefined') return 'Este navegador no tiene notificaciones.';
   if (Notification.permission !== 'granted') return Notification.permission === 'denied' ? 'bloqueadas' : 'sin permiso';
   try {
-    const n = new Notification(titulo, { body: String(texto ?? '').slice(0, 180), icon: '/icono-192.png', badge: '/icono-192.png', tag, renotify: Boolean(tag) });
+    const n = new Notification(titulo, { body: String(texto ?? '').slice(0, 180), icon: '/icono-192.png', badge: '/icono-barra.png', tag, renotify: Boolean(tag) });
     n.onclick = () => { window.focus(); alTocar?.(); n.close(); };
     return null;
   } catch (e) {

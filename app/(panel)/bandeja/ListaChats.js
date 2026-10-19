@@ -294,6 +294,14 @@ export default function ListaChats({ inicial, iaInicial }) {
   }
 
   const enBandeja = useMemo(() => conversaciones.filter((c) => !fueraDeBandeja(c)), [conversaciones]);
+  // Numerito sobre el ícono de AsesorCRM en el celular (como WhatsApp): chats con mensajes sin leer
+  const sinLeer = useMemo(() => enBandeja.filter((c) => c.no_leidos > 0).length, [enBandeja]);
+  useEffect(() => {
+    try {
+      if (sinLeer) navigator.setAppBadge?.(sinLeer)?.catch?.(() => {});
+      else navigator.clearAppBadge?.()?.catch?.(() => {});
+    } catch { /* el navegador no lo soporta */ }
+  }, [sinLeer]);
   const archivados = useMemo(() => enBandeja.filter((c) => c.chat_archivado_at), [enBandeja]);
   const conteos = useMemo(() => ({
     sinResponder: enBandeja.filter((c) => c.espera_desde).length,
