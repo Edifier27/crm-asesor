@@ -115,6 +115,9 @@ Nunca commitear secretos.
   PERDIDO fuera de todas las bandejas aunque escriba (queda en su columna del Embudo con el mensaje sin leer).
 - ETIQUETA "Cotizados" (migración 0062, trigger `etiquetar_cotizado` sobre `contactos`): la pone la base a todo contacto
   con una cotización enviada (`cotizacion.enviadas` tipo cotizacion) o en Cotizado o una etapa posterior. No se saca sola.
+- AUDITORÍA MÉDICA NO SE TOCA (Darío, 20-oct-2026: preexistencias, tema delicado): nunca sale nada automático. Sin
+  seguimientos ni fecha acordada (`procesarUno` lo chequea antes), sin campañas ni base del mes (`lib/bases.js`), sin
+  columnas de 60 días, sin mensaje de ausencia, la IA no le escribe (`responderComoAsesor`) y "Que siga la IA" lo rechaza.
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.

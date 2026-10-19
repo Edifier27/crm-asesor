@@ -522,8 +522,9 @@ export async function seguirConLaIA(conversacionId) {
   const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
   const { data: conv } = await supabase.from('conversaciones')
-    .select('id, cuenta, contacto_id, ia_bloqueada, espera_desde, seguimiento_responsable').eq('id', conversacionId).maybeSingle();
+    .select('id, cuenta, contacto_id, ia_bloqueada, espera_desde, seguimiento_responsable, contacto:contactos(etapa:etapas(nombre))').eq('id', conversacionId).maybeSingle();
   if (!conv) return { error: 'No tenés acceso a esta conversación.' };
+  if (conv.contacto?.etapa?.nombre === 'Auditoría médica') return { error: 'Está en auditoría médica: a estos leads la IA no les escribe. Seguilo vos.' };
   if (conv.ia_bloqueada) return { error: 'Este chat está marcado para que la IA no lo toque: liberalo primero.' };
 
   const admin = createAdminClient();
