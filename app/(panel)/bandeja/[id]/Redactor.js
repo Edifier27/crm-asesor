@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { corregirMensaje, plantillasSugeridas, sanatoriosDelChat } from './acciones';
 import { createClient } from '@/lib/supabase/client';
+import { avisarBorradores, guardarBorrador, leerBorrador } from '@/lib/borradores';
 
 const EMOJIS = ['😊', '😀', '😂', '🙂', '😉', '😍', '🤗', '🙏', '👍', '👌', '👏', '💪', '🙌', '✅', '❤️', '💚', '🎉', '✨', '🔥', '⭐', '😅', '🤔', '😮', '😢', '👋', '📄', '📞', '📍', '🏥', '👨‍👩‍👧', '👶', '💬', '⏰', '📅', '💰', '🤝'];
 import Grabador from './Grabador';
@@ -39,6 +40,19 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, formula
   const campo = useRef(null);
 
   useEffect(() => { if (respondiendo || corrigiendo) campo.current?.focus(); }, [respondiendo, corrigiendo]);
+
+  // Borrador por chat (como WhatsApp): lo escrito se guarda en cada tecla y vuelve al abrir el chat.
+  // El efecto que guarda va ANTES del que lo carga: así, al abrir, no borra el borrador con el cuadro todavía vacío.
+  const borradorListo = useRef(false);
+  useEffect(() => {
+    if (borradorListo.current && !corrigiendo) guardarBorrador(conversacion.id, texto);
+  }, [texto, corrigiendo, conversacion.id]);
+  useEffect(() => {
+    const b = leerBorrador(conversacion.id);
+    if (b) setTexto(b);
+    borradorListo.current = true;
+    return () => avisarBorradores(); // al salir del chat, la lista muestra "Borrador:"
+  }, [conversacion.id]);
 
   const nombre = conversacion.contacto.nombre?.trim().split(/\s+/)[0] || 'qué tal';
   // Buscador de plantillas: todas las palabras, en cualquier orden, sin importar tildes ni mayúsculas

@@ -474,3 +474,13 @@
 .chat-etiquetas .etiqueta.etiqueta-importante { background: #FFF4D6; color: #8A5A00; }
 .app[data-espera-roja="no"] .lista .chat-etiquetas .etiqueta.etiqueta-importante { display: inline-flex; }
 .app[data-espera-roja="no"] .lista .chat-etiquetas:has(.etiqueta-importante) { display: flex; }
+
+/* Borrador por chat (lib/borradores.js): en la lista, como WhatsApp */
+.chat-borrador { color: var(--wa-verde, #1DAA61); font-weight: 500; }
+
+/* Formato de WhatsApp en las burbujas (componentes/TextoWhatsApp.js) */
+.burbuja-texto .fmt-link { color: #027EB5; text-decoration: none; word-break: break-word; }
+.burbuja-texto .fmt-link:hover { text-decoration: underline; }
+.burbuja-texto .fmt-codigo { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: .92em; background: rgba(11, 20, 26, 0.06); border-radius: 4px; padding: 0 4px; }
+.burbuja-texto .fmt-bloque { display: block; font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: .92em; white-space: pre-wrap; margin: 2px 0; }
+.burbuja-texto .fmt-cita { display: inline-block; border-left: 3px solid rgba(11, 20, 26, 0.2); padding-left: 8px; color: rgba(0, 0, 0, 0.6); }
