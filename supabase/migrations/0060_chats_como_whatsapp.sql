@@ -38,6 +38,12 @@ grant execute on function public.actualizar_estado_mensaje(text, text, text) to 
 alter table public.mensajes add column if not exists fijado_at timestamptz;
 create index if not exists mensajes_fijados_idx on public.mensajes (conversacion_id) where fijado_at is not null;
 
+-- 3) Mensaje de ausencia fuera de horario (como WhatsApp Business), por cuenta. Arranca apagado: se prende en
+--    Asesor IA -> Funcionamiento. Sin texto propio usa el de lib/ausencia.js.
+alter table public.config_asesor add column if not exists ausencia_activa boolean not null default false;
+alter table public.config_asesor add column if not exists ausencia_texto text;
+
 -- Control
 select column_name from information_schema.columns
- where table_schema = 'public' and table_name = 'mensajes' and column_name in ('entregado_at', 'leido_at', 'fijado_at');
+ where table_schema = 'public' and table_name in ('mensajes', 'config_asesor')
+   and column_name in ('entregado_at', 'leido_at', 'fijado_at', 'ausencia_activa', 'ausencia_texto');

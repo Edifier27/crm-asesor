@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { fechaCorta, hora, nombreVisible } from '@/lib/formato';
 
+// El mismo texto que lib/ausencia.js manda si la cuenta no escribió uno propio
+const AUSENCIA_TEXTO = 'Hola! Gracias por escribirme. En este momento estoy fuera de horario (lunes a viernes de 8 a 20). Te respondo apenas vuelva 🙌';
+
 // Precios de Claude Sonnet 5.5 por millón de tokens (USD)
 const PRECIO = { entrada: 2, salida: 10, cacheLectura: 0.2, cacheEscritura: 2.5 };
 const costo = (e) =>
@@ -110,6 +113,16 @@ export default function PanelAsesor({ config: configInicial, conocimientoInicial
           </div>
           <span className="selector-detalle">{MODOS_IA.find((m) => m.id === modoActual)?.detalle}</span>
         </div>
+        {/* Mensaje de ausencia (como WhatsApp Business): fuera de horario, cuando la IA no contesta (0060) */}
+        <label className="check">
+          <input type="checkbox" checked={Boolean(config.ausencia_activa)} onChange={(e) => guardarConfig({ ausencia_activa: e.target.checked })} />
+          Mensaje de ausencia: si un cliente escribe fuera de horario (lunes a viernes de 8 a 20) y la IA no lo atiende, le sale este mensaje (una vez por noche o fin de semana)
+        </label>
+        {config.ausencia_activa && (
+          <label className="campo"><span>Texto del mensaje de ausencia</span>
+            <textarea rows={3} defaultValue={config.ausencia_texto ?? AUSENCIA_TEXTO}
+              onBlur={(e) => e.target.value !== (config.ausencia_texto ?? '') && guardarConfig({ ausencia_texto: e.target.value.trim() || null })} /></label>
+        )}
         <label className="campo"><span>Cómo te presentás (tu firma: la usa la IA en tus chats)</span>
           <input defaultValue={miPerfil?.firma ?? config.firma ?? ''} placeholder="Ej.: Gabriela, asesora de Swiss Medical"
             onBlur={async (e) => {
