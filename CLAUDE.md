@@ -68,7 +68,7 @@ Nunca commitear secretos.
   y la cotización aparece armada en la ficha ("Cotización lista" en el embudo). El envío lo hace el asesor.
 - Documentos: PDF de planes y cartillas en el bucket privado `documentos` (`lib/documentos.js` = reglas del index.html:
   tier por plan, región por provincia). `npm run documentos -- "<carpeta del cotizador>"` los sube/actualiza. En la ficha:
-  "Ver cotización" (desglose por integrante, `detalleCotizacion`) y "Plan y cartilla" (ver/enviar PDF por WhatsApp).
+  "Ver detalle" en cada plan del carrusel (desglose por integrante con fila Total sin descuentos, `detalleCotizacion`) y "Plan y cartilla" (ver/enviar PDF por WhatsApp).
   Todo lo enviado queda en `contactos.cotizacion.enviadas` (historial en la ficha y "Enviado" en cada plan).
 - CADA CUENTA ES UN CRM APARTE (migración 0042, 2026-10-08): además de contactos/chats/mensajes/etiquetas, son de cada
   asesor (columna `cuenta`, RLS `cuenta = auth.uid()`) los audios y `audios_pedidos`, la configuración del Asesor IA
@@ -88,8 +88,15 @@ Nunca commitear secretos.
   plantilla, la IA la deja como propuesta (`plantillas.propuesta_ia_at`) en Asesor IA → Plantillas para aprobar. Las
   secuencias con lista fija (`seguimiento_plantillas`) solo quedan para las que ya estaban en curso.
 - CAMPAÑAS A CONTACTOS EN PAUSA (Kommo, 2026-10-16): un "Si…" a la plantilla (`alResponderCampania` en `lib/bases.js`)
-  pasa el chat a la IA si la cuenta está en automático; con respuesta a una difusión en los últimos 3 días la IA va en
-  "solo datos" + `INSTRUCCIONES_CAMPANIA`: pide edades y particular/recibo y pasa a humano para que cotice el asesor.
+  pasa el chat a la IA si la cuenta está en automático. En "Automático, todo" la IA lo asesora y cotiza como a cualquier
+  lead (20-oct-2026); en "Automático, solo datos", con respuesta a una difusión en los últimos 3 días, suma
+  `INSTRUCCIONES_CAMPANIA`: pide edades y particular/recibo y pasa a humano para que cotice el asesor. En los dos modos,
+  los chats que ya atiende el asesor (modo humano) no los toca la IA.
+- CAMPAÑA KOMMO DE GABY — EN ESPERA, NO LANZAR HASTA QUE DARÍO DIGA "ahí la lanzamos" (pedido del 19-oct-2026):
+  311 contactos importados de su Kommo ("Embudo de ventas 2", 5 bandejas) en la columna "Kommo (importados)" de Gaby;
+  plantillas `recontacto_kommo_*_gaby*` (migración 0059, conexión GABY) mandadas a Meta. Falta SOLO crear las difusiones
+  cuando él avise, preguntándole día y hora de arranque: `scripts/campania-kommo.mjs --cuenta=gaby --desde=AAAA-MM-DDTHH:MM`
+  (primero sin `--aplicar`). Se corre en su compu (C:\Users\USUARIO\Desktop\crm-asesor, tiene el .env.local).
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.

@@ -1,7 +1,8 @@
 'use client';
 
 // Panel a la derecha del chat, como WhatsApp Web: buscar mensajes, mensajes destacados y "Archivos, enlaces y documentos".
-// Trabaja con los mensajes ya cargados del chat (los últimos 500); tocar un resultado lleva al mensaje.
+// Trabaja con los mensajes ya cargados del chat (los últimos 120 y los anteriores que se hayan traído al subir);
+// tocar un resultado lleva al mensaje.
 import { useMemo, useState } from 'react';
 import { fechaCorta, hora } from '@/lib/formato';
 

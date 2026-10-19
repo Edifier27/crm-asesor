@@ -5,7 +5,7 @@ import { after } from 'next/server';
 import { createClient, usuarioActual } from '@/lib/supabase/server';
 import { TAREA_LINK_PAGO } from '@/lib/consultas';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { enviarMensaje, remitenteDeLaCuenta } from '@/lib/whatsapp/enviar';
+import { enviarMensaje, remitenteDeLaCuenta, SELECT_CONV_ENVIO } from '@/lib/whatsapp/enviar';
 import { enviarReaccion, marcarLeidoMeta } from '@/lib/whatsapp/meta';
 import { responderComoAsesor } from '@/lib/ia/asesor';
 import { BUCKET_DOCUMENTOS, CARTILLAS_ARCHIVOS, PLANES_PDF } from '@/lib/documentos';
@@ -95,7 +95,8 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
   const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
 
-  const { data: conv } = await supabase.from('conversaciones').select('id, cuenta, contacto_id, ventana_expira_at').eq('id', conversacionId).maybeSingle();
+  // Con la sesión del asesor (solo ve sus chats): de paso trae lo que necesita el envío, así no se vuelve a leer
+  const { data: conv } = await supabase.from('conversaciones').select(SELECT_CONV_ENVIO).eq('id', conversacionId).maybeSingle();
   if (!conv) return { error: 'No tenés acceso a esta conversación.' };
   if (tipo === 'archivo') {
     const valido = archivo?.path?.startsWith(`${conv.contacto_id}/enviados/`) && /^[0-9a-f-]{36}\.[a-z0-9]{2,5}$/.test(archivo.path.split('/').pop());
@@ -124,7 +125,7 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
   try {
     const r = await enviarMensaje({
       conversacionId, tipo: tipo === 'grabacion' ? 'audio' : tipo, texto, audioId, plantillaId, documento, grabacion, archivo, respondeA,
-      autor: 'asesor', perfilId: user.id
+      autor: 'asesor', perfilId: user.id, conv
     });
     // Se le mandó un formulario de auditoría médica: el lead pasa a esa columna del Embudo
     const etapaId = pideAuditoria ? await pasarAAuditoriaMedica(createAdminClient(), conv.contacto_id) : null;
@@ -135,7 +136,7 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
       if (await esperarSiEstaEnAuditoria(admin, conversacionId)) return;
       if ((await modoIa(admin, conv.cuenta)) !== 'automatico') await programarSecuencia(admin, conversacionId);
     });
-    return { ok: true, id: r.id, simulado: r.simulado, ...(etapaId ? { etapaId } : {}) };
+    return { ok: true, id: r.id, mensaje: r.mensaje, simulado: r.simulado, ...(etapaId ? { etapaId } : {}) };
   } catch (e) {
     return { error: e.message };
   }

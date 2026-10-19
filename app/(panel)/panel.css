@@ -604,11 +604,16 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 @media (max-width: 760px) { .conv-cabecera .minutero { order: 11; flex-basis: 100%; justify-content: center; } }
 
 /* ───── Carrusel compacto, desglose, plan y cartilla, historial ───── */
-.plan { flex-basis: 132px; gap: 6px; }
-.plan-nombre { font-size: 16px; }
+/* Cajas más chicas para ver más planes de una (Darío, 18-oct-2026): en el celular entran 3 y media en vez de 3 */
+.carrusel { gap: 6px; }
+.plan { flex-basis: 94px; gap: 3px; padding: 7px; border-radius: 10px; }
+.plan-nombre { font-size: 13px; }
+.plan-final { font-size: 14px; }
+.plan-final small { font-size: 10px; }
+.plan-lista, .plan-desc { font-size: 11px; }
 .plan-enviado { font-size: 11px; font-weight: 700; color: #0B5A4E; background: #D5EEEA; border-radius: 6px; padding: 2px 6px; align-self: flex-start; }
 .plan-botones { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
-.plan-docs { font: inherit; font-size: 12px; font-weight: 600; color: var(--acento); background: #F0F7F5; border: 1px solid #CFE6E0; border-radius: 8px; padding: 5px 6px; cursor: pointer; }
+.plan-docs { font: inherit; font-size: 11px; font-weight: 600; color: var(--acento); background: #F0F7F5; border: 1px solid #CFE6E0; border-radius: 8px; padding: 4px 2px; cursor: pointer; white-space: nowrap; }
 .plan-docs:hover, .plan-docs.activo { background: var(--acento); color: #fff; border-color: var(--acento); }
 .plan.con-detalle { border-color: var(--acento); }
 .docs-plan { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--acento); border-radius: 12px; padding: 12px; background: #FAFCFB; }
@@ -621,6 +626,10 @@ a.pastilla-ia:hover { background: #E2DAFB; }
 .desglose td { padding: 4px 2px; border-bottom: 1px solid var(--linea-suave); }
 .desglose td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .desglose td.desc { color: #B45309; font-weight: 600; }
+/* Fila de totales: cuota sin descuento | descuento | con descuento */
+.desglose tfoot td { border-bottom: 0; border-top: 2px solid var(--borde); font-weight: 700; padding-top: 6px; }
+.desglose tfoot td.sin-dto { color: var(--texto); font-size: 14px; }
+.desglose dl .sin-dto dt, .desglose dl .sin-dto dd { color: var(--texto); font-weight: 700; }
 .desglose dl { margin: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
 .desglose dl div { display: flex; justify-content: space-between; gap: 8px; }
 .desglose dt { color: var(--texto-suave); }

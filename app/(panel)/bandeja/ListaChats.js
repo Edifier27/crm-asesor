@@ -12,6 +12,7 @@ import { MAX_FILAS_SUELTAS, anotarCambio, mezclarFilas, pendientesVacios } from 
 import { TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, tiempoDeEspera } from '@/lib/formato';
 import { abrirHaciaArriba } from '../componentes/haciaArriba';
 import { useAhora } from '../componentes/Reloj';
+import { recordarChat } from '@/lib/chat-abriendo';
 
 // Los mensajes sin texto llegan como "[audio]", "[imagen]", etc.
 const SIN_TEXTO = { audio: 'Audio de voz', imagen: 'Imagen', video: 'Video', documento: 'Documento', ubicacion: 'Ubicación', plantilla: 'Plantilla', otro: 'Mensaje' };
@@ -381,7 +382,7 @@ export default function ListaChats({ inicial, iaInicial }) {
           return (
           <li key={c.id} className="chat-item">
             <Link href={`/bandeja/${c.id}`} className={`chat${c.id === activo ? ' activo' : ''}${c.no_leidos > 0 ? ' sin-leer' : ''}${espera ? ` espera${espera.larga ? ' larga' : ''}` : ''}`} aria-current={c.id === activo ? 'page' : undefined}
-              title={panel.achicada ? nombreVisible(c.contacto) : undefined}>
+              title={panel.achicada ? nombreVisible(c.contacto) : undefined} onClick={() => recordarChat(c.id, c.contacto)}>
               <span className="avatar" style={colorAvatar(c.contacto?.telefono)}>{iniciales(c.contacto)}</span>
               <span className="chat-cuerpo">
                 <span className="chat-fila">

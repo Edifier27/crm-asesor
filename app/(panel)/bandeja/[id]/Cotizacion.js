@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { zonaPorCaracteristica } from '@/lib/caracteristicas';
 import { ZONAS_AUDIO, audiosDelPlan, zonaDeAudio } from '@/lib/audios-plan';
 import { createClient } from '@/lib/supabase/client';
-import { CAMPANIAS, ZONA_ROTULO, campaniaSugerida, cargaBU, cotizar, edadCotizable, ordenarPlanes, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
+import { CAMPANIAS, ZONA_ROTULO, campaniaPara, campaniasPara, campaniaSugerida, cargaBU, cotizar, edadCotizable, ordenarPlanes, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
 import { PROVINCIAS_LISTA, datosProvincia, provinciaDesdeTexto, zonaGbaDe } from '@/lib/provincias';
 import { REGIONES, TIERS, cartillaDe, planPdf, regionSugerida, tierDePlan } from '@/lib/documentos';
 import { fechaCorta, hora } from '@/lib/formato';
@@ -107,9 +107,10 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
   const [campaniaElegida, setCampaniaElegida] = useState(guardada.campania_manual ? guardada.campania : null);
   const campaniaAMano = useRef(Boolean(guardada.campania_manual));
   const textoZona = [relVivo?.localidad, relVivo?.intereses, contacto.origen_detalle].filter(Boolean).join(' ');
-  const campania = campaniaElegida ?? campaniaSugerida({
+  // Con recibo de sueldo (derivación) no hay monotributo: si estaba elegido, queda la general 15% + 50%
+  const campania = campaniaPara(campaniaElegida ?? campaniaSugerida({
     textoZona, situacion: relVivo?.situacion ?? '', modalidad, miembros: miembros.filter((m) => m.edad !== '')
-  });
+  }), modalidad);
   const [sueldos, setSueldos] = useState(guardada.sueldos ?? ['', '']);
   const [enviadas, setEnviadas] = useState(guardada.enviadas ?? []);   // historial de lo enviado al lead
   const [elegidos, setElegidos] = useState([]);
@@ -406,7 +407,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
       )}
 
       <div className="cot-campanias" role="group" aria-label="Campaña">
-        {CAMPANIAS.map((c) => (
+        {campaniasPara(modalidad).map((c) => (
           <button key={c.id} type="button" title={c.detalle} aria-pressed={campania === c.id}
             className={`chip-filtro${campania === c.id ? ' activo' : ''}`} onClick={() => { campaniaAMano.current = true; cambiar(setCampaniaElegida, 'campania')(c.id); }}>
             {c.rotulo}
@@ -433,7 +434,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
                 <span className="plan-final">{pesos(r.final)}<small> /mes</small></span>
                 <button type="button" className={`plan-docs${desplegado === r.plan ? ' activo' : ''}`} aria-expanded={desplegado === r.plan}
                   onClick={() => { setDesplegado(desplegado === r.plan ? null : r.plan); setPlanDocs(r.plan); }}>
-                  {desplegado === r.plan ? 'Ocultar cotización' : 'Ver cotización'}
+                  {desplegado === r.plan ? 'Ocultar' : 'Ver detalle'}
                 </button>
               </article>
             );
@@ -458,9 +459,18 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
                 </tr>
               ))}
             </tbody>
+            {/* Total del grupo: lo que pagaría sin ningún descuento y lo que paga con la campaña */}
+            <tfoot>
+              <tr>
+                <td>Total</td>
+                <td className="num sin-dto" title="Cuota total sin descuentos">{pesos(desglose.lista)}</td>
+                <td className="num desc">{desglose.descuentos > 0 ? `−${pesos(desglose.descuentos)}` : ''}</td>
+                <td className="num">{pesos(desglose.conDescuento)}</td>
+              </tr>
+            </tfoot>
           </table>
           <dl>
-            <div><dt>Cuota sin descuento</dt><dd>{pesos(desglose.lista)}</dd></div>
+            <div className="sin-dto"><dt>Cuota total sin descuentos</dt><dd>{pesos(desglose.lista)}</dd></div>
             {desglose.descuentos > 0 && <div><dt>{campania === 'individual50' ? 'Descuento menores de 26' : `Descuentos (${rotuloCampania(campania)})`}</dt><dd>−{pesos(desglose.descuentos)}</dd></div>}
             <div><dt>Cuota con descuento</dt><dd>{pesos(desglose.conDescuento)}</dd></div>
             {desglose.aportes.map((a, i) => (

@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import ImagenPegada from './ImagenPegada';
-import { SELECT_MENSAJE } from '@/lib/consultas';
+import { SELECT_MENSAJE, MENSAJES_POR_TANDA } from '@/lib/consultas';
 import Redactor from './Redactor';
 import Simulador from './Simulador';
 import Burbuja from '../../componentes/Burbuja';
@@ -32,11 +32,16 @@ function CopiarTelefono({ telefono }) {
   );
 }
 
-export default function Conversacion({ conversacion, mensajesIniciales, onFicha, audios, formularios = [], plantillas, modoPrueba, equipo, respuestasIniciales = [], sinConexion = false }) {
+export default function Conversacion({ conversacion, mensajesIniciales, hayAnteriores = false, onFicha, audios, formularios = [], plantillas, modoPrueba, equipo, respuestasIniciales = [], sinConexion = false }) {
   const [respuestas, setRespuestas] = useState(respuestasIniciales);
   const supabase = createClient();
   const { contacto } = conversacion;
   const [mensajes, setMensajes] = useState(mensajesIniciales);
+  // El chat abre con los últimos mensajes; los anteriores se traen de a tandas al subir hasta arriba (como WhatsApp)
+  const [masViejos, setMasViejos] = useState(hayAnteriores);
+  const [trayendoViejos, setTrayendoViejos] = useState(false);
+  const anclaViejos = useRef(null); // alto y posición antes de sumar los anteriores: para que la pantalla no salte
+  const pidiendoViejos = useRef(false); // un solo pedido a la vez aunque el desplazamiento dispare varios seguidos
   const [modo, setModo] = useState(conversacion.modo);
   const [bloqueada, setBloqueada] = useState(Boolean(conversacion.ia_bloqueada));
   const [expira, setExpira] = useState(conversacion.ventana_expira_at);
@@ -106,12 +111,35 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
   function alDesplazar(e) {
     const z = e.currentTarget;
     setLejos(z.scrollHeight - z.scrollTop - z.clientHeight > 300);
+    // Cerca de arriba: se traen los mensajes anteriores (sin esperar a que toque un botón)
+    if (z.scrollTop < 150 && masViejos) cargarAnteriores();
     const tope = z.getBoundingClientRect().top + 8;
     let texto = '';
     for (const f of z.querySelectorAll('[data-dia]')) { if (f.getBoundingClientRect().bottom > tope) { texto = f.dataset.dia; break; } }
     if (texto) setFechaFlotante({ texto, visible: z.scrollTop > 40 });
     clearTimeout(ocultarFecha.current);
     ocultarFecha.current = setTimeout(() => setFechaFlotante((f) => ({ ...f, visible: false })), 1200);
+  }
+
+  // Trae la tanda anterior de mensajes y la suma arriba sin mover lo que se está leyendo
+  async function cargarAnteriores() {
+    if (pidiendoViejos.current || !masViejos || sinConexion || !mensajes.length) return;
+    pidiendoViejos.current = true;
+    setTrayendoViejos(true);
+    const { data, error } = await supabase.from('mensajes').select(SELECT_MENSAJE).eq('conversacion_id', conversacion.id)
+      .lte('creado_at', mensajes[0].creado_at).order('creado_at', { ascending: false }).limit(MENSAJES_POR_TANDA + 1);
+    pidiendoViejos.current = false;
+    setTrayendoViejos(false);
+    if (error || !data) return;
+    const tanda = data.slice(0, MENSAJES_POR_TANDA);
+    const z = zonaMensajes.current;
+    if (z) anclaViejos.current = { alto: z.scrollHeight, arriba: z.scrollTop };
+    tanda.forEach((m) => idsIniciales.add(m.id)); // los viejos no entran animados
+    setMasViejos(data.length > MENSAJES_POR_TANDA);
+    setMensajes((prev) => {
+      const ya = new Set(prev.map((x) => x.id));
+      return [...tanda.filter((x) => !ya.has(x.id)).reverse(), ...prev];
+    });
   }
 
   // Ir a un mensaje (cita, búsqueda, destacados) y resaltarlo un instante
@@ -205,7 +233,10 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
           actualizarLocal(local.id, { estado: 'fallido', error: r.error, reintentar: () => despachar(local, d, audio) });
           return;
         }
-        await traerMensaje(r.id);
+        // El servidor devuelve el mensaje ya guardado: se pone en el chat al instante, sin volver a pedirlo.
+        // Si el aviso en vivo llegó antes, queda el de ese aviso (puede traer un estado más nuevo)
+        if (r.mensaje) setMensajes((prev) => (prev.some((x) => x.id === r.mensaje.id) ? prev : [...prev, r.mensaje].sort(porFecha)));
+        else await traerMensaje(r.id);
         quitarLocal(local.id);
         return;
       } catch {
@@ -256,10 +287,21 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
   async function sincronizar() {
     if (sinConexion) return; // vista previa de diseño
     const [{ data }, { data: c }] = await Promise.all([
-      supabase.from('mensajes').select(SELECT_MENSAJE).eq('conversacion_id', conversacion.id).order('creado_at').limit(500),
+      supabase.from('mensajes').select(SELECT_MENSAJE).eq('conversacion_id', conversacion.id).order('creado_at', { ascending: false }).limit(MENSAJES_POR_TANDA),
       supabase.from('conversaciones').select('modo, ventana_expira_at, ia_pensando_desde').eq('id', conversacion.id).maybeSingle()
     ]);
-    if (data) setMensajes(data);
+    if (data) {
+      // Se renueva la última tanda y se conservan los anteriores que ya se habían traído. Si llegaron tantos mensajes que
+      // no empalman con lo que había, queda solo la tanda nueva (y los anteriores se vuelven a traer al subir)
+      const recientes = [...data].reverse();
+      if (data.length === MENSAJES_POR_TANDA) setMasViejos(true);
+      setMensajes((prev) => {
+        if (!recientes.length) return recientes;
+        const desde = new Date(recientes[0].creado_at).getTime();
+        const empalma = data.length < MENSAJES_POR_TANDA || prev.some((m) => new Date(m.creado_at).getTime() >= desde);
+        return empalma ? [...prev.filter((m) => new Date(m.creado_at).getTime() < desde), ...recientes] : recientes;
+      });
+    }
     if (c) { setModo(c.modo); setExpira(c.ventana_expira_at); setPensando(c.ia_pensando_desde); }
   }
 
@@ -307,6 +349,13 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
   const primerScroll = useRef(true);
   useLayoutEffect(() => {
     const z = zonaMensajes.current;
+    // Se sumaron mensajes anteriores arriba: queda a la vista lo mismo que se estaba leyendo
+    if (anclaViejos.current && z) {
+      const { alto, arriba } = anclaViejos.current;
+      anclaViejos.current = null;
+      z.scrollTop = z.scrollHeight - alto + arriba;
+      return;
+    }
     const franja = primerScroll.current && primerNoLeido && z?.querySelector('.no-leidos-franja');
     primerScroll.current = false;
     if (franja) { z.scrollTop += franja.getBoundingClientRect().top - z.getBoundingClientRect().top - 70; return; }
@@ -487,6 +536,11 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
         onListo={(t) => { setReenviando(null); setAvisoAccion(t); setTimeout(() => setAvisoAccion(''), 3000); }} />}
 
       <div className="mensajes" ref={zonaMensajes} onScroll={alDesplazar}>
+        {masViejos && (
+          <button type="button" className="cargar-anteriores" onClick={cargarAnteriores} disabled={trayendoViejos}>
+            {trayendoViejos ? 'Cargando mensajes anteriores…' : 'Ver mensajes anteriores'}
+          </button>
+        )}
         {lista.map((m, i) => {
           const nuevoDia = i === 0 || !mismoDia(lista[i - 1].creado_at, m.creado_at);
           return (
