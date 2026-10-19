@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { colorAvatar, iniciales, nombreVisible, ventana } from '@/lib/formato';
 import { reenviarMensaje } from './acciones';
 
-export default function Reenviar({ mensaje, conversacionId, onCerrar, onListo }) {
+export default function Reenviar({ mensajes, conversacionId, onCerrar, onListo }) {
   const [chats, setChats] = useState(null);
   const [busqueda, setBusqueda] = useState('');
   const [enviando, setEnviando] = useState(null);
@@ -32,10 +32,14 @@ export default function Reenviar({ mensaje, conversacionId, onCerrar, onListo })
 
   async function elegir(c) {
     setEnviando(c.id); setError('');
-    const r = await reenviarMensaje(mensaje.id, c.id);
+    // Varios (selección múltiple): de a uno, en el orden en que se escribieron, como WhatsApp
+    const enOrden = [...mensajes].sort((a, b) => new Date(a.creado_at) - new Date(b.creado_at));
+    for (const m of enOrden) {
+      const r = await reenviarMensaje(m.id, c.id);
+      if (r.error) { setEnviando(null); return setError(r.error); }
+    }
     setEnviando(null);
-    if (r.error) return setError(r.error);
-    onListo(`Reenviado a ${nombreVisible(c.contacto)}`);
+    onListo(enOrden.length > 1 ? `${enOrden.length} mensajes reenviados a ${nombreVisible(c.contacto)}` : `Reenviado a ${nombreVisible(c.contacto)}`);
   }
 
   return (
@@ -45,7 +49,7 @@ export default function Reenviar({ mensaje, conversacionId, onCerrar, onListo })
           <button type="button" className="cabecera-icono" aria-label="Cerrar" onClick={onCerrar}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
-          <strong>Reenviar mensaje a</strong>
+          <strong>{mensajes.length > 1 ? `Reenviar ${mensajes.length} mensajes a` : 'Reenviar mensaje a'}</strong>
         </div>
         <label className="buscador panel-chat-buscar">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>

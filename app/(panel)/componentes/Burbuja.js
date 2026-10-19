@@ -310,6 +310,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
             {acciones.onResponder && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onResponder(m); }}>Responder</button>}
             {menu === 'opciones' && acciones.onReaccionar && <button type="button" role="menuitem" onClick={() => setMenu('reacciones')}>Reaccionar</button>}
             {acciones.onReenviar && !m.local && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onReenviar(m); }}>Reenviar</button>}
+            {acciones.onSeleccionar && !m.local && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onSeleccionar(m); }}>Seleccionar</button>}
             {acciones.onDestacar && !m.local && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onDestacar(m); }}>{m.destacado_at ? 'Quitar destacado' : 'Destacar'}</button>}
             {acciones.onFijar && !m.local && m.autor !== 'sistema' && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onFijar(m); }}>{fijado ? 'Desfijar' : 'Fijar arriba del chat'}</button>}
             {m.texto && m.tipo !== 'audio' && <button type="button" role="menuitem" onClick={copiar}>Copiar</button>}

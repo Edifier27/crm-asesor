@@ -11,6 +11,7 @@ import Burbuja from '../../componentes/Burbuja';
 import { avisarLectura, enviarDesdeBandeja, reaccionar, registrarDocumento } from './acciones';
 import PanelChat from './PanelChat';
 import Reenviar from './Reenviar';
+import BarraSeleccion from './BarraSeleccion';
 import { limpiarAtajo } from '../../asesor/RespuestasRapidas';
 import { useAhora } from '../../componentes/Reloj';
 import { colorAvatar, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo, ultimoDelCliente, ventana } from '@/lib/formato';
@@ -104,7 +105,16 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
   const [idsIniciales] = useState(() => new Set(mensajesIniciales.map((m) => m.id)));
   const [panelChat, setPanelChat] = useState(null);   // null | 'buscar' | 'destacados' | 'archivos'
   const [menuCabecera, setMenuCabecera] = useState(false);
-  const [reenviando, setReenviando] = useState(null); // mensaje a reenviar
+  const [reenviando, setReenviando] = useState(null); // mensaje (o lista de mensajes) a reenviar
+  // Selección múltiple (como WhatsApp): ids elegidos, o null fuera de ese modo
+  const [seleccion, setSeleccion] = useState(null);
+  const alternarSeleccion = (m) => {
+    if (m.local || m.autor === 'sistema') return;
+    setSeleccion((s) => {
+      const nueva = s?.includes(m.id) ? s.filter((x) => x !== m.id) : [...(s ?? []), m.id];
+      return nueva.length ? nueva : null;
+    });
+  };
   const [fijada, setFijada] = useState(Boolean(conversacion.fijada_at));
   const [archivado, setArchivado] = useState(Boolean(conversacion.chat_archivado_at));
 
@@ -424,6 +434,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
       if (error) { setMensajes((l) => l.map((x) => (x.id === m.id ? { ...x, destacado_at: m.destacado_at } : x))); setAvisoAccion(error.message); }
     },
     onReenviar: (m) => setReenviando(m),
+    onSeleccionar: (m) => alternarSeleccion(m),
     // Fijar arriba del chat (hasta 4, como WhatsApp): al fijar el quinto se suelta el más viejo
     onFijar: async (m) => {
       const antes = fijados;
@@ -559,7 +570,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
       </header>
       <span className={`fecha-flotante${fechaFlotante.visible ? ' visible' : ''}`} aria-hidden="true">{fechaFlotante.texto}</span>
       {panelChat && <PanelChat modo={panelChat} mensajes={mensajes} onIrA={irA} onCerrar={() => setPanelChat(null)} nombreCliente={primerNombreCliente} />}
-      {reenviando && <Reenviar mensaje={reenviando} conversacionId={conversacion.id} onCerrar={() => setReenviando(null)}
+      {reenviando && <Reenviar mensajes={Array.isArray(reenviando) ? reenviando : [reenviando]} conversacionId={conversacion.id} onCerrar={() => setReenviando(null)}
         onListo={(t) => { setReenviando(null); setAvisoAccion(t); setTimeout(() => setAvisoAccion(''), 3000); }} />}
 
       {fijados.length > 0 && (() => {
@@ -584,6 +595,8 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
           const nuevoDia = i === 0 || !mismoDia(lista[i - 1].creado_at, m.creado_at);
           return (
             <div key={m.id} data-id={m.id} data-dia={separadorDia(m.creado_at, ahora)}
+              data-seleccion={seleccion && !m.local && m.autor !== 'sistema' ? (seleccion.includes(m.id) ? 'si' : 'no') : undefined}
+              onClickCapture={seleccion ? (e) => { e.preventDefault(); e.stopPropagation(); alternarSeleccion(m); } : undefined}
               className={`mensaje-fila${i > 0 && lista[i - 1].direccion === m.direccion && lista[i - 1].autor !== 'sistema' ? ' seguido' : ''}${idsIniciales.has(m.id) || (!m.local && m.direccion === 'saliente' && m.autor === 'asesor') ? '' : ' recien'}`}>
               {nuevoDia && <div className="dia">{separadorDia(m.creado_at, ahora)}</div>}
               {primerNoLeido?.id === m.id && (
@@ -616,9 +629,15 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
 
       {contacto.telefono?.startsWith('54900000000') && <Simulador conversacionId={conversacion.id} />}
       {avisoAccion && <p className="aviso-error" role="alert">{avisoAccion}</p>}
-      <Redactor conversacion={conversacion} ventanaAbierta={v.abierta} audios={audios} formularios={formularios} plantillas={plantillas} modoPrueba={modoPrueba}
-        respondiendo={respondiendo} corrigiendo={corrigiendo} onLimpiar={() => { setRespondiendo(null); setCorrigiendo(null); }}
-        onEnviar={enviarOptimista} respuestas={respuestas} onAdjuntar={(archivo) => subirArchivo(archivo, 'enviar')} onEscribiendo={avisarEscribiendo} />
+      {seleccion ? (
+        <BarraSeleccion elegidos={mensajes.filter((x) => seleccion.includes(x.id))} nombreCliente={primerNombreCliente || 'Cliente'}
+          onCancelar={() => setSeleccion(null)} onDestacar={(lista) => { lista.forEach((x) => accionesSiempre.onDestacar(x)); setSeleccion(null); }}
+          onReenviar={(lista) => { setReenviando(lista); setSeleccion(null); }} onAviso={(t) => { setAvisoAccion(t); setTimeout(() => setAvisoAccion(''), 2500); }} />
+      ) : (
+        <Redactor conversacion={conversacion} ventanaAbierta={v.abierta} audios={audios} formularios={formularios} plantillas={plantillas} modoPrueba={modoPrueba}
+          respondiendo={respondiendo} corrigiendo={corrigiendo} onLimpiar={() => { setRespondiendo(null); setCorrigiendo(null); }}
+          onEnviar={enviarOptimista} respuestas={respuestas} onAdjuntar={(archivo) => subirArchivo(archivo, 'enviar')} onEscribiendo={avisarEscribiendo} />
+      )}
     </main>
   );
 }
