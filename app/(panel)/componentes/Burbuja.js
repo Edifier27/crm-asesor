@@ -157,6 +157,17 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
     setDesliz(0);
   }
 
+  // Info del mensaje (como WhatsApp): a qué hora se envió, llegó y lo leyó. Se pide al abrirla; sin la migración 0060
+  // las columnas no existen y se avisa en vez de romper el chat
+  const [info, setInfo] = useState(null);
+  async function verInfo() {
+    setMenu('info');
+    setInfo('cargando');
+    const { data, error } = await createClient().from('mensajes').select('creado_at, entregado_at, leido_at, escuchado_at').eq('id', m.id).maybeSingle();
+    setInfo(error ? { error: true } : data ?? { error: true });
+  }
+  const cuandoFue = (iso) => (iso ? new Intl.DateTimeFormat('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso)) : '—');
+
   // Cerrar el menú al tocar afuera
   useEffect(() => {
     if (!menu) return;
@@ -307,6 +318,21 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
               <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onGuardarRapida(m); }}>Guardar como respuesta rápida</button>
             )}
             {corregible && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onCorregir(m); }}>Corregir</button>}
+            {saliente && !m.local && <button type="button" role="menuitem" onClick={verInfo}>Info del mensaje</button>}
+          </div>
+        )}
+        {menu === 'info' && (
+          <div className="menu-mensaje info-mensaje" role="dialog" aria-label="Info del mensaje" ref={abrirHaciaArriba}>
+            {info === 'cargando' && <span className="info-fila">Cargando…</span>}
+            {info?.error && <span className="info-fila">Todavía no está disponible.</span>}
+            {info && info !== 'cargando' && !info.error && (
+              <>
+                <span className="info-fila"><Tildes estado="enviado" /> Enviado <b>{cuandoFue(info.creado_at)}</b></span>
+                <span className="info-fila"><Tildes estado="entregado" /> Entregado <b>{cuandoFue(info.entregado_at)}</b></span>
+                <span className="info-fila"><Tildes estado="leido" /> Leído <b>{cuandoFue(info.leido_at)}</b></span>
+                {esAudio && <span className="info-fila">🎧 Escuchado <b>{cuandoFue(info.escuchado_at)}</b></span>}
+              </>
+            )}
           </div>
         )}
         {copiado && <span className="burbuja-copiado">Copiado</span>}
