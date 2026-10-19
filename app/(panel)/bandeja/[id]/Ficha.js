@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { CHAT_CERRADO, TAREA_LINK_PAGO } from '@/lib/consultas';
-import { corregirTelefono } from './acciones';
+import { contactarEn60, corregirTelefono } from './acciones';
 import { COLORES_ETIQUETA, COLUMNAS_60, MOTIVOS_PERDIDA, colorEtiqueta, nombreVisible } from '@/lib/formato';
 import Cotizacion from './Cotizacion';
 import ProximoPaso from './ProximoPaso';
@@ -15,7 +15,7 @@ import AuditoriaMedica from './AuditoriaMedica';
 const ORIGENES = { swiss_medical: 'Swiss Medical', web: 'Web', whatsapp: 'WhatsApp', manual: 'Manual' };
 
 // Las etapas que el asesor pasa a mano desde la ficha; el resto las mueve el CRM solo (en el Embudo se pueden arrastrar todas)
-const ETAPAS_A_MANO = ['Ganado', 'Perdido', 'Falta de cobro', 'Auditoría médica'];
+const ETAPAS_A_MANO = ['Ganado', 'Perdido', 'Falta de cobro', 'Auditoría médica', 'Contactar en 60 días'];
 
 export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, audios = [], formularios = [], abierta, onCerrar }) {
   const supabase = createClient();
@@ -97,6 +97,15 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
     if (etapas.find((x) => x.id === id)?.nombre === 'Perdido') return setPerdiendo(id);
     setPerdiendo(null);
     if (id === contacto.etapa_id) return;
+    // "Por ahora no": sale de Mis chats y a los 60 días se lo retoma solo (acciones.js → contactarEn60)
+    if (etapas.find((x) => x.id === id)?.nombre === 'Contactar en 60 días') {
+      contactarEn60(conversacion.id).then((r) => {
+        if (r?.error) return avisar(r.error);
+        setContacto((c) => ({ ...c, etapa_id: r.etapaId, campania_desde: r.fecha }));
+        avisar(`Se retoma el ${new Date(r.fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', timeZone: 'America/Argentina/Buenos_Aires' })}`);
+      }).catch((e) => avisar(e.message));
+      return;
+    }
     guardar({ etapa_id: id });
     if (etapas.find((x) => x.id === id)?.nombre === 'Falta de cobro') supabase.from('conversaciones').update({ ...TAREA_LINK_PAGO, seguimiento_at: new Date().toISOString() }).eq('id', conversacion.id).then(() => {});
     // Sale de Perdido (se marcó por error o se recuperó): el chat vuelve a Mis chats

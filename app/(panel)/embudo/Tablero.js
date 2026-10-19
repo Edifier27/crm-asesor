@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { CHAT_CERRADO, SELECT_EMBUDO, TAREA_LINK_PAGO, traerEmbudo } from '@/lib/consultas';
 import { MAX_FILAS_SUELTAS, anotarCambio, mezclarFilas, pendientesVacios } from '@/lib/en-vivo';
-import { COLUMNAS_60, MOTIVOS_PERDIDA, TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, pesosCorto } from '@/lib/formato';
+import { COLUMNAS_60, ETAPA_CONTACTAR_60, MOTIVOS_PERDIDA, TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, pesosCorto } from '@/lib/formato';
 import EnVivo from './EnVivo';
 import { useAhora } from '../componentes/Reloj';
 import Deslizable from '../componentes/Deslizable';
@@ -301,7 +301,9 @@ export default function Tablero({ etapas, inicial }) {
                     ) : !cerrada(c) && <span className="tarjeta-paso sin-paso">Sin próximo paso</span>}
                     {campania && (
                       <span className="tarjeta-paso sin-paso">
-                        {campania.getTime() <= ahora ? 'Listo para campaña' : `Campaña desde el ${campania.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', timeZone: 'America/Argentina/Buenos_Aires' })}`}
+                        {etapaNombre === ETAPA_CONTACTAR_60
+                          ? `Se retoma el ${campania.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', timeZone: 'America/Argentina/Buenos_Aires' })}`
+                          : campania.getTime() <= ahora ? 'Listo para campaña' : `Campaña desde el ${campania.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', timeZone: 'America/Argentina/Buenos_Aires' })}`}
                       </span>
                     )}
                     {cotizable && (
