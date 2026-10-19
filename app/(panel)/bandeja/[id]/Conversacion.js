@@ -12,6 +12,7 @@ import { avisarLectura, enviarDesdeBandeja, reaccionar, registrarDocumento } fro
 import PanelChat from './PanelChat';
 import Reenviar from './Reenviar';
 import BarraSeleccion from './BarraSeleccion';
+import { guardarChatEnMemoria } from '@/lib/chat-memoria';
 import { limpiarAtajo } from '../../asesor/RespuestasRapidas';
 import { useAhora } from '../../componentes/Reloj';
 import { colorAvatar, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo, ultimoDelCliente, ventana } from '@/lib/formato';
@@ -45,6 +46,13 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
   const [trayendoViejos, setTrayendoViejos] = useState(false);
   const anclaViejos = useRef(null); // alto y posición antes de sumar los anteriores: para que la pantalla no salte
   const pidiendoViejos = useRef(false); // un solo pedido a la vez aunque el desplazamiento dispare varios seguidos
+  // Lo último del chat queda en la memoria del navegador para abrirlo al instante la próxima vez (lib/chat-memoria.js)
+  useEffect(() => {
+    if (sinConexion) return;
+    const t = setTimeout(() => guardarChatEnMemoria(conversacion.id, conversacion.contacto, mensajes), 800);
+    return () => clearTimeout(t);
+  }, [mensajes, conversacion.id, conversacion.contacto, sinConexion]);
+
   // Mensajes fijados arriba del chat (columna fijado_at, migración 0060). Si falta la migración, no aparece nada
   const [fijados, setFijados] = useState([]); // [{ id, fijado_at }], el último fijado primero
   const [fijadoVisto, setFijadoVisto] = useState(0); // cuál se muestra en la barra (tocarla pasa al siguiente)

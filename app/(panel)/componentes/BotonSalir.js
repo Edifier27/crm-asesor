@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { salir } from '../../login/actions';
+import { borrarChatsEnMemoria } from '@/lib/chat-memoria';
 
 /**
  * Cerrar sesión: cierra SOLO la de este dispositivo y vuelve a la pantalla de ingreso recargando la página entera.
@@ -14,6 +15,7 @@ export default function BotonSalir() {
   async function cerrar() {
     if (saliendo) return;
     setSaliendo(true);
+    borrarChatsEnMemoria(); // los chats y borradores guardados en este navegador
     try { await createClient().auth.signOut({ scope: 'local' }); } catch { /* igual se cierra en el servidor */ }
     try { await salir(); } catch { /* sin conexión: igual se va a la pantalla de ingreso */ }
     window.location.replace('/login');
