@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { CHAT_CERRADO, SELECT_EMBUDO, TAREA_LINK_PAGO } from '@/lib/consultas';
+import { CHAT_CERRADO, SELECT_EMBUDO, TAREA_LINK_PAGO, traerEmbudo } from '@/lib/consultas';
 import { MAX_FILAS_SUELTAS, anotarCambio, mezclarFilas, pendientesVacios } from '@/lib/en-vivo';
 import { COLUMNAS_60, MOTIVOS_PERDIDA, TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, pesosCorto } from '@/lib/formato';
 import EnVivo from './EnVivo';
@@ -84,8 +84,7 @@ export default function Tablero({ etapas, inicial }) {
   const cerrada = (c) => ['Ganado', 'Perdido', ...COLUMNAS_60].includes(etapas.find((e) => e.id === c.contacto?.etapa_id)?.nombre);
 
   const recargar = useCallback(async () => {
-    const { data } = await supabase.from('conversaciones').select(SELECT_EMBUDO).is('archivada_at', null)
-      .order('ultimo_mensaje_at', { ascending: false, nullsFirst: false }).limit(1000);
+    const { data } = await traerEmbudo(supabase);
     if (data) setConversaciones(data);
   }, [supabase]);
 
