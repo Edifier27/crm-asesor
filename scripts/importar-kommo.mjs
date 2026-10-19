@@ -40,10 +40,16 @@ function credenciales() {
   return { sub: process.env[`KOMMO_SUBDOMINIO${sufijo}`], token: process.env[`KOMMO_TOKEN${sufijo}`] };
 }
 const { sub, token } = credenciales();
-if (!sub || !token) throw new Error('No encontré el subdominio o la clave de Kommo');
+if (!token) throw new Error('No encontré la clave de Kommo');
+// Sin subdominio alcanza con la clave: trae adentro la dirección de la API de esa cuenta (api_domain, ej. api-c.kommo.com)
+function dominioDeLaClave(t) {
+  try { return JSON.parse(Buffer.from(t.split('.')[1], 'base64url').toString()).api_domain ?? null; } catch { return null; }
+}
+const BASE = sub ? `https://${sub}.kommo.com` : dominioDeLaClave(token) ? `https://${dominioDeLaClave(token)}` : null;
+if (!BASE) throw new Error('No encontré el subdominio de Kommo');
 
 async function api(ruta) {
-  const r = await fetch(`https://${sub}.kommo.com/api/v4/${ruta}`, { headers: { Authorization: `Bearer ${token}` } });
+  const r = await fetch(`${BASE}/api/v4/${ruta}`, { headers: { Authorization: `Bearer ${token}` } });
   if (r.status === 204) return null;
   if (!r.ok) throw new Error(`Kommo ${r.status}: ${(await r.text()).slice(0, 200)}`);
   return r.json();
@@ -71,7 +77,7 @@ if (!cuenta) throw new Error(`No encontré la cuenta ${CUENTA} en el CRM`);
 const { data: etapaKommo } = await supabase.from('etapas').select('id').eq('nombre', 'Kommo (importados)').maybeSingle();
 if (!etapaKommo && APLICAR) throw new Error('Falta correr la migración 0050 (columna "Kommo (importados)")');
 
-console.log(`Leyendo Kommo (${sub})…`);
+console.log(`Leyendo Kommo (${BASE})…`);
 const pipes = (await api('leads/pipelines'))._embedded.pipelines;
 const etapa = {};
 const embudo = {};
