@@ -320,7 +320,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, onFicha,
     setMenuCabecera(false);
     const cambios = si
       ? { ia_bloqueada: true, modo: modo === 'ia' ? 'humano' : modo, ...(conversacion.seguimiento_responsable === 'ia' ? { seguimiento_at: null, seguimiento_motivo: null } : {}) }
-      : { ia_bloqueada: false };
+      : { ia_bloqueada: false, importante_at: null }; // liberar la IA también lo saca de Importante
     setBloqueada(si);
     if (si && modo === 'ia') setModo('humano');
     const { error } = await supabase.from('conversaciones').update(cambios).eq('id', conversacion.id);
