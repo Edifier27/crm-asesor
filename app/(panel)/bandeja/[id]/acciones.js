@@ -25,6 +25,7 @@ import { registrarConsumo } from '@/lib/costos';
 import { mensajeSanatorios, sanatoriosPara } from '@/lib/cartilla-swiss';
 import { esGba } from '@/lib/provincias';
 import { fuenteDelLead } from '@/lib/fuentes';
+import { ETIQUETA_IA_COMPLETA } from '@/lib/ia/ia-completa';
 
 // Solo se pueden ver/enviar los PDF del catálogo (planes y cartillas)
 const DOCUMENTOS_VALIDOS = new Set([...Object.values(PLANES_PDF).map((p) => p.path), ...CARTILLAS_ARCHIVOS.map((c) => c.path)]);
@@ -508,4 +509,40 @@ export async function sanatoriosDelChat(conversacionId, desdeCotizador = {}) {
   const plan = desdeCotizador.plan ?? c.plan_cotizado ?? cotizado ?? (c.zona === 'AMBA' || provincia === 'CABA' || esGba(provincia) ? 'SMG02' : 'S2');
   const texto = mensajeSanatorios(sanatoriosPara({ provincia, localidad: desdeCotizador.localidad ?? c.relevamiento?.localidad, plan }));
   return texto ? { texto } : { error: provincia === 'Bs.As. Interior' ? 'Falta la localidad del cliente (ej.: Tandil, Junín): cargala en la ficha.' : 'No encontré sanatorios de la cartilla para su zona.' };
+}
+
+// ───────────── "Que siga la IA" (Darío, 20-oct-2026) ─────────────
+// Antes solo prendía el interruptor y el chat quedaba quieto: la IA recién contestaba cuando el cliente volvía a
+// escribir, y en "solo datos" (o en manual) nunca, porque el chat ya lo había tocado el asesor. Ahora:
+// · Si la cuenta no está en "Automático, todo", el contacto lleva la etiqueta "IA completa" (ese chat lo atiende la IA).
+// · Se borra la tarea del asesor, si había, para que el chat no vuelva solo a Mis chats.
+// · Si el cliente espera respuesta, la IA le contesta ya; si no, lo retoma a las 24 h si no escribe.
+export async function seguirConLaIA(conversacionId) {
+  const supabase = await createClient();
+  const user = await usuarioActual(supabase);
+  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  const { data: conv } = await supabase.from('conversaciones')
+    .select('id, cuenta, contacto_id, ia_bloqueada, espera_desde, seguimiento_responsable').eq('id', conversacionId).maybeSingle();
+  if (!conv) return { error: 'No tenés acceso a esta conversación.' };
+  if (conv.ia_bloqueada) return { error: 'Este chat está marcado para que la IA no lo toque: liberalo primero.' };
+
+  const admin = createAdminClient();
+  if ((await modoIa(admin, conv.cuenta)) !== 'automatico') {
+    let { data: tag } = await admin.from('etiquetas').select('id').eq('cuenta', conv.cuenta).eq('nombre', ETIQUETA_IA_COMPLETA).maybeSingle();
+    if (!tag) ({ data: tag } = await admin.from('etiquetas').insert({ cuenta: conv.cuenta, nombre: ETIQUETA_IA_COMPLETA, color: '#0B6E5F' }).select('id').single());
+    if (tag) await admin.from('contacto_etiquetas').upsert({ contacto_id: conv.contacto_id, etiqueta_id: tag.id }, { onConflict: 'contacto_id,etiqueta_id', ignoreDuplicates: true });
+  }
+  const { data: ultimo } = await admin.from('mensajes').select('id, direccion').eq('conversacion_id', conversacionId).neq('autor', 'sistema')
+    .order('creado_at', { ascending: false }).limit(1).maybeSingle();
+  const esperaRespuesta = ultimo?.direccion === 'entrante';
+  await admin.from('conversaciones').update({
+    modo: 'ia', seguimiento_responsable: 'ia', seguimiento_plantillas: null, seguimiento_cadencia: null, seguimientos_sin_respuesta: 0,
+    ...(esperaRespuesta ? {} : { seguimiento_at: enHorasHabiles(24).toISOString(), seguimiento_motivo: 'El asesor le devolvió el chat a la IA: retomar la conversación' })
+  }).eq('id', conversacionId);
+  await admin.from('mensajes').insert({
+    conversacion_id: conversacionId, direccion: 'saliente', autor: 'sistema', tipo: 'texto', estado: 'enviado',
+    texto: esperaRespuesta ? 'Le devolviste el chat a la IA: le contesta ahora.' : 'Le devolviste el chat a la IA: si no escribe, lo retoma en 24 h.'
+  });
+  if (esperaRespuesta) after(() => responderComoAsesor(conversacionId, ultimo.id).catch((e) => console.error('seguir_con_ia', conversacionId, e)));
+  return { ok: true, contesta: esperaRespuesta };
 }

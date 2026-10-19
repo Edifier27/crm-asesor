@@ -8,7 +8,7 @@ import { SELECT_MENSAJE, MENSAJES_POR_TANDA } from '@/lib/consultas';
 import Redactor from './Redactor';
 import Simulador from './Simulador';
 import Burbuja from '../../componentes/Burbuja';
-import { avisarLectura, enviarDesdeBandeja, reaccionar, registrarDocumento } from './acciones';
+import { avisarLectura, enviarDesdeBandeja, reaccionar, registrarDocumento, seguirConLaIA } from './acciones';
 import PanelChat from './PanelChat';
 import Reenviar from './Reenviar';
 import BarraSeleccion from './BarraSeleccion';
@@ -431,6 +431,14 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
   async function cambiarModo(nuevo) {
     const anterior = modo;
     setModo(nuevo);
+    // Devolverle el chat a la IA la pone a trabajar ya (acciones.js → seguirConLaIA), no solo prende el interruptor
+    if (nuevo === 'ia') {
+      const r = await seguirConLaIA(conversacion.id).catch((e) => ({ error: e.message }));
+      if (r?.error) { setModo(anterior); setAvisoAccion(r.error); }
+      else setAvisoAccion(r.contesta ? 'La IA le contesta ahora' : 'La IA sigue con este chat: si no escribe, lo retoma en 24 h');
+      setTimeout(() => setAvisoAccion(''), 3500);
+      return;
+    }
     const { error } = await supabase.from('conversaciones').update({ modo: nuevo }).eq('id', conversacion.id);
     if (error) setModo(anterior);
   }
