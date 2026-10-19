@@ -484,3 +484,12 @@
 .burbuja-texto .fmt-codigo { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: .92em; background: rgba(11, 20, 26, 0.06); border-radius: 4px; padding: 0 4px; }
 .burbuja-texto .fmt-bloque { display: block; font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: .92em; white-space: pre-wrap; margin: 2px 0; }
 .burbuja-texto .fmt-cita { display: inline-block; border-left: 3px solid rgba(11, 20, 26, 0.2); padding-left: 8px; color: rgba(0, 0, 0, 0.6); }
+
+/* Atajos de teclado (bandeja/Atajos.js): Ctrl + / */
+.dialogo-atajos { border: 0; border-radius: 16px; padding: 0; max-width: min(460px, calc(100vw - 32px)); box-shadow: 0 12px 40px rgba(11, 20, 26, 0.3); }
+.dialogo-atajos::backdrop { background: rgba(11, 20, 26, 0.3); }
+.dialogo-atajos-caja { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+.dialogo-atajos dl { margin: 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.dialogo-atajos dl div { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: baseline; }
+.dialogo-atajos dd { margin: 0; color: #3B4A54; }
+.dialogo-atajos kbd { font: 500 12px ui-monospace, Consolas, monospace; padding: 2px 6px; border-radius: 6px; border: 1px solid #D1D7DB; background: #F7F5F3; white-space: nowrap; }

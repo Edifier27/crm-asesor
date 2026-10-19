@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import NuevoLead from './NuevoLead';
+import Atajos from './Atajos';
 import Deslizable from '../componentes/Deslizable';
 import GestorEtiquetas from './GestorEtiquetas';
 import { SELECT_LISTA } from '@/lib/consultas';
@@ -337,6 +338,7 @@ export default function ListaChats({ inicial, iaInicial }) {
           <span className="lista-titulo-acciones">
             <Link href="/embudo" className="pastilla-ia" title="Ver en el Embudo">IA atendiendo {enIA}</Link>
             <NuevoLead />
+            <Atajos visibles={visibles} activo={activo} onNoLeido={(c) => marcar(c, false)} onArchivar={archivar} />
             <button type="button" className="lista-achicar" onClick={() => setPanel((p) => ({ ...p, achicada: !p.achicada }))}
               aria-label={panel.achicada ? 'Agrandar la lista de chats' : 'Achicar la lista de chats'} title={panel.achicada ? 'Agrandar la lista' : 'Achicar la lista'}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
