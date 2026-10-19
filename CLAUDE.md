@@ -88,8 +88,10 @@ Nunca commitear secretos.
   plantilla, la IA la deja como propuesta (`plantillas.propuesta_ia_at`) en Asesor IA → Plantillas para aprobar. Las
   secuencias con lista fija (`seguimiento_plantillas`) solo quedan para las que ya estaban en curso.
 - CAMPAÑAS A CONTACTOS EN PAUSA (Kommo, 2026-10-16): un "Si…" a la plantilla (`alResponderCampania` en `lib/bases.js`)
-  pasa el chat a la IA si la cuenta está en automático; con respuesta a una difusión en los últimos 3 días la IA va en
-  "solo datos" + `INSTRUCCIONES_CAMPANIA`: pide edades y particular/recibo y pasa a humano para que cotice el asesor.
+  pasa el chat a la IA si la cuenta está en automático. En "Automático, todo" la IA lo asesora y cotiza como a cualquier
+  lead (20-oct-2026); en "Automático, solo datos", con respuesta a una difusión en los últimos 3 días, suma
+  `INSTRUCCIONES_CAMPANIA`: pide edades y particular/recibo y pasa a humano para que cotice el asesor. En los dos modos,
+  los chats que ya atiende el asesor (modo humano) no los toca la IA.
 - CAMPAÑA KOMMO DE GABY — EN ESPERA, NO LANZAR HASTA QUE DARÍO DIGA "ahí la lanzamos" (pedido del 19-oct-2026):
   311 contactos importados de su Kommo ("Embudo de ventas 2", 5 bandejas) en la columna "Kommo (importados)" de Gaby;
   plantillas `recontacto_kommo_*_gaby*` (migración 0059, conexión GABY) mandadas a Meta. Falta SOLO crear las difusiones
