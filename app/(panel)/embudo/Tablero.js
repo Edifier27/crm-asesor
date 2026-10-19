@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { CHAT_CERRADO, SELECT_EMBUDO, TAREA_LINK_PAGO } from '@/lib/consultas';
 import { MAX_FILAS_SUELTAS, anotarCambio, mezclarFilas, pendientesVacios } from '@/lib/en-vivo';
-import { MOTIVOS_PERDIDA, TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, pesosCorto } from '@/lib/formato';
+import { COLUMNAS_60, MOTIVOS_PERDIDA, TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, pesosCorto } from '@/lib/formato';
 import EnVivo from './EnVivo';
 import { useAhora } from '../componentes/Reloj';
 import Deslizable from '../componentes/Deslizable';
@@ -80,7 +80,8 @@ export default function Tablero({ etapas, inicial }) {
     paneo.current = null;
     setPaneando(false);
   }
-  const cerrada = (c) => ['Ganado', 'Perdido'].includes(etapas.find((e) => e.id === c.contacto?.etapa_id)?.nombre);
+  // Cerradas o esperando la campaña de los 60 días: no tienen próximo paso
+  const cerrada = (c) => ['Ganado', 'Perdido', ...COLUMNAS_60].includes(etapas.find((e) => e.id === c.contacto?.etapa_id)?.nombre);
 
   const recargar = useCallback(async () => {
     const { data } = await supabase.from('conversaciones').select(SELECT_EMBUDO).is('archivada_at', null)
@@ -268,7 +269,9 @@ export default function Tablero({ etapas, inicial }) {
                 // Con grupo (edades) y zona el cotizador ya tiene precio: el asesor solo tiene que enviarlo
                 const etapaNombre = etapas.find((e) => e.id === c.contacto?.etapa_id)?.nombre;
                 const cotizable = Boolean(c.contacto?.zona) && (c.contacto?.relevamiento?.integrantes ?? []).some((i) => Number.isFinite(Number(i.edad)) && i.edad !== null)
-                  && !['Cotizado', 'Por cerrar', 'Auditoría médica', 'Falta de cobro', 'Ganado', 'Perdido'].includes(etapaNombre);
+                  && !['Cotizado', 'Por cerrar', 'Auditoría médica', 'Falta de cobro', 'Ganado', 'Perdido', ...COLUMNAS_60].includes(etapaNombre);
+                // Columnas de 60 días: desde qué día puede entrar en una campaña
+                const campania = COLUMNAS_60.includes(etapaNombre) && c.contacto?.campania_desde ? new Date(c.contacto.campania_desde) : null;
                 return (
                   <button key={c.id} type="button" draggable
                     className={`tarjeta-lead${abierta === c.id ? ' abierta' : ''}${actividad[c.id] ? ` destello-${actividad[c.id]}` : ''}${arrastrando === c.id ? ' arrastrada' : ''}`}
@@ -297,6 +300,11 @@ export default function Tablero({ etapas, inicial }) {
                         {c.seguimiento_motivo && <span className="tarjeta-paso-motivo"> — {c.seguimiento_motivo}</span>}
                       </span>
                     ) : !cerrada(c) && <span className="tarjeta-paso sin-paso">Sin próximo paso</span>}
+                    {campania && (
+                      <span className="tarjeta-paso sin-paso">
+                        {campania.getTime() <= ahora ? 'Listo para campaña' : `Campaña desde el ${campania.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', timeZone: 'America/Argentina/Buenos_Aires' })}`}
+                      </span>
+                    )}
                     {cotizable && (
                       <span className="cotizacion-lista">
                         Cotización lista{c.contacto.relevamiento?.zona_confirmada === false ? ' · zona a confirmar' : ''}

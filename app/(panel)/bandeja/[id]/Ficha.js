@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { CHAT_CERRADO, TAREA_LINK_PAGO } from '@/lib/consultas';
 import { corregirTelefono } from './acciones';
-import { COLORES_ETIQUETA, MOTIVOS_PERDIDA, colorEtiqueta, nombreVisible } from '@/lib/formato';
+import { COLORES_ETIQUETA, COLUMNAS_60, MOTIVOS_PERDIDA, colorEtiqueta, nombreVisible } from '@/lib/formato';
 import Cotizacion from './Cotizacion';
 import ProximoPaso from './ProximoPaso';
 import Venta from './Venta';
@@ -104,7 +104,8 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
   }
 
   const etapaActual = etapas.find((e) => e.id === contacto.etapa_id);
-  const embudo = etapas.filter((e) => e.nombre !== 'Perdido');
+  // Perdido y las columnas de 60 días (esperan una campaña) no son pasos del embudo
+  const embudo = etapas.filter((e) => e.nombre !== 'Perdido' && !COLUMNAS_60.includes(e.nombre));
   const disponibles = catalogo.filter((e) => !etiquetas.some((x) => x.id === e.id));
 
   return (

@@ -29,7 +29,8 @@ const reciente = (c) => new Date(cuando(c) ?? 0).getTime();
 // Venta hecha (Falta de cobro), Ganado o Perdido con el chat en manos del sistema: no van en Mis chats (Darío, 13-oct-2026).
 // Vuelven solos cuando toca mandar el link de pago (pasan a modo humano) o si el cliente escribe.
 const CERRADAS = ['Falta de cobro', 'Ganado', 'Perdido'];
-const fueraDeBandeja = (c) => !c.importante_at && c.modo === 'ia' && CERRADAS.includes(c.contacto?.etapa?.nombre);
+// Perdido sale de todas las bandejas, aunque el cliente haya escrito último (Darío, 20-oct-2026): queda en el Embudo
+const fueraDeBandeja = (c) => c.contacto?.etapa?.nombre === 'Perdido' || (!c.importante_at && c.modo === 'ia' && CERRADAS.includes(c.contacto?.etapa?.nombre));
 
 const etiquetasDe = (c) => (c.contacto?.etiquetas ?? []).map((e) => e.etiqueta).filter(Boolean);
 

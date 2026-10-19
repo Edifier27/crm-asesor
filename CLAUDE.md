@@ -105,6 +105,14 @@ Nunca commitear secretos.
   ausencia fuera de horario (`lib/ausencia.js`, `config_asesor.ausencia_*`); chats que abren desde la memoria del navegador
   (`lib/chat-memoria.js`, se borra al cerrar sesión); modo oscuro (`lib/modo.js`, `oscuro.css`, elegido en Mi perfil y
   guardado por dispositivo). Lo que usa columnas nuevas no rompe nada si falta la 0060: solo no aparece.
+- SEGUIMIENTOS Y COLUMNAS DE 60 DÍAS (20-oct-2026, migración 0061): nunca contestó → 3 plantillas en el mes (24 h,
+  5 d, 15 d: `SEGUIMIENTO_NUNCA`); cotizado → "pudiste ver el plan?" a las 24 h, 72 h y 5 d, nunca promos
+  (`SEGUIMIENTO_COTIZADO`, también cuando cotiza la IA o el asesor en automático); conversó y dejó de contestar → 4
+  (24/48/72 h/5 d). Plantillas armadas por paso `seg_nunca_N` / `seg_cotizado_N` (+`_gaby`); si no están aprobadas, elige
+  la IA. Sin respuesta al final → columna "Cotizado 60 días" (`fueCotizado`) o "No contesta 60 días" (`aColumna60` en
+  `lib/seguimiento.js`): chat cerrado, sin mensajes, no pasa a la base del mes; `contactos.campania_desde` = +60 días,
+  antes de eso las difusiones lo omiten. Si escribe, vuelve al embudo (Cotizado / En conversación). Por cerrar no entra.
+  PERDIDO fuera de todas las bandejas aunque escriba (queda en su columna del Embudo con el mensaje sin leer).
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.
