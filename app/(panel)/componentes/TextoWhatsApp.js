@@ -16,6 +16,12 @@ const ESTILOS = [
   { re: marca('~'), tag: 's' }
 ];
 
+/** El primer link de un texto (para la vista previa debajo del mensaje), o null. */
+export function primerLink(texto) {
+  const m = ENLACE.exec(String(texto ?? '').replace(/```[\s\S]*?```/g, ''));
+  return m ? (/^https?:\/\//i.test(m[0]) ? m[0] : `https://${m[0]}`) : null;
+}
+
 function enlace(url, key) {
   const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
   return <a key={key} href={href} target="_blank" rel="noopener noreferrer" className="fmt-link">{url}</a>;

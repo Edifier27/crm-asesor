@@ -8,7 +8,8 @@ import { createClient } from '@/lib/supabase/client';
 import { hora } from '@/lib/formato';
 import VisorArchivo, { muestraPdf } from './VisorArchivo';
 import NotaDeVoz from './NotaDeVoz';
-import TextoWhatsApp from './TextoWhatsApp';
+import TextoWhatsApp, { primerLink } from './TextoWhatsApp';
+import VistaLink from './VistaLink';
 
 const ESTADOS = { pendiente: 'enviando…', enviado: 'enviado', entregado: 'entregado', leido: 'leído', fallido: 'no se pudo enviar' };
 const AUTORES = { ia: 'Asesor IA', asesor: 'Vos' };
@@ -279,6 +280,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
           <span className="burbuja-adjunto">{{ imagen: '📷 Foto', documento: '📄 Documento', ubicacion: '📍 Ubicación', otro: 'Mensaje no soportado' }[m.tipo]}</span>
         )}
 
+        {texto && primerLink(texto) && !m.local && <VistaLink url={primerLink(texto)} />}
         {texto && <span className="burbuja-texto"><TextoWhatsApp texto={texto} /><span className="meta-espacio" aria-hidden="true" /></span>}
         {m.estado === 'fallido' && m.error && <span className="burbuja-error">{m.error}</span>}
         {m.estado === 'esperando' && (

@@ -535,3 +535,11 @@
 /* Buscar por fecha en el panel de búsqueda del chat */
 .panel-chat-fecha-buscar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 16px 10px; font-size: 13.5px; color: #54656F; }
 .panel-chat-fecha-buscar input { font: inherit; padding: 5px 8px; border: 1px solid var(--wa-linea, #E9EDEF); border-radius: 8px; background: #fff; color: #111B21; }
+
+/* Vista previa de links (componentes/VistaLink.js): tarjeta arriba del texto, como WhatsApp */
+.vista-link { display: flex; flex-direction: column; margin: 2px 0 6px; border-radius: 6px; overflow: hidden; background: rgba(11, 20, 26, 0.05); text-decoration: none; color: inherit; max-width: 360px; }
+.vista-link img { width: 100%; max-height: 180px; object-fit: cover; display: block; }
+.vista-link-texto { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; font-size: 13px; line-height: 1.3; }
+.vista-link-texto strong { font-weight: 500; color: #111B21; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.vista-link-texto span { color: rgba(0, 0, 0, 0.6); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.vista-link-texto .vista-link-sitio { font-size: 12px; color: rgba(0, 0, 0, 0.45); }
