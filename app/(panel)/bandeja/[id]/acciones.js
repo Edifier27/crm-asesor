@@ -3,7 +3,7 @@
 import crypto from 'node:crypto';
 import { after } from 'next/server';
 import { createClient, usuarioActual } from '@/lib/supabase/server';
-import { TAREA_LINK_PAGO } from '@/lib/consultas';
+import { CHAT_CERRADO, TAREA_LINK_PAGO } from '@/lib/consultas';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { enviarMensaje, remitenteDeLaCuenta, SELECT_CONV_ENVIO } from '@/lib/whatsapp/enviar';
 import { enviarReaccion, marcarLeidoMeta } from '@/lib/whatsapp/meta';
@@ -11,7 +11,8 @@ import { responderComoAsesor } from '@/lib/ia/asesor';
 import { BUCKET_DOCUMENTOS, CARTILLAS_ARCHIVOS, PLANES_PDF } from '@/lib/documentos';
 import { linkBienvenida, mensajeCobro } from '@/lib/venta';
 import { enHorasHabiles } from '@/lib/horario';
-import { ventana } from '@/lib/formato';
+import { ETAPA_CONTACTAR_60, ventana } from '@/lib/formato';
+import { fechaAcordadaAt, fechaCorta } from '@/lib/fecha-acordada';
 import { alVolverDeLaBase } from '@/lib/bases';
 import { alEntrarMensaje, esperarSiEstaEnAuditoria, modoIa, pasarAAuditoriaMedica, programarSecuencia } from '@/lib/secuencias';
 import { BUCKET_CLIENTES, leerDocumento, renombrarMensaje } from '@/lib/documentos-cliente';
@@ -546,4 +547,33 @@ export async function seguirConLaIA(conversacionId) {
   });
   if (esperaRespuesta) after(() => responderComoAsesor(conversacionId, ultimo.id).catch((e) => console.error('seguir_con_ia', conversacionId, e)));
   return { ok: true, contesta: esperaRespuesta };
+}
+
+// ───────────── "Contactar en 60 días" (Darío, 20-oct-2026: "por ahora no lo voy a hacer") ─────────────
+// El lead pasa a esa columna del embudo, el chat sale de Mis chats y no recibe nada (ni seguimientos ni campañas)
+// hasta el día 60, a las 10: ahí se lo retoma solo como una fecha acordada (la IA si la ventana está abierta; si no, la
+// plantilla retomar_fecha_acordada; sin plantilla aprobada, queda como tarea tuya). Si escribe antes, vuelve al embudo.
+export async function contactarEn60(conversacionId) {
+  const supabase = await createClient();
+  const user = await usuarioActual(supabase);
+  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  const { data: conv } = await supabase.from('conversaciones').select('id, contacto_id, contacto:contactos(etapa:etapas(nombre))').eq('id', conversacionId).maybeSingle();
+  if (!conv) return { error: 'No tenés acceso a esta conversación.' };
+  if (conv.contacto?.etapa?.nombre === 'Auditoría médica') return { error: 'Está en auditoría médica: a estos leads no les sale nada automático.' };
+  const admin = createAdminClient();
+  const { data: etapa } = await admin.from('etapas').select('id').eq('nombre', ETAPA_CONTACTAR_60).maybeSingle();
+  if (!etapa) return { error: 'Falta crear la columna "Contactar en 60 días" (SQL 0063).' };
+  const dia = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date(Date.now() + 60 * 86_400_000));
+  const fecha = fechaAcordadaAt(dia) ?? new Date(Date.now() + 60 * 86_400_000);
+  await admin.from('contactos').update({ etapa_id: etapa.id, campania_desde: fecha.toISOString() }).eq('id', conv.contacto_id);
+  await admin.from('conversaciones').update({
+    ...CHAT_CERRADO, seguimiento_responsable: 'ia', seguimientos_sin_respuesta: 0,
+    fecha_acordada: fecha.toISOString(), seguimiento_at: fecha.toISOString(),
+    seguimiento_motivo: 'Fecha acordada: por ahora no; retomarlo a los 60 días'
+  }).eq('id', conversacionId);
+  await admin.from('mensajes').insert({
+    conversacion_id: conversacionId, direccion: 'saliente', autor: 'sistema', tipo: 'texto', estado: 'enviado',
+    texto: `Pasó a "Contactar en 60 días": no recibe nada hasta el ${fechaCorta(fecha)}, y ese día se lo retoma solo.`
+  });
+  return { ok: true, etapaId: etapa.id, fecha: fecha.toISOString() };
 }

@@ -115,6 +115,9 @@ Nunca commitear secretos.
   PERDIDO fuera de todas las bandejas aunque escriba (queda en su columna del Embudo con el mensaje sin leer).
 - ETIQUETA "Cotizados" (migración 0062, trigger `etiquetar_cotizado` sobre `contactos`): la pone la base a todo contacto
   con una cotización enviada (`cotizacion.enviadas` tipo cotizacion) o en Cotizado o una etapa posterior. No se saca sola.
+- "CONTACTAR EN 60 DÍAS" (migración 0063): globito de la ficha para el "por ahora no" (`contactarEn60` en
+  `bandeja/[id]/acciones.js`): pasa a esa columna (está en `COLUMNAS_60`), chat cerrado, `fecha_acordada` a 60 días a las
+  10 → ese día se lo retoma solo. Si escribe antes vuelve al embudo (a Cotizado si se le cotizó).
 - AUDITORÍA MÉDICA NO SE TOCA (Darío, 20-oct-2026: preexistencias, tema delicado): nunca sale nada automático. Sin
   seguimientos ni fecha acordada (`procesarUno` lo chequea antes), sin campañas ni base del mes (`lib/bases.js`), sin
   columnas de 60 días, sin mensaje de ausencia, la IA no le escribe (`responderComoAsesor`) y "Que siga la IA" lo rechaza.
