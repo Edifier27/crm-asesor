@@ -97,6 +97,14 @@ Nunca commitear secretos.
   plantillas `recontacto_kommo_*_gaby*` (migración 0059, conexión GABY) mandadas a Meta. Falta SOLO crear las difusiones
   cuando él avise, preguntándole día y hora de arranque: `scripts/campania-kommo.mjs --cuenta=gaby --desde=AAAA-MM-DDTHH:MM`
   (primero sin `--aplicar`). Se corre en su compu (C:\Users\USUARIO\Desktop\crm-asesor, tiene el .env.local).
+- CHATS COMO WHATSAPP (20-oct-2026, migración 0060): borrador por chat en el navegador (`lib/borradores.js`); formato
+  *negrita* _cursiva_ ~tachado~ `código`, citas y links en las burbujas (`componentes/TextoWhatsApp.js`); vista previa de
+  links (`/api/vista-link`); atajos de teclado (`bandeja/Atajos.js`, Ctrl+/); reacciones nuevas animadas; Cámara en
+  adjuntar (celular); stickers, contactos y ubicación con mapa; info del mensaje (`mensajes.entregado_at/leido_at`);
+  mensajes fijados (`mensajes.fijado_at`, hasta 4); selección múltiple (`BarraSeleccion.js`); buscar por fecha; mensaje de
+  ausencia fuera de horario (`lib/ausencia.js`, `config_asesor.ausencia_*`); chats que abren desde la memoria del navegador
+  (`lib/chat-memoria.js`, se borra al cerrar sesión); modo oscuro (`lib/modo.js`, `oscuro.css`, elegido en Mi perfil y
+  guardado por dispositivo). Lo que usa columnas nuevas no rompe nada si falta la 0060: solo no aparece.
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.

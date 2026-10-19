@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/client';
 import { hora } from '@/lib/formato';
 import VisorArchivo, { muestraPdf } from './VisorArchivo';
 import NotaDeVoz from './NotaDeVoz';
+import TextoWhatsApp, { primerLink } from './TextoWhatsApp';
+import VistaLink from './VistaLink';
 
 const ESTADOS = { pendiente: 'enviando…', enviado: 'enviado', entregado: 'entregado', leido: 'leído', fallido: 'no se pudo enviar' };
 const AUTORES = { ia: 'Asesor IA', asesor: 'Vos' };
@@ -113,7 +115,7 @@ const firmarAudio = async (path) => (await createClient().storage.from('audios')
  * @param {Function} [p.onIrA]  tocar la cita lleva al mensaje original
  * @param {string} [p.nombreCliente]  para la cita ("Juan" en vez de "Cliente")
  */
-export default function Burbuja({ m, citado, acciones, equipo, cola = true, avatar, onIrA, nombreCliente }) {
+export default function Burbuja({ m, citado, acciones, equipo, cola = true, avatar, onIrA, nombreCliente, fijado = false }) {
   const [escuchadoLocal, setEscuchadoLocal] = useState(false);
   const [menu, setMenu] = useState(null); // null | 'opciones' | 'reacciones'
   const [copiado, setCopiado] = useState(false);
@@ -156,6 +158,17 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
     setDesliz(0);
   }
 
+  // Info del mensaje (como WhatsApp): a qué hora se envió, llegó y lo leyó. Se pide al abrirla; sin la migración 0060
+  // las columnas no existen y se avisa en vez de romper el chat
+  const [info, setInfo] = useState(null);
+  async function verInfo() {
+    setMenu('info');
+    setInfo('cargando');
+    const { data, error } = await createClient().from('mensajes').select('creado_at, entregado_at, leido_at, escuchado_at').eq('id', m.id).maybeSingle();
+    setInfo(error ? { error: true } : data ?? { error: true });
+  }
+  const cuandoFue = (iso) => (iso ? new Intl.DateTimeFormat('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso)) : '—');
+
   // Cerrar el menú al tocar afuera
   useEffect(() => {
     if (!menu) return;
@@ -168,6 +181,9 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
   if (m.autor === 'sistema') return <div className="evento">{m.texto}</div>;
   const saliente = m.direccion === 'saliente';
   const reacciones = Object.entries(m.reacciones ?? {});
+  // Las reacciones que llegan con el chat abierto entran con un saltito, como en WhatsApp; las que ya estaban, quietas
+  const reaccionesAlAbrir = useRef(null);
+  if (reaccionesAlAbrir.current === null) reaccionesAlAbrir.current = new Set(reacciones.map(([q, e]) => `${q}:${e}`));
   const corregible = acciones?.onCorregir && saliente && m.tipo === 'texto' && ['asesor', 'ia'].includes(m.autor)
     && !m.corregido_por && Date.now() - new Date(m.creado_at) < MIN_CORREGIR * 60_000;
 
@@ -259,11 +275,13 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
         {conTexto && verTexto && <span className="transcripcion">{m.transcripcion}</span>}
 
         {conArchivo && <DocumentoEnviado path={m.media_path} mensajeId={m.id} texto={m.texto ?? (m.tipo === 'imagen' ? 'Foto' : m.tipo === 'video' ? 'Video' : 'Documento')} />}
-        {['imagen', 'documento', 'ubicacion', 'otro'].includes(m.tipo) && !conArchivo && (
+        {/* "Mensaje no soportado" solo si no trae nada para mostrar (contactos compartidos y stickers ya traen texto) */}
+        {(['imagen', 'documento', 'ubicacion'].includes(m.tipo) || (m.tipo === 'otro' && !m.texto)) && !conArchivo && (
           <span className="burbuja-adjunto">{{ imagen: '📷 Foto', documento: '📄 Documento', ubicacion: '📍 Ubicación', otro: 'Mensaje no soportado' }[m.tipo]}</span>
         )}
 
-        {texto && <span className="burbuja-texto">{texto}<span className="meta-espacio" aria-hidden="true" /></span>}
+        {texto && primerLink(texto) && !m.local && <VistaLink url={primerLink(texto)} />}
+        {texto && <span className="burbuja-texto"><TextoWhatsApp texto={texto} /><span className="meta-espacio" aria-hidden="true" /></span>}
         {m.estado === 'fallido' && m.error && <span className="burbuja-error">{m.error}</span>}
         {m.estado === 'esperando' && (
           <span className="burbuja-espera">Sale en {m.restan} s · <button type="button" className="boton-link-texto" onClick={m.deshacer}>Deshacer</button></span>
@@ -274,7 +292,10 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
         {meta}
         {reacciones.length > 0 && (
           <span className="reacciones" aria-label="Reacciones">
-            {reacciones.map(([quien, e]) => <span key={quien} title={quien === 'contacto' ? 'Cliente' : 'Vos'}>{e}</span>)}
+            {reacciones.map(([quien, e]) => (
+              <span key={`${quien}:${e}`} className={reaccionesAlAbrir.current.has(`${quien}:${e}`) ? undefined : 'reaccion-nueva'}
+                title={quien === 'contacto' ? 'Cliente' : 'Vos'}>{e}</span>
+            ))}
           </span>
         )}
 
@@ -291,7 +312,9 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
             {acciones.onResponder && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onResponder(m); }}>Responder</button>}
             {menu === 'opciones' && acciones.onReaccionar && <button type="button" role="menuitem" onClick={() => setMenu('reacciones')}>Reaccionar</button>}
             {acciones.onReenviar && !m.local && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onReenviar(m); }}>Reenviar</button>}
+            {acciones.onSeleccionar && !m.local && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onSeleccionar(m); }}>Seleccionar</button>}
             {acciones.onDestacar && !m.local && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onDestacar(m); }}>{m.destacado_at ? 'Quitar destacado' : 'Destacar'}</button>}
+            {acciones.onFijar && !m.local && m.autor !== 'sistema' && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onFijar(m); }}>{fijado ? 'Desfijar' : 'Fijar arriba del chat'}</button>}
             {m.texto && m.tipo !== 'audio' && <button type="button" role="menuitem" onClick={copiar}>Copiar</button>}
             {conArchivo && <a role="menuitem" href={linkDescarga(m.media_path, m.texto)} download onClick={() => setMenu(null)}>Descargar</a>}
             {esAudio && m.media_path && <button type="button" role="menuitem" onClick={() => { setMenu(null); descargarAudio(m.media_path, m.texto); }}>Descargar</button>}
@@ -299,6 +322,21 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
               <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onGuardarRapida(m); }}>Guardar como respuesta rápida</button>
             )}
             {corregible && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onCorregir(m); }}>Corregir</button>}
+            {saliente && !m.local && <button type="button" role="menuitem" onClick={verInfo}>Info del mensaje</button>}
+          </div>
+        )}
+        {menu === 'info' && (
+          <div className="menu-mensaje info-mensaje" role="dialog" aria-label="Info del mensaje" ref={abrirHaciaArriba}>
+            {info === 'cargando' && <span className="info-fila">Cargando…</span>}
+            {info?.error && <span className="info-fila">Todavía no está disponible.</span>}
+            {info && info !== 'cargando' && !info.error && (
+              <>
+                <span className="info-fila"><Tildes estado="enviado" /> Enviado <b>{cuandoFue(info.creado_at)}</b></span>
+                <span className="info-fila"><Tildes estado="entregado" /> Entregado <b>{cuandoFue(info.entregado_at)}</b></span>
+                <span className="info-fila"><Tildes estado="leido" /> Leído <b>{cuandoFue(info.leido_at)}</b></span>
+                {esAudio && <span className="info-fila">🎧 Escuchado <b>{cuandoFue(info.escuchado_at)}</b></span>}
+              </>
+            )}
           </div>
         )}
         {copiado && <span className="burbuja-copiado">Copiado</span>}

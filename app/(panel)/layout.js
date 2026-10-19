@@ -16,6 +16,9 @@ import { SALDO_BAJO_USD, saldosIa } from '@/lib/costos';
 import './panel.css';
 import './whatsapp.css';
 import './whatsapp-2025.css';
+import './oscuro.css';
+import ModoOscuro from './componentes/ModoOscuro';
+import { SCRIPT_MODO } from '@/lib/modo';
 
 // Una sola lectura del perfil por pedido: la comparten el título de la pestaña y el layout
 const perfilActual = cache(async () => {
@@ -54,6 +57,9 @@ export default async function PanelLayout({ children }) {
   return (
     // Chats sin responder: en la cuenta que lo pidió quedan siempre azules, sin pasar a rojo (perfiles.espera_roja, 0055)
     <div className="app" data-tema={temaValido(perfil?.tema)} data-espera-roja={perfil?.espera_roja === false ? 'no' : undefined}>
+      {/* Modo oscuro antes de dibujar (si no, se ve un destello claro al abrir) */}
+      <script dangerouslySetInnerHTML={{ __html: SCRIPT_MODO }} />
+      <ModoOscuro />
       <Intro mostrar={conIntro} nombre={(perfil?.nombre ?? '').trim().split(/\s+/)[0] || null} />
       {alerta.nivel !== 'ok' && (
         <Link href="/equipo#uso" className={`aviso-uso ${alerta.nivel}`}>

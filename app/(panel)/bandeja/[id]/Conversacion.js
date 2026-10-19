@@ -11,6 +11,8 @@ import Burbuja from '../../componentes/Burbuja';
 import { avisarLectura, enviarDesdeBandeja, reaccionar, registrarDocumento } from './acciones';
 import PanelChat from './PanelChat';
 import Reenviar from './Reenviar';
+import BarraSeleccion from './BarraSeleccion';
+import { guardarChatEnMemoria } from '@/lib/chat-memoria';
 import { limpiarAtajo } from '../../asesor/RespuestasRapidas';
 import { useAhora } from '../../componentes/Reloj';
 import { colorAvatar, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo, ultimoDelCliente, ventana } from '@/lib/formato';
@@ -32,6 +34,8 @@ function CopiarTelefono({ telefono }) {
   );
 }
 
+const MAX_FIJADOS = 4; // como WhatsApp
+
 export default function Conversacion({ conversacion, mensajesIniciales, hayAnteriores = false, onFicha, audios, formularios = [], plantillas, modoPrueba, equipo, respuestasIniciales = [], sinConexion = false }) {
   const [respuestas, setRespuestas] = useState(respuestasIniciales);
   const supabase = createClient();
@@ -42,6 +46,23 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
   const [trayendoViejos, setTrayendoViejos] = useState(false);
   const anclaViejos = useRef(null); // alto y posición antes de sumar los anteriores: para que la pantalla no salte
   const pidiendoViejos = useRef(false); // un solo pedido a la vez aunque el desplazamiento dispare varios seguidos
+  // Lo último del chat queda en la memoria del navegador para abrirlo al instante la próxima vez (lib/chat-memoria.js)
+  useEffect(() => {
+    if (sinConexion) return;
+    const t = setTimeout(() => guardarChatEnMemoria(conversacion.id, conversacion.contacto, mensajes), 800);
+    return () => clearTimeout(t);
+  }, [mensajes, conversacion.id, conversacion.contacto, sinConexion]);
+
+  // Mensajes fijados arriba del chat (columna fijado_at, migración 0060). Si falta la migración, no aparece nada
+  const [fijados, setFijados] = useState([]); // [{ id, fijado_at }], el último fijado primero
+  const [fijadoVisto, setFijadoVisto] = useState(0); // cuál se muestra en la barra (tocarla pasa al siguiente)
+  useEffect(() => {
+    if (sinConexion) return;
+    supabase.from('mensajes').select('id, fijado_at').eq('conversacion_id', conversacion.id).not('fijado_at', 'is', null)
+      .order('fijado_at', { ascending: false }).limit(MAX_FIJADOS)
+      .then(({ data, error }) => { if (!error) setFijados(data ?? []); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversacion.id]);
   const [modo, setModo] = useState(conversacion.modo);
   const [bloqueada, setBloqueada] = useState(Boolean(conversacion.ia_bloqueada));
   const [expira, setExpira] = useState(conversacion.ventana_expira_at);
@@ -92,7 +113,16 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
   const [idsIniciales] = useState(() => new Set(mensajesIniciales.map((m) => m.id)));
   const [panelChat, setPanelChat] = useState(null);   // null | 'buscar' | 'destacados' | 'archivos'
   const [menuCabecera, setMenuCabecera] = useState(false);
-  const [reenviando, setReenviando] = useState(null); // mensaje a reenviar
+  const [reenviando, setReenviando] = useState(null); // mensaje (o lista de mensajes) a reenviar
+  // Selección múltiple (como WhatsApp): ids elegidos, o null fuera de ese modo
+  const [seleccion, setSeleccion] = useState(null);
+  const alternarSeleccion = (m) => {
+    if (m.local || m.autor === 'sistema') return;
+    setSeleccion((s) => {
+      const nueva = s?.includes(m.id) ? s.filter((x) => x !== m.id) : [...(s ?? []), m.id];
+      return nueva.length ? nueva : null;
+    });
+  };
   const [fijada, setFijada] = useState(Boolean(conversacion.fijada_at));
   const [archivado, setArchivado] = useState(Boolean(conversacion.chat_archivado_at));
 
@@ -140,6 +170,28 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
       const ya = new Set(prev.map((x) => x.id));
       return [...tanda.filter((x) => !ya.has(x.id)).reverse(), ...prev];
     });
+  }
+
+  // Ir a un día (buscar por fecha, como WhatsApp): si ese día todavía no está cargado, se traen los mensajes desde ahí
+  async function irAFecha(fecha) {
+    const desde = new Date(`${fecha}T00:00:00-03:00`).getTime();
+    let todos = mensajes;
+    if (!sinConexion && todos.length && new Date(todos[0].creado_at).getTime() > desde && masViejos) {
+      setAvisoAccion('Buscando los mensajes de ese día…');
+      const { data, error } = await supabase.from('mensajes').select(SELECT_MENSAJE).eq('conversacion_id', conversacion.id)
+        .gte('creado_at', new Date(desde).toISOString()).lt('creado_at', todos[0].creado_at).order('creado_at').limit(2000);
+      setAvisoAccion('');
+      if (error) return setAvisoAccion('No se pudieron traer los mensajes de ese día.');
+      const ya = new Set(todos.map((x) => x.id));
+      const nuevos = (data ?? []).filter((x) => !ya.has(x.id));
+      nuevos.forEach((x) => idsIniciales.add(x.id));
+      todos = [...nuevos, ...todos];
+      setMensajes(todos);
+    }
+    const destino = todos.find((x) => new Date(x.creado_at).getTime() >= desde && x.autor !== 'sistema');
+    if (!destino) { setAvisoAccion('No hay mensajes desde ese día.'); setTimeout(() => setAvisoAccion(''), 2500); return; }
+    // Después de dibujar los que se sumaron
+    setTimeout(() => irA(destino.id), 80);
   }
 
   // Ir a un mensaje (cita, búsqueda, destacados) y resaltarlo un instante
@@ -385,6 +437,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
 
   const v = ventana(expira, ahora);
   const porId = Object.fromEntries(mensajes.map((x) => [x.id, x]));
+  const idsFijados = new Set(fijados.map((f) => f.id));
   // Si el mensaje "oficial" ya llegó por la conexión en vivo, la copia dibujada al instante se esconde (nunca se ven dos)
   const usados = new Set();
   const yaLlego = (l) => {
@@ -410,7 +463,22 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
       const { error } = await supabase.from('mensajes').update({ destacado_at: valor }).eq('id', m.id);
       if (error) { setMensajes((l) => l.map((x) => (x.id === m.id ? { ...x, destacado_at: m.destacado_at } : x))); setAvisoAccion(error.message); }
     },
-    onReenviar: (m) => setReenviando(m)
+    onReenviar: (m) => setReenviando(m),
+    onSeleccionar: (m) => alternarSeleccion(m),
+    // Fijar arriba del chat (hasta 4, como WhatsApp): al fijar el quinto se suelta el más viejo
+    onFijar: async (m) => {
+      const antes = fijados;
+      const ya = antes.some((f) => f.id === m.id);
+      const valor = ya ? null : new Date().toISOString();
+      const todos = ya ? antes.filter((f) => f.id !== m.id) : [{ id: m.id, fijado_at: valor }, ...antes];
+      setFijados(todos.slice(0, MAX_FIJADOS));
+      setFijadoVisto(0);
+      if (sinConexion) return;
+      const { error } = await supabase.from('mensajes').update({ fijado_at: valor }).eq('id', m.id);
+      if (error) { setFijados(antes); setAvisoAccion(/fijado_at/.test(error.message) ? 'Para fijar mensajes falta aplicar la migración 0060.' : error.message); return; }
+      const sueltos = todos.slice(MAX_FIJADOS).map((f) => f.id);
+      if (sueltos.length) await supabase.from('mensajes').update({ fijado_at: null }).in('id', sueltos);
+    }
   };
   const acciones = {
     ...accionesSiempre,
@@ -531,10 +599,22 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
         </span>
       </header>
       <span className={`fecha-flotante${fechaFlotante.visible ? ' visible' : ''}`} aria-hidden="true">{fechaFlotante.texto}</span>
-      {panelChat && <PanelChat modo={panelChat} mensajes={mensajes} onIrA={irA} onCerrar={() => setPanelChat(null)} nombreCliente={primerNombreCliente} />}
-      {reenviando && <Reenviar mensaje={reenviando} conversacionId={conversacion.id} onCerrar={() => setReenviando(null)}
+      {panelChat && <PanelChat modo={panelChat} mensajes={mensajes} onIrA={irA} onIrAFecha={irAFecha} onCerrar={() => setPanelChat(null)} nombreCliente={primerNombreCliente} />}
+      {reenviando && <Reenviar mensajes={Array.isArray(reenviando) ? reenviando : [reenviando]} conversacionId={conversacion.id} onCerrar={() => setReenviando(null)}
         onListo={(t) => { setReenviando(null); setAvisoAccion(t); setTimeout(() => setAvisoAccion(''), 3000); }} />}
 
+      {fijados.length > 0 && (() => {
+        const i = fijadoVisto % fijados.length;
+        const f = porId[fijados[i].id];
+        return (
+          <button type="button" className="barra-fijados" title="Ir al mensaje fijado (tocá de nuevo para ver el siguiente)"
+            onClick={() => { irA(fijados[i].id); setFijadoVisto((n) => n + 1); }}>
+            {fijados.length > 1 && <span className="fijados-rayas" aria-hidden="true">{fijados.map((x, j) => <i key={x.id} className={j === i ? 'activa' : undefined} />)}</span>}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 17v5M9 3h6l-1 6 4 4H6l4-4z" /></svg>
+            <span className="fijado-texto">{f ? (f.texto || { audio: '🎤 Audio', imagen: '📷 Foto', documento: '📄 Documento', video: '🎥 Video' }[f.tipo] || 'Mensaje') : 'Mensaje fijado (más viejo: subí para verlo)'}</span>
+          </button>
+        );
+      })()}
       <div className="mensajes" ref={zonaMensajes} onScroll={alDesplazar}>
         {masViejos && (
           <button type="button" className="cargar-anteriores" onClick={cargarAnteriores} disabled={trayendoViejos}>
@@ -545,12 +625,14 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
           const nuevoDia = i === 0 || !mismoDia(lista[i - 1].creado_at, m.creado_at);
           return (
             <div key={m.id} data-id={m.id} data-dia={separadorDia(m.creado_at, ahora)}
+              data-seleccion={seleccion && !m.local && m.autor !== 'sistema' ? (seleccion.includes(m.id) ? 'si' : 'no') : undefined}
+              onClickCapture={seleccion ? (e) => { e.preventDefault(); e.stopPropagation(); alternarSeleccion(m); } : undefined}
               className={`mensaje-fila${i > 0 && lista[i - 1].direccion === m.direccion && lista[i - 1].autor !== 'sistema' ? ' seguido' : ''}${idsIniciales.has(m.id) || (!m.local && m.direccion === 'saliente' && m.autor === 'asesor') ? '' : ' recien'}`}>
               {nuevoDia && <div className="dia">{separadorDia(m.creado_at, ahora)}</div>}
               {primerNoLeido?.id === m.id && (
                 <div className="no-leidos-franja"><span>{primerNoLeido.cantidad === 1 ? '1 mensaje no leído' : `${primerNoLeido.cantidad} mensajes no leídos`}</span></div>
               )}
-              <Burbuja m={m} citado={m.responde_a ? porId[m.responde_a] : null} acciones={m.local ? null : v.abierta ? acciones : accionesSiempre} equipo={equipo}
+              <Burbuja m={m} fijado={idsFijados.has(m.id)} citado={m.responde_a ? porId[m.responde_a] : null} acciones={m.local ? null : v.abierta ? acciones : accionesSiempre} equipo={equipo}
                 cola={nuevoDia || lista[i - 1].direccion !== m.direccion || lista[i - 1].autor === 'sistema' || primerNoLeido?.id === m.id}
                 avatar={m.direccion === 'entrante' ? avatarCliente : avatarPropio} onIrA={irA} nombreCliente={primerNombreCliente} />
             </div>
@@ -577,9 +659,15 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
 
       {contacto.telefono?.startsWith('54900000000') && <Simulador conversacionId={conversacion.id} />}
       {avisoAccion && <p className="aviso-error" role="alert">{avisoAccion}</p>}
-      <Redactor conversacion={conversacion} ventanaAbierta={v.abierta} audios={audios} formularios={formularios} plantillas={plantillas} modoPrueba={modoPrueba}
-        respondiendo={respondiendo} corrigiendo={corrigiendo} onLimpiar={() => { setRespondiendo(null); setCorrigiendo(null); }}
-        onEnviar={enviarOptimista} respuestas={respuestas} onAdjuntar={(archivo) => subirArchivo(archivo, 'enviar')} onEscribiendo={avisarEscribiendo} />
+      {seleccion ? (
+        <BarraSeleccion elegidos={mensajes.filter((x) => seleccion.includes(x.id))} nombreCliente={primerNombreCliente || 'Cliente'}
+          onCancelar={() => setSeleccion(null)} onDestacar={(lista) => { lista.forEach((x) => accionesSiempre.onDestacar(x)); setSeleccion(null); }}
+          onReenviar={(lista) => { setReenviando(lista); setSeleccion(null); }} onAviso={(t) => { setAvisoAccion(t); setTimeout(() => setAvisoAccion(''), 2500); }} />
+      ) : (
+        <Redactor conversacion={conversacion} ventanaAbierta={v.abierta} audios={audios} formularios={formularios} plantillas={plantillas} modoPrueba={modoPrueba}
+          respondiendo={respondiendo} corrigiendo={corrigiendo} onLimpiar={() => { setRespondiendo(null); setCorrigiendo(null); }}
+          onEnviar={enviarOptimista} respuestas={respuestas} onAdjuntar={(archivo) => subirArchivo(archivo, 'enviar')} onEscribiendo={avisarEscribiendo} />
+      )}
     </main>
   );
 }

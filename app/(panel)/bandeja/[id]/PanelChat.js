@@ -30,7 +30,7 @@ function Resaltado({ texto, q }) {
   return partes;
 }
 
-export default function PanelChat({ modo, mensajes, onIrA, onCerrar, nombreCliente }) {
+export default function PanelChat({ modo, mensajes, onIrA, onIrAFecha, onCerrar, nombreCliente }) {
   const [busqueda, setBusqueda] = useState('');
   const [pestania, setPestania] = useState('multimedia');
   const q = plano(busqueda.trim());
@@ -75,6 +75,14 @@ export default function PanelChat({ modo, mensajes, onIrA, onCerrar, nombreClien
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
             <input type="search" autoFocus value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar en este chat" aria-label="Buscar en este chat" />
           </label>
+          {/* Ir a un día, como "Buscar por fecha" de WhatsApp (trae los mensajes anteriores que hagan falta) */}
+          {onIrAFecha && (
+            <label className="panel-chat-fecha-buscar">
+              <span>Ir a un día</span>
+              <input type="date" max={new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date())}
+                onChange={(e) => { if (e.target.value) onIrAFecha(e.target.value); }} aria-label="Ir a los mensajes de un día" />
+            </label>
+          )}
           <ul className="panel-chat-lista">
             {resultados.map((m) => <Fila key={m.id} m={m} />)}
             {q.length >= 2 && !resultados.length && <li className="panel-chat-vacio">No hay mensajes con "{busqueda.trim()}".</li>}

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import NuevoLead from './NuevoLead';
+import Atajos from './Atajos';
 import Deslizable from '../componentes/Deslizable';
 import GestorEtiquetas from './GestorEtiquetas';
 import { SELECT_LISTA } from '@/lib/consultas';
@@ -13,6 +14,7 @@ import { TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta
 import { abrirHaciaArriba } from '../componentes/haciaArriba';
 import { useAhora } from '../componentes/Reloj';
 import { recordarChat } from '@/lib/chat-abriendo';
+import { alCambiarBorradores, todosLosBorradores } from '@/lib/borradores';
 
 // Los mensajes sin texto llegan como "[audio]", "[imagen]", etc.
 const SIN_TEXTO = { audio: 'Audio de voz', imagen: 'Imagen', video: 'Video', documento: 'Documento', ubicacion: 'Ubicación', plantilla: 'Plantilla', otro: 'Mensaje' };
@@ -80,6 +82,12 @@ function Fragmento({ texto, variantes }) {
 export default function ListaChats({ inicial, iaInicial }) {
   const supabase = createClient();
   const { id: activo } = useParams();
+  // Borradores (lo que quedó escrito sin mandar en cada chat), como WhatsApp
+  const [borradores, setBorradores] = useState({});
+  useEffect(() => {
+    setBorradores(todosLosBorradores());
+    return alCambiarBorradores(() => setBorradores(todosLosBorradores()));
+  }, [activo]);
   const [conversaciones, setConversaciones] = useState(inicial);
   const [enIA, setEnIA] = useState(iaInicial);
   const [filtro, setFiltro] = useState('todos');
@@ -330,6 +338,7 @@ export default function ListaChats({ inicial, iaInicial }) {
           <span className="lista-titulo-acciones">
             <Link href="/embudo" className="pastilla-ia" title="Ver en el Embudo">IA atendiendo {enIA}</Link>
             <NuevoLead />
+            <Atajos visibles={visibles} activo={activo} onNoLeido={(c) => marcar(c, false)} onArchivar={archivar} />
             <button type="button" className="lista-achicar" onClick={() => setPanel((p) => ({ ...p, achicada: !p.achicada }))}
               aria-label={panel.achicada ? 'Agrandar la lista de chats' : 'Achicar la lista de chats'} title={panel.achicada ? 'Agrandar la lista' : 'Achicar la lista'}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -393,7 +402,9 @@ export default function ListaChats({ inicial, iaInicial }) {
                   <span className={`chat-hora${c.no_leidos > 0 ? ' nueva' : ''}`}>{fechaCorta(cuando(c), ahora)}</span>
                 </span>
                 <span className="chat-fila">
-                  <span className="chat-ultimo">{!espera && c.ultimo_es_propio && c.ultimo_mensaje_texto && <span className="chat-vos" title="Ya le respondiste">✓ Vos: </span>}{resumenUltimo(c.ultimo_mensaje_texto)}</span>
+                  {borradores[c.id] && c.id !== activo
+                    ? <span className="chat-ultimo"><span className="chat-borrador">Borrador: </span>{resumenUltimo(borradores[c.id])}</span>
+                    : <span className="chat-ultimo">{!espera && c.ultimo_es_propio && c.ultimo_mensaje_texto && <span className="chat-vos" title="Ya le respondiste">✓ Vos: </span>}{resumenUltimo(c.ultimo_mensaje_texto)}</span>}
                   {espera && <span className="pildora-espera" title="Hace cuánto espera tu respuesta">{espera.texto === 'recién' ? 'Recién escribió' : `Espera ${espera.texto}`}</span>}
                   {c.no_leidos > 0 && <span className="contador" aria-label={`${c.no_leidos} sin leer`}>{c.no_leidos}</span>}
                   {/* Cuenta "sin colores" (Darío): en vez de la fila pintada, una pelotita verde a la derecha (CSS) */}
