@@ -32,6 +32,8 @@ function CopiarTelefono({ telefono }) {
   );
 }
 
+const MAX_FIJADOS = 4; // como WhatsApp
+
 export default function Conversacion({ conversacion, mensajesIniciales, hayAnteriores = false, onFicha, audios, formularios = [], plantillas, modoPrueba, equipo, respuestasIniciales = [], sinConexion = false }) {
   const [respuestas, setRespuestas] = useState(respuestasIniciales);
   const supabase = createClient();
@@ -42,6 +44,16 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
   const [trayendoViejos, setTrayendoViejos] = useState(false);
   const anclaViejos = useRef(null); // alto y posición antes de sumar los anteriores: para que la pantalla no salte
   const pidiendoViejos = useRef(false); // un solo pedido a la vez aunque el desplazamiento dispare varios seguidos
+  // Mensajes fijados arriba del chat (columna fijado_at, migración 0060). Si falta la migración, no aparece nada
+  const [fijados, setFijados] = useState([]); // [{ id, fijado_at }], el último fijado primero
+  const [fijadoVisto, setFijadoVisto] = useState(0); // cuál se muestra en la barra (tocarla pasa al siguiente)
+  useEffect(() => {
+    if (sinConexion) return;
+    supabase.from('mensajes').select('id, fijado_at').eq('conversacion_id', conversacion.id).not('fijado_at', 'is', null)
+      .order('fijado_at', { ascending: false }).limit(MAX_FIJADOS)
+      .then(({ data, error }) => { if (!error) setFijados(data ?? []); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversacion.id]);
   const [modo, setModo] = useState(conversacion.modo);
   const [bloqueada, setBloqueada] = useState(Boolean(conversacion.ia_bloqueada));
   const [expira, setExpira] = useState(conversacion.ventana_expira_at);
@@ -385,6 +397,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
 
   const v = ventana(expira, ahora);
   const porId = Object.fromEntries(mensajes.map((x) => [x.id, x]));
+  const idsFijados = new Set(fijados.map((f) => f.id));
   // Si el mensaje "oficial" ya llegó por la conexión en vivo, la copia dibujada al instante se esconde (nunca se ven dos)
   const usados = new Set();
   const yaLlego = (l) => {
@@ -410,7 +423,21 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
       const { error } = await supabase.from('mensajes').update({ destacado_at: valor }).eq('id', m.id);
       if (error) { setMensajes((l) => l.map((x) => (x.id === m.id ? { ...x, destacado_at: m.destacado_at } : x))); setAvisoAccion(error.message); }
     },
-    onReenviar: (m) => setReenviando(m)
+    onReenviar: (m) => setReenviando(m),
+    // Fijar arriba del chat (hasta 4, como WhatsApp): al fijar el quinto se suelta el más viejo
+    onFijar: async (m) => {
+      const antes = fijados;
+      const ya = antes.some((f) => f.id === m.id);
+      const valor = ya ? null : new Date().toISOString();
+      const todos = ya ? antes.filter((f) => f.id !== m.id) : [{ id: m.id, fijado_at: valor }, ...antes];
+      setFijados(todos.slice(0, MAX_FIJADOS));
+      setFijadoVisto(0);
+      if (sinConexion) return;
+      const { error } = await supabase.from('mensajes').update({ fijado_at: valor }).eq('id', m.id);
+      if (error) { setFijados(antes); setAvisoAccion(/fijado_at/.test(error.message) ? 'Para fijar mensajes falta aplicar la migración 0060.' : error.message); return; }
+      const sueltos = todos.slice(MAX_FIJADOS).map((f) => f.id);
+      if (sueltos.length) await supabase.from('mensajes').update({ fijado_at: null }).in('id', sueltos);
+    }
   };
   const acciones = {
     ...accionesSiempre,
@@ -535,6 +562,18 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
       {reenviando && <Reenviar mensaje={reenviando} conversacionId={conversacion.id} onCerrar={() => setReenviando(null)}
         onListo={(t) => { setReenviando(null); setAvisoAccion(t); setTimeout(() => setAvisoAccion(''), 3000); }} />}
 
+      {fijados.length > 0 && (() => {
+        const i = fijadoVisto % fijados.length;
+        const f = porId[fijados[i].id];
+        return (
+          <button type="button" className="barra-fijados" title="Ir al mensaje fijado (tocá de nuevo para ver el siguiente)"
+            onClick={() => { irA(fijados[i].id); setFijadoVisto((n) => n + 1); }}>
+            {fijados.length > 1 && <span className="fijados-rayas" aria-hidden="true">{fijados.map((x, j) => <i key={x.id} className={j === i ? 'activa' : undefined} />)}</span>}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 17v5M9 3h6l-1 6 4 4H6l4-4z" /></svg>
+            <span className="fijado-texto">{f ? (f.texto || { audio: '🎤 Audio', imagen: '📷 Foto', documento: '📄 Documento', video: '🎥 Video' }[f.tipo] || 'Mensaje') : 'Mensaje fijado (más viejo: subí para verlo)'}</span>
+          </button>
+        );
+      })()}
       <div className="mensajes" ref={zonaMensajes} onScroll={alDesplazar}>
         {masViejos && (
           <button type="button" className="cargar-anteriores" onClick={cargarAnteriores} disabled={trayendoViejos}>
@@ -550,7 +589,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
               {primerNoLeido?.id === m.id && (
                 <div className="no-leidos-franja"><span>{primerNoLeido.cantidad === 1 ? '1 mensaje no leído' : `${primerNoLeido.cantidad} mensajes no leídos`}</span></div>
               )}
-              <Burbuja m={m} citado={m.responde_a ? porId[m.responde_a] : null} acciones={m.local ? null : v.abierta ? acciones : accionesSiempre} equipo={equipo}
+              <Burbuja m={m} fijado={idsFijados.has(m.id)} citado={m.responde_a ? porId[m.responde_a] : null} acciones={m.local ? null : v.abierta ? acciones : accionesSiempre} equipo={equipo}
                 cola={nuevoDia || lista[i - 1].direccion !== m.direccion || lista[i - 1].autor === 'sistema' || primerNoLeido?.id === m.id}
                 avatar={m.direccion === 'entrante' ? avatarCliente : avatarPropio} onIrA={irA} nombreCliente={primerNombreCliente} />
             </div>

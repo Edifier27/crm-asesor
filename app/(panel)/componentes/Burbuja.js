@@ -114,7 +114,7 @@ const firmarAudio = async (path) => (await createClient().storage.from('audios')
  * @param {Function} [p.onIrA]  tocar la cita lleva al mensaje original
  * @param {string} [p.nombreCliente]  para la cita ("Juan" en vez de "Cliente")
  */
-export default function Burbuja({ m, citado, acciones, equipo, cola = true, avatar, onIrA, nombreCliente }) {
+export default function Burbuja({ m, citado, acciones, equipo, cola = true, avatar, onIrA, nombreCliente, fijado = false }) {
   const [escuchadoLocal, setEscuchadoLocal] = useState(false);
   const [menu, setMenu] = useState(null); // null | 'opciones' | 'reacciones'
   const [copiado, setCopiado] = useState(false);
@@ -311,6 +311,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
             {menu === 'opciones' && acciones.onReaccionar && <button type="button" role="menuitem" onClick={() => setMenu('reacciones')}>Reaccionar</button>}
             {acciones.onReenviar && !m.local && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onReenviar(m); }}>Reenviar</button>}
             {acciones.onDestacar && !m.local && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onDestacar(m); }}>{m.destacado_at ? 'Quitar destacado' : 'Destacar'}</button>}
+            {acciones.onFijar && !m.local && m.autor !== 'sistema' && <button type="button" role="menuitem" onClick={() => { setMenu(null); acciones.onFijar(m); }}>{fijado ? 'Desfijar' : 'Fijar arriba del chat'}</button>}
             {m.texto && m.tipo !== 'audio' && <button type="button" role="menuitem" onClick={copiar}>Copiar</button>}
             {conArchivo && <a role="menuitem" href={linkDescarga(m.media_path, m.texto)} download onClick={() => setMenu(null)}>Descargar</a>}
             {esAudio && m.media_path && <button type="button" role="menuitem" onClick={() => { setMenu(null); descargarAudio(m.media_path, m.texto); }}>Descargar</button>}
