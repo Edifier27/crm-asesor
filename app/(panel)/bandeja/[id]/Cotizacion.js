@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { zonaPorCaracteristica } from '@/lib/caracteristicas';
 import { ZONAS_AUDIO, audiosDelPlan, zonaDeAudio } from '@/lib/audios-plan';
 import { createClient } from '@/lib/supabase/client';
-import { CAMPANIAS, ZONA_ROTULO, campaniaSugerida, cargaBU, cotizar, edadCotizable, ordenarPlanes, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
+import { CAMPANIAS, ZONA_ROTULO, campaniaPara, campaniasPara, campaniaSugerida, cargaBU, cotizar, edadCotizable, ordenarPlanes, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
 import { PROVINCIAS_LISTA, datosProvincia, provinciaDesdeTexto, zonaGbaDe } from '@/lib/provincias';
 import { REGIONES, TIERS, cartillaDe, planPdf, regionSugerida, tierDePlan } from '@/lib/documentos';
 import { fechaCorta, hora } from '@/lib/formato';
@@ -107,9 +107,10 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
   const [campaniaElegida, setCampaniaElegida] = useState(guardada.campania_manual ? guardada.campania : null);
   const campaniaAMano = useRef(Boolean(guardada.campania_manual));
   const textoZona = [relVivo?.localidad, relVivo?.intereses, contacto.origen_detalle].filter(Boolean).join(' ');
-  const campania = campaniaElegida ?? campaniaSugerida({
+  // Con recibo de sueldo (derivación) no hay monotributo: si estaba elegido, queda la general 15% + 50%
+  const campania = campaniaPara(campaniaElegida ?? campaniaSugerida({
     textoZona, situacion: relVivo?.situacion ?? '', modalidad, miembros: miembros.filter((m) => m.edad !== '')
-  });
+  }), modalidad);
   const [sueldos, setSueldos] = useState(guardada.sueldos ?? ['', '']);
   const [enviadas, setEnviadas] = useState(guardada.enviadas ?? []);   // historial de lo enviado al lead
   const [elegidos, setElegidos] = useState([]);
@@ -406,7 +407,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
       )}
 
       <div className="cot-campanias" role="group" aria-label="Campaña">
-        {CAMPANIAS.map((c) => (
+        {campaniasPara(modalidad).map((c) => (
           <button key={c.id} type="button" title={c.detalle} aria-pressed={campania === c.id}
             className={`chip-filtro${campania === c.id ? ' activo' : ''}`} onClick={() => { campaniaAMano.current = true; cambiar(setCampaniaElegida, 'campania')(c.id); }}>
             {c.rotulo}
