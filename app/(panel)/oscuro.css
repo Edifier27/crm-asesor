@@ -1,0 +1,116 @@
+/* ═════════════ Modo oscuro (Darío, 20-oct-2026: "como WhatsApp") ═════════════
+   Se elige en Mi perfil (Claro, Oscuro o Automático) y queda guardado en cada dispositivo (componentes/ModoOscuro.js
+   pone data-modo="oscuro" en <html>). Paleta del modo oscuro de WhatsApp. Se carga al final: pisa los colores claros.
+   Los colores de estado (verde de "ya enviado", rojo de error, ámbar de aviso) se oscurecen pero conservan su tono. */
+:root[data-modo="oscuro"] { color-scheme: dark; }
+:root[data-modo="oscuro"] body { background: #111414; }
+:root[data-modo="oscuro"] .app {
+  --fondo: #111414; --texto: #E9EDEF; --texto-suave: #A5ABAD; --borde: #343A3C; --acento-hover: #19A85F;
+  --linea: rgba(255, 255, 255, 0.1); --linea-suave: rgba(255, 255, 255, 0.06); --gris-chip: #2A2F31;
+  --saliente: #144D37; --ia: #C9B8FF; --ia-fondo: #2B2344; --pase: #FFB27A; --pase-fondo: #3A2A1C;
+  --wa-texto: #E9EDEF; --wa-suave: rgba(255, 255, 255, 0.6); --wa-icono: rgba(255, 255, 255, 0.65);
+  --wa-saliente: #144D37; --wa-entrante: #242626; --wa-barra: #1D1F1F; --wa-buscador: #2A2D2D;
+  --wa-verde: #21C063; --wa-verde-oscuro: #74E0A3; --wa-accion: #21C063; --wa-noleido: #21C063; --wa-azul: #53BDEB;
+  --wa-linea: rgba(255, 255, 255, 0.1); --wa-hover: rgba(255, 255, 255, 0.05); --wa-activa: rgba(255, 255, 255, 0.09);
+  --wa-sistema: #1F2424; --wa-aviso: #3A3020; --wa-error: #F15C6D;
+  --wa-sombra: 0 1px 0.5px rgba(0, 0, 0, 0.4);
+  --tema-fondo: #0B0F10;
+  background: #111414; color: var(--wa-texto);
+}
+
+/* Fondo del chat: oscuro con los dibujos apenas marcados */
+:root[data-modo="oscuro"] :is(.conversacion, .en-vivo-panel, .vacio) {
+  --chat-fondo: #0D1112; background-color: var(--chat-fondo); background-image: url('/fondo-chat-oscuro.svg');
+}
+
+/* Superficies: paneles, tarjetas, menús, ventanas y campos */
+:root[data-modo="oscuro"] .app :is(.lista, .ficha, .pagina, .riel, .conv-cabecera, .lista-cabecera, .panel-chat, .redactor-zona,
+  .barra-fijados, .barra-seleccion, .en-vivo-panel > header, .columna) { background-color: #1D1F1F; color: var(--wa-texto); }
+:root[data-modo="oscuro"] .app :is(.tarjeta, .docs-plan, .plan, .plan-cartilla, .tarjeta-lead, .menu-mensaje, .menu-adjuntar,
+  .selector-reacciones, .reenviar-caja, .dialogo-chico, .selector, .cot-miembro, .bloque, .vista-link, .barra-mantenido,
+  .cabecera-menu, .menu-chat, .chat-menu, .lista-menu, .info-mensaje) { background-color: #242626; color: var(--wa-texto); border-color: var(--wa-linea); }
+:root[data-modo="oscuro"] .app :is(input, textarea, select):not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+  background-color: #2A2D2D; color: var(--wa-texto); border-color: #3A4042;
+}
+:root[data-modo="oscuro"] .app :is(input, textarea)::placeholder { color: rgba(255, 255, 255, 0.45); }
+:root[data-modo="oscuro"] .app :is(.redactor, .redactor-campo, .buscador) { background-color: #2A2D2D; color: var(--wa-texto); }
+:root[data-modo="oscuro"] dialog { background: #242626; color: #E9EDEF; }
+:root[data-modo="oscuro"] .dialogo-atajos kbd { background: #2A2D2D; border-color: #3A4042; color: #E9EDEF; }
+:root[data-modo="oscuro"] .dialogo-atajos dd { color: rgba(255, 255, 255, 0.7); }
+
+/* Bordes y divisores */
+:root[data-modo="oscuro"] .app :is(.lista, .ficha, .conv-cabecera, .tarjeta, .plan, .chip-filtro, .boton-secundario, .tabla td, .tabla th,
+  .doc-fila, .cotizacion, .desglose td, .barra-fijados, .barra-seleccion, .redactor-zona) { border-color: var(--wa-linea); }
+
+/* Lista de chats */
+:root[data-modo="oscuro"] .app .chat:hover { background: rgba(255, 255, 255, 0.04); }
+:root[data-modo="oscuro"] .app .chat.activo { background: rgba(255, 255, 255, 0.08); }
+:root[data-modo="oscuro"] .app :is(.chat-nombre, .conv-nombre, .lista-titulo h1, h1, h2, h3, strong) { color: #E9EDEF; }
+:root[data-modo="oscuro"] .app :is(.chat-ultimo, .chat-hora, .conv-detalle, .selector-detalle, .panel-chat-fecha, .burbuja-meta) { color: rgba(255, 255, 255, 0.6); }
+:root[data-modo="oscuro"] .app .chip-filtro { background: #1D1F1F; color: rgba(255, 255, 255, 0.7); }
+:root[data-modo="oscuro"] .app .chip-filtro.activo { background: #103529; color: #74E0A3; }
+:root[data-modo="oscuro"] .app .chat.espera { background: rgba(83, 189, 235, 0.08); }
+:root[data-modo="oscuro"] .app .chat.espera.larga { background: rgba(241, 92, 109, 0.08); }
+
+/* Burbujas */
+:root[data-modo="oscuro"] .app .burbuja.entrante { background: #242626; color: #E9EDEF; }
+:root[data-modo="oscuro"] .app .burbuja.saliente { background: #144D37; color: #E9EDEF; }
+:root[data-modo="oscuro"] .app .burbuja-envoltura.con-cola .burbuja.entrante::before { border-color: transparent #242626 transparent transparent; }
+:root[data-modo="oscuro"] .app .burbuja-envoltura.con-cola .burbuja.saliente::before { border-color: transparent transparent transparent #144D37; }
+:root[data-modo="oscuro"] .app :is(.dia, .evento) { background: #1F2424; color: rgba(255, 255, 255, 0.7); }
+:root[data-modo="oscuro"] .app .cita { background: rgba(0, 0, 0, 0.25); }
+:root[data-modo="oscuro"] .app .burbuja-texto .fmt-link { color: #53BDEB; }
+:root[data-modo="oscuro"] .app .burbuja-texto .fmt-codigo { background: rgba(255, 255, 255, 0.1); }
+:root[data-modo="oscuro"] .app .burbuja-texto .fmt-cita { color: rgba(255, 255, 255, 0.65); border-color: rgba(255, 255, 255, 0.25); }
+:root[data-modo="oscuro"] .app .vista-link { background: rgba(0, 0, 0, 0.25); }
+:root[data-modo="oscuro"] .app .vista-link-texto strong { color: #E9EDEF; }
+:root[data-modo="oscuro"] .app .vista-link-texto span { color: rgba(255, 255, 255, 0.6); }
+:root[data-modo="oscuro"] .app .no-leidos-franja span { background: #1F2424; color: rgba(255, 255, 255, 0.75); }
+:root[data-modo="oscuro"] .app .cargar-anteriores { background: #1F2424; color: rgba(255, 255, 255, 0.75); }
+:root[data-modo="oscuro"] .app .mensaje-fila[data-seleccion="si"] { background: rgba(33, 192, 99, 0.12); }
+:root[data-modo="oscuro"] .app .mensaje-fila[data-seleccion]::before { background-color: #1D1F1F; border-color: rgba(255, 255, 255, 0.4); }
+:root[data-modo="oscuro"] .app .barra-fijados .fijado-texto, :root[data-modo="oscuro"] .app .barra-seleccion .seleccion-cuenta { color: #E9EDEF; }
+
+/* Botones e íconos */
+:root[data-modo="oscuro"] .app :is(.cabecera-icono, .boton-icono, .boton-herramienta, .boton-dictar, .riel-boton) { color: rgba(255, 255, 255, 0.7); }
+:root[data-modo="oscuro"] .app .boton-secundario { background: #242626; color: #E9EDEF; }
+:root[data-modo="oscuro"] .app .boton-secundario:hover { background: #2E3131; }
+:root[data-modo="oscuro"] .app :is(.cabecera-icono, .boton-icono):hover { background: rgba(255, 255, 255, 0.08); }
+:root[data-modo="oscuro"] .app[data-tema="verde"] .riel { background: #1D1F1F; border-color: var(--wa-linea); }
+:root[data-modo="oscuro"] .app[data-tema="verde"] .riel-boton.activo { background: rgba(255, 255, 255, 0.1); color: #E9EDEF; }
+:root[data-modo="oscuro"] .app[data-tema="verde"] .riel-boton::before { background: rgba(255, 255, 255, 0.1); }
+:root[data-modo="oscuro"] .app .riel-usuario { background: #2E3131; color: #E9EDEF; }
+:root[data-modo="oscuro"] .app .plan-docs { background: #103529; border-color: #1C5A44; color: #74E0A3; }
+:root[data-modo="oscuro"] .app .plan.elegido { background: #103529; }
+
+/* Avisos y estados */
+:root[data-modo="oscuro"] .app .esqueleto { background: linear-gradient(90deg, #242626 25%, #2E3131 50%, #242626 75%); background-size: 200% 100%; }
+:root[data-modo="oscuro"] .app :is(.aviso-error, .ficha-aviso, .pp-aviso) { background: #3A2024; color: #F7B5BE; }
+:root[data-modo="oscuro"] .app .doc-fila .boton-primario.ya-enviado { background: #103529; color: #74E0A3; border-color: #1C5A44; }
+:root[data-modo="oscuro"] .app .etiqueta { filter: brightness(0.85) saturate(0.9); }
+:root[data-modo="oscuro"] .app .tabla th { color: rgba(255, 255, 255, 0.55); }
+
+/* La entrada al abrir el CRM, en oscuro */
+:root[data-modo="oscuro"] .intro { background: #111414; }
+:root[data-modo="oscuro"] .intro-hola { color: #E9EDEF; }
+
+/* Detalles de la cabecera, la lista y la ficha */
+:root[data-modo="oscuro"] .app .proximo-paso { background: #242626; border-color: var(--wa-linea); }
+:root[data-modo="oscuro"] .app .proximo-paso :is(.chip-filtro, button:not(.boton-primario)) { background: #2E3131; color: #E9EDEF; border-color: #3A4042; }
+:root[data-modo="oscuro"] .app .minutero { background: #2A2D2D; color: rgba(255, 255, 255, 0.75); }
+:root[data-modo="oscuro"] .app .minutero.atencion { background: #3A3020; color: #F2C46B; }
+:root[data-modo="oscuro"] .app .minutero.urgente { background: #3A2024; color: #F7B5BE; }
+:root[data-modo="oscuro"] .app .ventana.abierta { background: #103529; color: #74E0A3; }
+:root[data-modo="oscuro"] .app .ventana.cerrada { background: #3A2024; color: #F7B5BE; }
+:root[data-modo="oscuro"] .app .pildora-espera { background: #1A2F3D; color: #8CC8F0; }
+:root[data-modo="oscuro"] .app .chat.espera.larga .pildora-espera { background: #3A2024; color: #F7B5BE; }
+:root[data-modo="oscuro"] .app :is(.copiar-telefono, .deslizable-flecha) { background: #2A2D2D; border-color: #3A4042; color: rgba(255, 255, 255, 0.7); }
+:root[data-modo="oscuro"] .app :is(.interruptor-ia) { background: #2A2D2D; color: #E9EDEF; border-color: #3A4042; }
+
+/* Embudo, Ventas y demás secciones */
+:root[data-modo="oscuro"] .app :is(.embudo-cabecera, .columna-cabecera, .tablero-cabecera) { background-color: #1D1F1F; color: #E9EDEF; border-color: var(--wa-linea); }
+:root[data-modo="oscuro"] .app .columna { background-color: #171919; }
+:root[data-modo="oscuro"] .app :is(.columna-cabecera, .columna-cabecera *) { color: rgba(255, 255, 255, 0.8); }
+:root[data-modo="oscuro"] .app .columna-cantidad { background: #2E3131; color: #E9EDEF; }
+:root[data-modo="oscuro"] .app :is(.pagina, main.pagina) { background-color: #111414; }
+:root[data-modo="oscuro"] .app :is(.tabla, .tabla td) { background-color: transparent; color: #E9EDEF; }

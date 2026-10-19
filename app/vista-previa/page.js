@@ -3,6 +3,7 @@ import VistaPrevia from './VistaPrevia';
 import '../(panel)/panel.css';
 import '../(panel)/whatsapp.css';
 import '../(panel)/whatsapp-2025.css';
+import '../(panel)/oscuro.css';
 
 // Solo en desarrollo: muestra la bandeja con datos de ejemplo para revisar el diseño sin iniciar sesión.
 export default function Pagina() {

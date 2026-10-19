@@ -6,11 +6,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { TEMAS } from '@/lib/temas';
+import { guardarModo, leerModo } from '@/lib/modo';
 import NotificacionesPush from '../componentes/NotificacionesPush';
 
 export default function Perfil({ id, email, nombreInicial, temaInicial }) {
   const router = useRouter();
   const [tema, setTema] = useState(temaInicial);
+  // Claro / oscuro / automático: se guarda en este dispositivo (lib/modo.js); se lee después de dibujar
+  const [modo, setModo] = useState('claro');
+  useEffect(() => { setModo(leerModo()); }, []);
   const [aviso, setAviso] = useState('');
   const [avisos, setAvisos] = useState({ sonido: true, cartel: true, tono: 'cristal' });
   const [permiso, setPermiso] = useState('default');
@@ -50,6 +54,17 @@ export default function Perfil({ id, email, nombreInicial, temaInicial }) {
           <input defaultValue={nombreInicial} placeholder="Cómo te ve el equipo" maxLength={60}
             onBlur={(e) => e.target.value.trim() !== nombreInicial && guardar({ nombre: e.target.value.trim() || null })} />
         </label>
+      </section>
+
+      <section className="tarjeta">
+        <h2>Apariencia</h2>
+        <p className="selector-detalle">Claro u oscuro, como en WhatsApp. Automático sigue lo que tenga tu celular o tu compu. Se guarda en este dispositivo.</p>
+        <div className="pp-atajos" role="radiogroup" aria-label="Apariencia">
+          {[['claro', 'Claro'], ['oscuro', 'Oscuro'], ['auto', 'Automático']].map(([v, r]) => (
+            <button key={v} type="button" role="radio" aria-checked={modo === v} className={`chip-filtro${modo === v ? ' activo' : ''}`}
+              onClick={() => { setModo(v); guardarModo(v); }}>{r}</button>
+          ))}
+        </div>
       </section>
 
       <section className="tarjeta">

@@ -17,7 +17,8 @@ export const viewport = { width: 'device-width', initialScale: 1, interactiveWid
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="es" className={roboto.variable}>
+    // suppressHydrationWarning: el modo oscuro (data-modo) lo pone un script antes de que cargue React
+    <html lang="es" className={roboto.variable} suppressHydrationWarning>
       <body><PuenteApp /><AltoVisible /><Vigia />{children}</body>
     </html>
   );
