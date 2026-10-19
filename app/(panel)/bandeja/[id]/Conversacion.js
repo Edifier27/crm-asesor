@@ -164,6 +164,28 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
     });
   }
 
+  // Ir a un día (buscar por fecha, como WhatsApp): si ese día todavía no está cargado, se traen los mensajes desde ahí
+  async function irAFecha(fecha) {
+    const desde = new Date(`${fecha}T00:00:00-03:00`).getTime();
+    let todos = mensajes;
+    if (!sinConexion && todos.length && new Date(todos[0].creado_at).getTime() > desde && masViejos) {
+      setAvisoAccion('Buscando los mensajes de ese día…');
+      const { data, error } = await supabase.from('mensajes').select(SELECT_MENSAJE).eq('conversacion_id', conversacion.id)
+        .gte('creado_at', new Date(desde).toISOString()).lt('creado_at', todos[0].creado_at).order('creado_at').limit(2000);
+      setAvisoAccion('');
+      if (error) return setAvisoAccion('No se pudieron traer los mensajes de ese día.');
+      const ya = new Set(todos.map((x) => x.id));
+      const nuevos = (data ?? []).filter((x) => !ya.has(x.id));
+      nuevos.forEach((x) => idsIniciales.add(x.id));
+      todos = [...nuevos, ...todos];
+      setMensajes(todos);
+    }
+    const destino = todos.find((x) => new Date(x.creado_at).getTime() >= desde && x.autor !== 'sistema');
+    if (!destino) { setAvisoAccion('No hay mensajes desde ese día.'); setTimeout(() => setAvisoAccion(''), 2500); return; }
+    // Después de dibujar los que se sumaron
+    setTimeout(() => irA(destino.id), 80);
+  }
+
   // Ir a un mensaje (cita, búsqueda, destacados) y resaltarlo un instante
   function irA(id) {
     const z = zonaMensajes.current;
@@ -569,7 +591,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
         </span>
       </header>
       <span className={`fecha-flotante${fechaFlotante.visible ? ' visible' : ''}`} aria-hidden="true">{fechaFlotante.texto}</span>
-      {panelChat && <PanelChat modo={panelChat} mensajes={mensajes} onIrA={irA} onCerrar={() => setPanelChat(null)} nombreCliente={primerNombreCliente} />}
+      {panelChat && <PanelChat modo={panelChat} mensajes={mensajes} onIrA={irA} onIrAFecha={irAFecha} onCerrar={() => setPanelChat(null)} nombreCliente={primerNombreCliente} />}
       {reenviando && <Reenviar mensajes={Array.isArray(reenviando) ? reenviando : [reenviando]} conversacionId={conversacion.id} onCerrar={() => setReenviando(null)}
         onListo={(t) => { setReenviando(null); setAvisoAccion(t); setTimeout(() => setAvisoAccion(''), 3000); }} />}
 

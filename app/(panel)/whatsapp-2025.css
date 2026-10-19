@@ -531,3 +531,7 @@
   background: var(--wa-barra, #F7F5F3); border-top: 1px solid var(--wa-linea, #E9EDEF); animation: wa-mensaje 180ms var(--curva-entra) both;
 }
 .barra-seleccion .seleccion-cuenta { flex: 1; font-size: 15px; color: #111B21; }
+
+/* Buscar por fecha en el panel de búsqueda del chat */
+.panel-chat-fecha-buscar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 16px 10px; font-size: 13.5px; color: #54656F; }
+.panel-chat-fecha-buscar input { font: inherit; padding: 5px 8px; border: 1px solid var(--wa-linea, #E9EDEF); border-radius: 8px; background: #fff; color: #111B21; }
