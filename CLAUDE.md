@@ -113,6 +113,8 @@ Nunca commitear secretos.
   `lib/seguimiento.js`): chat cerrado, sin mensajes, no pasa a la base del mes; `contactos.campania_desde` = +60 días,
   antes de eso las difusiones lo omiten. Si escribe, vuelve al embudo (Cotizado / En conversación). Por cerrar no entra.
   PERDIDO fuera de todas las bandejas aunque escriba (queda en su columna del Embudo con el mensaje sin leer).
+- ETIQUETA "Cotizados" (migración 0062, trigger `etiquetar_cotizado` sobre `contactos`): la pone la base a todo contacto
+  con una cotización enviada (`cotizacion.enviadas` tipo cotizacion) o en Cotizado o una etapa posterior. No se saca sola.
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.
