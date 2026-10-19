@@ -183,6 +183,7 @@
 .menu-adjuntar button:disabled { opacity: 0.45; cursor: default; }
 .icono-adjunto { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 17px; }
 .icono-adjunto.doc { background: #EDE7FF; }
+.icono-adjunto.camara { background: #FFE9DC; }
 .icono-adjunto.plantilla { background: #E7F6EC; }
 .icono-adjunto.rapida { background: #FFF4D6; }
 .icono-adjunto.audio { background: #FFE7EF; }

@@ -493,3 +493,8 @@
 .dialogo-atajos dl div { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: baseline; }
 .dialogo-atajos dd { margin: 0; color: #3B4A54; }
 .dialogo-atajos kbd { font: 500 12px ui-monospace, Consolas, monospace; padding: 2px 6px; border-radius: 6px; border: 1px solid #D1D7DB; background: #F7F5F3; white-space: nowrap; }
+
+/* Reacción que llega con el chat abierto: entra con un saltito (como las reacciones animadas de WhatsApp) */
+.reacciones .reaccion-nueva { display: inline-block; animation: reaccion-salto 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes reaccion-salto { 0% { transform: scale(0.2); opacity: 0; } 60% { transform: scale(1.35); opacity: 1; } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .reacciones .reaccion-nueva { animation: none; } }

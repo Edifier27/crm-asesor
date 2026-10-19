@@ -17,6 +17,7 @@ const esTactil = () => typeof window !== 'undefined' && window.matchMedia('(hove
  */
 export default function Redactor({ conversacion, ventanaAbierta, audios, formularios = [], plantillas, modoPrueba, respondiendo, corrigiendo, onLimpiar, onEnviar, respuestas = [], onAdjuntar, onEscribiendo }) {
   const archivoRef = useRef(null);
+  const camaraRef = useRef(null);
   const [grabando, setGrabando] = useState(null); // 'audio' (nota de voz) | 'dictado' | null
   const [dictando, setDictando] = useState(false); // pasando lo dictado a texto
   const [texto, setTexto] = useState('');
@@ -240,6 +241,12 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, formula
           <button type="button" role="menuitem" disabled={!ventanaAbierta} onClick={() => { setPanel(null); archivoRef.current?.click(); }}>
             <span className="icono-adjunto doc">📄</span>Foto o documento
           </button>
+          {/* En el celular: sacar la foto ahí mismo (DNI, recibo) sin pasar por la galería, como WhatsApp */}
+          {esTactil() && (
+            <button type="button" role="menuitem" disabled={!ventanaAbierta} onClick={() => { setPanel(null); camaraRef.current?.click(); }}>
+              <span className="icono-adjunto camara">📷</span>Cámara
+            </button>
+          )}
           <button type="button" role="menuitem" disabled={!ventanaAbierta} onClick={() => setPanel('formularios')}>
             <span className="icono-adjunto formulario">📋</span>Formularios
           </button>
@@ -264,6 +271,8 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, formula
         </div>
       )}
       <input ref={archivoRef} type="file" hidden accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
+        onChange={(e) => { const a = e.target.files?.[0]; e.target.value = ''; if (a) onAdjuntar?.(a); }} />
+      <input ref={camaraRef} type="file" hidden accept="image/*" capture="environment"
         onChange={(e) => { const a = e.target.files?.[0]; e.target.value = ''; if (a) onAdjuntar?.(a); }} />
 
       <div className={`redactor${grabando ? ' con-grabacion' : ''}`}>

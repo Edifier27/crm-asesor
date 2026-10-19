@@ -169,6 +169,9 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
   if (m.autor === 'sistema') return <div className="evento">{m.texto}</div>;
   const saliente = m.direccion === 'saliente';
   const reacciones = Object.entries(m.reacciones ?? {});
+  // Las reacciones que llegan con el chat abierto entran con un saltito, como en WhatsApp; las que ya estaban, quietas
+  const reaccionesAlAbrir = useRef(null);
+  if (reaccionesAlAbrir.current === null) reaccionesAlAbrir.current = new Set(reacciones.map(([q, e]) => `${q}:${e}`));
   const corregible = acciones?.onCorregir && saliente && m.tipo === 'texto' && ['asesor', 'ia'].includes(m.autor)
     && !m.corregido_por && Date.now() - new Date(m.creado_at) < MIN_CORREGIR * 60_000;
 
@@ -275,7 +278,10 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
         {meta}
         {reacciones.length > 0 && (
           <span className="reacciones" aria-label="Reacciones">
-            {reacciones.map(([quien, e]) => <span key={quien} title={quien === 'contacto' ? 'Cliente' : 'Vos'}>{e}</span>)}
+            {reacciones.map(([quien, e]) => (
+              <span key={`${quien}:${e}`} className={reaccionesAlAbrir.current.has(`${quien}:${e}`) ? undefined : 'reaccion-nueva'}
+                title={quien === 'contacto' ? 'Cliente' : 'Vos'}>{e}</span>
+            ))}
           </span>
         )}
 
