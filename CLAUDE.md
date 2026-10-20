@@ -118,6 +118,10 @@ Nunca commitear secretos.
 - "CONTACTAR EN 60 DÍAS" (migración 0063): globito de la ficha para el "por ahora no" (`contactarEn60` en
   `bandeja/[id]/acciones.js`): pasa a esa columna (está en `COLUMNAS_60`), chat cerrado, `fecha_acordada` a 60 días a las
   10 → ese día se lo retoma solo. Si escribe antes vuelve al embudo (a Cotizado si se le cotizó).
+- PASO DEL ASESOR (migración 0064, `lib/paso-del-asesor.js`): lo que el asesor programa a mano en Próximo paso (editor o
+  globitos) queda marcado (`conversaciones.seguimiento_por_asesor`) y, hasta esa fecha, ni la IA (`gestionar_seguimiento`,
+  default de fin de turno, cotización) ni `programarSecuencia` lo pisan; solo una fecha acordada con el cliente. Al
+  llegar el paso, `procesarUno` saca la marca. Sin la columna no hace nada (las lecturas ignoran el error).
 - AUDITORÍA MÉDICA NO SE TOCA (Darío, 20-oct-2026: preexistencias, tema delicado): nunca sale nada automático. Sin
   seguimientos ni fecha acordada (`procesarUno` lo chequea antes), sin campañas ni base del mes (`lib/bases.js`), sin
   columnas de 60 días, sin mensaje de ausencia, la IA no le escribe (`responderComoAsesor`) y "Que siga la IA" lo rechaza.
