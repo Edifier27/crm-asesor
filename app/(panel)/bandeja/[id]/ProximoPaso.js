@@ -80,6 +80,12 @@ export default function ProximoPaso({ conversacionId, contactoId, inicial, tempe
       ...(cambios.seguimiento_at ? { seguimientos_sin_respuesta: 0 } : {})
     }).eq('id', conversacionId);
     if (cambios.seguimiento_at) setPaso((p) => ({ ...p, seguimientos_sin_respuesta: 0 }));
+    marcarDelAsesor(Boolean(cambios.seguimiento_at));
+  }
+  // Lo que programás a mano no lo pisa nadie hasta esa fecha (ni la IA ni las secuencias): lib/paso-del-asesor.js.
+  // Va aparte para que, si falta la migración 0064, lo demás se guarde igual
+  function marcarDelAsesor(valor) {
+    supabase.from('conversaciones').update({ seguimiento_por_asesor: valor }).eq('id', conversacionId).then(() => {});
   }
 
   async function cambiarTemperatura(t) {
@@ -109,6 +115,7 @@ export default function ProximoPaso({ conversacionId, contactoId, inicial, tempe
     setPrevio(Object.fromEntries(Object.keys(cambios).map((k) => [k, paso[k] ?? (k === 'modo' ? 'humano' : k === 'seguimientos_sin_respuesta' ? 0 : null)])));
     setPaso((p) => ({ ...p, ...cambios })); setEditando(false);
     const { error } = await supabase.from('conversaciones').update(cambios).eq('id', conversacionId);
+    if (!error) marcarDelAsesor(true);
     setAviso(error ? `No se pudo programar: ${error.message}`
       : `Listo: ${cuandoSeguimiento(fecha.toISOString())?.texto} la IA le manda la plantilla que mejor encaje. Salió de tu bandeja; si contesta, vuelve sola.`);
   }
@@ -117,6 +124,7 @@ export default function ProximoPaso({ conversacionId, contactoId, inicial, tempe
     const vuelta = previo;
     setPaso((p) => ({ ...p, ...vuelta })); setPrevio(null); setAviso('');
     await supabase.from('conversaciones').update(vuelta).eq('id', conversacionId);
+    marcarDelAsesor(false);
   }
 
   const cuando = cuandoSeguimiento(paso.seguimiento_at, ahora);
