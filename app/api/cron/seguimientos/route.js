@@ -7,6 +7,7 @@ import { medirUso } from '@/lib/uso';
 import { reprocesarEventos } from '@/lib/whatsapp/procesar';
 import { aprenderSiToca } from '@/lib/ia/aprendizaje';
 import { transcribirPendientes } from '@/lib/transcripcion';
+import { rescatarAudiosPendientes } from '@/lib/whatsapp/envio-audio';
 import { guardarVideosPendientes } from '@/lib/videos';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revisarPlantillasPendientes } from '@/lib/plantillas-estado';
@@ -23,6 +24,9 @@ export async function GET(request) {
     // Mensajes de WhatsApp que fallaron al entrar: se reintentan antes que nada
     const reprocesados = await reprocesarEventos().catch((e) => { console.error('reprocesar_eventos', e); return 0; });
     if (reprocesados) console.log('eventos_reprocesados', reprocesados);
+    // Audios que quedaron "enviando" (se cortó la función o se cerró la pestaña): se mandan ahora (envio-audio.js)
+    const audios = await rescatarAudiosPendientes(createAdminClient()).catch((e) => { console.error('audios_pendientes', e); return 0; });
+    if (audios) console.log('audios_rescatados', audios);
     // Notas de voz sin transcribir (sobre todo las del asesor; las del cliente se transcriben al llegar)
     const transcriptos = await transcribirPendientes(createAdminClient()).catch((e) => { console.error('transcripcion', e); return 0; });
     if (transcriptos) console.log('audios_transcriptos', transcriptos);

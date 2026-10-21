@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { abrirHaciaArriba } from './haciaArriba';
 import { createClient } from '@/lib/supabase/client';
+import { urlFirmada } from '@/lib/url-firmada';
 import { hora } from '@/lib/formato';
 import VisorArchivo, { muestraPdf } from './VisorArchivo';
 import NotaDeVoz from './NotaDeVoz';
@@ -45,11 +46,11 @@ function DocumentoEnviado({ path, texto, mensajeId }) {
     }
   }
   const visor = abierto && <VisorArchivo url={abierto.url} nombre={texto} tipo={tipo} descarga={linkDescarga(path, texto)} datos={abierto.datos} onCerrar={() => setAbierto(null)} />;
-  // Video: se ve ahí mismo, con su reproductor (como en WhatsApp)
+  // Video: se ve ahí mismo, con su reproductor (como en WhatsApp); se baja recién al tocar play
   if (tipo === 'video') {
     return (
       <span className="adjunto-video">
-        <video src={url} controls preload="metadata" playsInline />
+        <video src={url} controls preload="none" playsInline />
       </span>
     );
   }
@@ -63,14 +64,11 @@ function DocumentoEnviado({ path, texto, mensajeId }) {
       </>
     );
   }
+  // PDF y documentos: tarjeta con el nombre; el archivo se baja recién al abrirlo (antes la vista previa del PDF lo
+  // bajaba entero con solo abrir el chat)
   return (
     <span className="doc-enviado-caja">
       {visor}
-      {tipo === 'pdf' && muestraPdf() && (
-        <button type="button" className="adjunto-pdf" onClick={ver} aria-label={`Abrir ${texto}`}>
-          {url ? <iframe src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} title={texto} loading="lazy" tabIndex={-1} /> : <span className="adjunto-cargando">Cargando PDF…</span>}
-        </button>
-      )}
       <button type="button" className="doc-enviado" onClick={ver}>
         <span className="doc-icono">{tipo === 'pdf' ? 'PDF' : 'DOC'}</span>
         <span className="doc-enviado-texto">{texto}</span>
@@ -102,7 +100,8 @@ export const autorCorto = (m) => (m.direccion === 'entrante' ? 'Cliente' : AUTOR
 const resumen = (m) => m.texto || { audio: '🎤 Audio', documento: '📄 Documento', imagen: '📷 Foto', plantilla: 'Plantilla' }[m.tipo] || 'Mensaje';
 // "Audio grabado (0:42)" → 42 segundos
 const segundosDe = (t) => { const x = /\((\d+):(\d{2})\)/.exec(t ?? ''); return x ? Number(x[1]) * 60 + Number(x[2]) : 0; };
-const firmarAudio = async (path) => (await createClient().storage.from('audios').createSignedUrl(path, 3600)).data?.signedUrl ?? null;
+// Link reusado por días (lib/url-firmada.js): el navegador guarda el audio y no lo vuelve a bajar
+const firmarAudio = (path, nuevo) => urlFirmada('audios', path, { nuevo });
 
 /**
  * @param {object} p
@@ -261,7 +260,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
         {/* Audios: nota de voz igual a WhatsApp (grabada, de la biblioteca o del cliente) */}
         {esAudio && !grabado && m.autor !== 'contacto' && m.texto && <span className="audio-titulo">🎵 {m.texto}</span>}
         {tieneAudio && (
-          <NotaDeVoz id={m.id} url={m.urlLocal ?? null} obtenerUrl={m.media_path ? () => firmarAudio(m.media_path) : undefined}
+          <NotaDeVoz id={m.id} url={m.urlLocal ?? null} path={m.media_path ?? null} obtenerUrl={m.media_path ? (nuevo) => firmarAudio(m.media_path, nuevo) : undefined}
             duracion={segundosDe(m.texto) || m.duracion || 0} iniciales={avatar?.iniciales} estiloAvatar={avatar?.estilo} titulo={avatar?.nombre}
             escuchado={Boolean(m.escuchado_at) || (m.direccion === 'entrante' && escuchadoLocal)}
             onTexto={conTexto ? () => setVerTexto((v) => !v) : undefined} textoVisible={verTexto}
@@ -288,6 +287,10 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
         )}
         {m.estado === 'fallido' && m.reintentar && (
           <button type="button" className="boton-link-texto burbuja-reintentar" onClick={m.reintentar}>↻ Reintentar</button>
+        )}
+        {/* Audio guardado que no salió: lo vuelve a mandar el servidor */}
+        {m.estado === 'fallido' && !m.reintentar && esAudio && saliente && m.media_path && acciones?.onReintentar && (
+          <button type="button" className="boton-link-texto burbuja-reintentar" onClick={() => acciones.onReintentar(m)}>↻ Reintentar</button>
         )}
         {meta}
         {reacciones.length > 0 && (

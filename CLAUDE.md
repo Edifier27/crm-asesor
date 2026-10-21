@@ -125,6 +125,17 @@ Nunca commitear secretos.
 - AUDITORÍA MÉDICA NO SE TOCA (Darío, 20-oct-2026: preexistencias, tema delicado): nunca sale nada automático. Sin
   seguimientos ni fecha acordada (`procesarUno` lo chequea antes), sin campañas ni base del mes (`lib/bases.js`), sin
   columnas de 60 días, sin mensaje de ausencia, la IA no le escribe (`responderComoAsesor`) y "Que siga la IA" lo rechaza.
+- ENVÍO DE AUDIOS CONFIABLE (migración 0065, 21-oct-2026, `lib/whatsapp/envio-audio.js`): todo audio saliente se guarda
+  'pendiente' y lo manda el SERVIDOR (`despacharAudio`: 3 intentos, si no 'fallido' con "Reintentar" en la burbuja →
+  `despacharAudioPendiente`). Grabación de la bandeja: guardar (enviarDesdeBandeja tipo grabacion sin path → `subirA`) →
+  el navegador sube → `despacharAudioPendiente`. Cerrar el chat o la pestaña no lo corta; el cron retoma los pendientes
+  colgados (`rescatarAudiosPendientes`). Biblioteca: se sube a Meta una vez por número y se reusa `audios.meta_media_id`
+  (se renueva a los 25 días o si Meta lo rechaza). Las grabaciones se codifican a 24 kbps. Sin la 0065 sale por link como antes.
+- AHORRO DE TRANSFERENCIA (21-oct-2026): notas de voz y videos con preload="none" (se bajan al tocar play; la duración
+  se lee de los últimos 6 KB del OGG y queda en el navegador); PDF sin vista previa embebida (se bajan al abrirlos).
+  Links firmados de 7 días reusados (`lib/url-firmada.js` en el navegador, firmados en lote; `/api/archivo` en el
+  servidor con la redirección en caché 5 días). Todo lo que se sube lleva `cacheControl: CACHE_ARCHIVO` (1 año,
+  `lib/cache-archivos.js`); los archivos viejos conservan su caché de 1 h (no se re-suben).
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.

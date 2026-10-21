@@ -2,9 +2,11 @@
 
 import { useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { urlFirmada } from '@/lib/url-firmada';
 import Grabador from '../bandeja/[id]/Grabador';
 import { refrescarFormularios as refrescarDatos } from '../formularios/acciones';
 import { PLANES_AUDIO, ZONAS_AUDIO as ZONAS } from '@/lib/audios-plan';
+import { CACHE_ARCHIVO } from '@/lib/cache-archivos';
 
 const TIPOS = ['audio/ogg', 'audio/mpeg', 'audio/mp3', 'audio/aac', 'audio/mp4', 'audio/x-m4a', 'audio/amr'];
 const MAX_MB = 16; // límite de WhatsApp para audio
@@ -26,8 +28,8 @@ function Reproductor({ path }) {
   if (url) return <audio controls autoPlay src={url} />;
   return (
     <button type="button" className="boton-secundario" onClick={async () => {
-      const { data } = await createClient().storage.from('audios').createSignedUrl(path, 600);
-      if (data) setUrl(data.signedUrl);
+      const link = await urlFirmada('audios', path); // reusado: el navegador no lo vuelve a bajar
+      if (link) setUrl(link);
     }}>Escuchar</button>
   );
 }
@@ -99,7 +101,7 @@ export default function Biblioteca({ inicial, pedidosIniciales = [] }) {
     setSubiendo(true);
     try {
       const path = `biblioteca/${crypto.randomUUID()}.${ext}`;
-      const { error: errSubida } = await supabase.storage.from('audios').upload(path, archivo, { contentType: tipo });
+      const { error: errSubida } = await supabase.storage.from('audios').upload(path, archivo, { contentType: tipo, cacheControl: CACHE_ARCHIVO });
       if (errSubida) throw errSubida;
       const { data, error: errFila } = await supabase.from('audios').insert({
         titulo: f.titulo.value.trim(),
