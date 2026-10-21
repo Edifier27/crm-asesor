@@ -136,6 +136,12 @@ Nunca commitear secretos.
   Links firmados de 7 días reusados (`lib/url-firmada.js` en el navegador, firmados en lote; `/api/archivo` en el
   servidor con la redirección en caché 5 días). Todo lo que se sube lleva `cacheControl: CACHE_ARCHIVO` (1 año,
   `lib/cache-archivos.js`); los archivos viejos conservan su caché de 1 h (no se re-suben).
+- COLUMNAS DE 30 DÍAS (migración 0066, 21-oct-2026): el que termina las plantillas sin contestar va a "Cotizado 30 días"
+  o "No contesta 30 días" (`aColumna60` en `lib/seguimiento.js`; campaña a los 30 días). Las de 60 quedan con los que ya
+  estaban. Todas están en `COLUMNAS_60` (lib/formato.js). Sin la 0066, van a las de 60 como antes.
+- "TODOS" CON GANADOS Y PERDIDOS (21-oct-2026): `traerLista` (lib/consultas.js) suma los chats cerrados en Ganado/Perdido;
+  en Mis chats se ven solo en "Todos" y al buscar, con su etapa como etiqueta. Los demás filtros y contadores, sin ellos.
+- Fotos y videos del cliente muestran abajo el texto que escribió (texto_original si la IA renombró el archivo).
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.

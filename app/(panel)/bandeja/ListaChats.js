@@ -8,7 +8,7 @@ import NuevoLead from './NuevoLead';
 import Atajos from './Atajos';
 import Deslizable from '../componentes/Deslizable';
 import GestorEtiquetas from './GestorEtiquetas';
-import { SELECT_LISTA } from '@/lib/consultas';
+import { ETAPAS_SOLO_EN_TODOS, traerLista } from '@/lib/consultas';
 import { MAX_FILAS_SUELTAS, anotarCambio, mezclarFilas, pendientesVacios } from '@/lib/en-vivo';
 import { TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, tiempoDeEspera } from '@/lib/formato';
 import { abrirHaciaArriba } from '../componentes/haciaArriba';
@@ -29,8 +29,10 @@ const reciente = (c) => new Date(cuando(c) ?? 0).getTime();
 // Venta hecha (Falta de cobro), Ganado o Perdido con el chat en manos del sistema: no van en Mis chats (Darío, 13-oct-2026).
 // Vuelven solos cuando toca mandar el link de pago (pasan a modo humano) o si el cliente escribe.
 const CERRADAS = ['Falta de cobro', 'Ganado', 'Perdido'];
-// Perdido sale de todas las bandejas, aunque el cliente haya escrito último (Darío, 20-oct-2026): queda en el Embudo
-const fueraDeBandeja = (c) => c.contacto?.etapa?.nombre === 'Perdido' || (!c.importante_at && c.modo === 'ia' && CERRADAS.includes(c.contacto?.etapa?.nombre));
+// Perdido sale de todas las bandejas, aunque el cliente haya escrito último (Darío, 20-oct-2026): queda en el Embudo.
+// Ganados y perdidos sí se ven en "Todos" y al buscar (Darío, 21-oct-2026), con su etapa; en los demás filtros, no.
+const soloEnTodos = (c) => ETAPAS_SOLO_EN_TODOS.includes(c.contacto?.etapa?.nombre);
+const fueraDeBandeja = (c) => c.modo === 'pausada' || c.contacto?.etapa?.nombre === 'Perdido' || (!c.importante_at && c.modo === 'ia' && CERRADAS.includes(c.contacto?.etapa?.nombre));
 
 const etiquetasDe = (c) => (c.contacto?.etiquetas ?? []).map((e) => e.etiqueta).filter(Boolean);
 
@@ -146,11 +148,7 @@ export default function ListaChats({ inicial, iaInicial }) {
 
   // La lista entera: al volver a la pestaña o la conexión, al tirar la lista hacia abajo
   const recargar = useCallback(async () => {
-    const [{ data }] = await Promise.all([
-      supabase.from('conversaciones').select(SELECT_LISTA).in('modo', ['humano', 'ia'])
-        .order('orden_bandeja', { ascending: false, nullsFirst: false }).limit(300),
-      contarIA()
-    ]);
+    const [{ data }] = await Promise.all([traerLista(supabase), contarIA()]);
     if (data) setConversaciones(data);
   }, [supabase, contarIA]);
 
@@ -162,11 +160,10 @@ export default function ListaChats({ inicial, iaInicial }) {
     const p = pendientes.current;
     pendientes.current = pendientesVacios();
     if (p.todo || p.conversaciones.size + p.contactos.size > MAX_FILAS_SUELTAS) return recargar();
-    // Mismos filtros que la lista entera: lo que no vuelve (pasó a "pausada", se borró) sale de la lista
-    const consulta = () => supabase.from('conversaciones').select(SELECT_LISTA).in('modo', ['humano', 'ia']);
+    // Mismos filtros que la lista entera: lo que no vuelve (pasó a "pausada" sin ser ganado ni perdido, se borró) sale
     const respuestas = await Promise.all([
-      p.conversaciones.size ? consulta().in('id', [...p.conversaciones]) : { data: [] },
-      p.contactos.size ? consulta().in('contacto_id', [...p.contactos]) : { data: [] }
+      p.conversaciones.size ? traerLista(supabase, (q) => q.in('id', [...p.conversaciones])) : { data: [] },
+      p.contactos.size ? traerLista(supabase, (q) => q.in('contacto_id', [...p.contactos])) : { data: [] }
     ]);
     if (respuestas.some((r) => r.error)) return recargar();
     setConversaciones((lista) => mezclarFilas(lista, respuestas.flatMap((r) => r.data ?? []), p));
@@ -321,7 +318,8 @@ export default function ListaChats({ inicial, iaInicial }) {
 
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    return enBandeja.filter((c) => {
+    const base = filtro === 'todos' || q ? conversaciones.filter((c) => !fueraDeBandeja(c) || soloEnTodos(c)) : enBandeja;
+    return base.filter((c) => {
       if (Boolean(c.chat_archivado_at) !== verArchivados) return false;
       if (filtro === 'sin_responder' && !c.espera_desde) return false;
       if (filtro === 'respondidos' && c.espera_desde) return false;
@@ -335,7 +333,7 @@ export default function ListaChats({ inicial, iaInicial }) {
         .some((v) => v?.toLowerCase().includes(q));
     // Fijados arriba (el último fijado primero); el resto, el mensaje más nuevo arriba
     }).sort((a, b) => (b.fijada_at ? new Date(b.fijada_at).getTime() : 0) - (a.fijada_at ? new Date(a.fijada_at).getTime() : 0) || reciente(b) - reciente(a));
-  }, [enBandeja, filtro, busqueda, verArchivados, ahora]);
+  }, [conversaciones, enBandeja, filtro, busqueda, verArchivados, ahora]);
   const chip = { filtro, setFiltro };
 
   return (
@@ -437,6 +435,7 @@ export default function ListaChats({ inicial, iaInicial }) {
                   {etiquetasDe(c).map((e) => <span key={e.id} className="etiqueta" style={colorEtiqueta(e.color)}>{e.nombre}</span>)}
                   {c.modo === 'ia' && <span className="etiqueta etiqueta-ia">IA</span>}
                   {c.importante_at && <span className="etiqueta etiqueta-importante">⭐ Importante</span>}
+                  {soloEnTodos(c) && <span className={`etiqueta etiqueta-${c.contacto.etapa.nombre === 'Ganado' ? 'ganado' : 'perdido'}`}>{c.contacto.etapa.nombre}</span>}
                         </span>
               </span>
             </Link>

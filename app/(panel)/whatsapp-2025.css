@@ -474,6 +474,10 @@
 
 /* Carpeta Importante (19-oct-2026): la gestiona el asesor, la IA no la toca. Se ve también en la bandeja simple de Darío */
 .chat-etiquetas .etiqueta.etiqueta-importante { background: #FFF4D6; color: #8A5A00; }
+.chat-etiquetas .etiqueta.etiqueta-ganado { background: #DCF5E7; color: #146C43; }
+.chat-etiquetas .etiqueta.etiqueta-perdido { background: #EDEFF2; color: #5B6470; }
+.app[data-espera-roja="no"] .lista .chat-etiquetas .etiqueta.etiqueta-ganado, .app[data-espera-roja="no"] .lista .chat-etiquetas .etiqueta.etiqueta-perdido { display: inline-flex; }
+.app[data-espera-roja="no"] .lista .chat-etiquetas:has(.etiqueta-ganado, .etiqueta-perdido) { display: flex; }
 .app[data-espera-roja="no"] .lista .chat-etiquetas .etiqueta.etiqueta-importante { display: inline-flex; }
 .app[data-espera-roja="no"] .lista .chat-etiquetas:has(.etiqueta-importante) { display: flex; }
 
