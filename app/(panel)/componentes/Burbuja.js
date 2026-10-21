@@ -197,8 +197,12 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
   // Transcripción oculta: se despliega tocando el círculo de la nota de voz
   const conTexto = esAudio && m.transcripcion && m.transcripcion !== '(sin palabras)';
   const conArchivo = ['documento', 'imagen', 'video'].includes(m.tipo) && m.media_path;
+  // Texto que el cliente escribió junto con la foto o el video ("Qué debería cargar acá?"), como en WhatsApp. Si la IA
+  // renombró la foto (ej.: "DNI TITULAR frente"), lo que escribió quedó en texto_original ('' si no escribió nada).
+  const epigrafe = conArchivo && !saliente && ['imagen', 'video'].includes(m.tipo) && m.texto !== 'Sticker'
+    ? (m.texto_original != null && !m.editado_at ? m.texto_original || null : m.texto) : null;
   // Texto visible: en audios solo la transcripción del cliente o el título de la biblioteca
-  const texto = esAudio ? null : conArchivo ? null : m.texto;
+  const texto = esAudio ? null : conArchivo ? epigrafe : m.texto;
 
   async function copiar() {
     await navigator.clipboard?.writeText(m.texto ?? '').catch(() => {});
