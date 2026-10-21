@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { CHAT_CERRADO, TAREA_LINK_PAGO } from '@/lib/consultas';
-import { contactarEn60, corregirTelefono } from './acciones';
-import { COLORES_ETIQUETA, COLUMNAS_60, MOTIVOS_PERDIDA, colorEtiqueta, nombreVisible } from '@/lib/formato';
+import { contactarEn60, corregirTelefono, pasarAColumnaDeEspera } from './acciones';
+import { COLORES_ETIQUETA, COLUMNAS_60, COLUMNAS_ESPERA_A_MANO, ETAPA_COTIZADO_30, ETAPA_NO_CONTESTA_30, MOTIVOS_PERDIDA, colorEtiqueta, nombreVisible } from '@/lib/formato';
 import Cotizacion from './Cotizacion';
 import ProximoPaso from './ProximoPaso';
 import Venta from './Venta';
@@ -15,7 +15,7 @@ import AuditoriaMedica from './AuditoriaMedica';
 const ORIGENES = { swiss_medical: 'Swiss Medical', web: 'Web', whatsapp: 'WhatsApp', manual: 'Manual' };
 
 // Las etapas que el asesor pasa a mano desde la ficha; el resto las mueve el CRM solo (en el Embudo se pueden arrastrar todas)
-const ETAPAS_A_MANO = ['Ganado', 'Perdido', 'Falta de cobro', 'Auditoría médica', 'Contactar en 60 días'];
+const ETAPAS_A_MANO = ['Ganado', 'Perdido', 'Falta de cobro', 'Auditoría médica', 'Contactar en 60 días', ETAPA_COTIZADO_30, ETAPA_NO_CONTESTA_30];
 
 export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, audios = [], formularios = [], abierta, onCerrar }) {
   const supabase = createClient();
@@ -103,6 +103,16 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
         if (r?.error) return avisar(r.error);
         setContacto((c) => ({ ...c, etapa_id: r.etapaId, campania_desde: r.fecha }));
         avisar(`Se retoma el ${new Date(r.fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', timeZone: 'America/Argentina/Buenos_Aires' })}`);
+      }).catch((e) => avisar(e.message));
+      return;
+    }
+    // Cotizado / No contesta 30 días: chat cerrado, sale de Mis chats y de "Para hoy" (acciones.js → pasarAColumnaDeEspera)
+    const destino = etapas.find((x) => x.id === id)?.nombre;
+    if (COLUMNAS_ESPERA_A_MANO[destino]) {
+      pasarAColumnaDeEspera(conversacion.id, destino).then((r) => {
+        if (r?.error) return avisar(r.error);
+        setContacto((c) => ({ ...c, etapa_id: r.etapaId, campania_desde: r.fecha, temperatura: 'frio' }));
+        avisar(`Pasó a ${destino}: sale de Mis chats`);
       }).catch((e) => avisar(e.message));
       return;
     }

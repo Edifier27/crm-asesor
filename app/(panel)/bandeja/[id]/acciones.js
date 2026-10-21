@@ -12,7 +12,7 @@ import { responderComoAsesor } from '@/lib/ia/asesor';
 import { BUCKET_DOCUMENTOS, CARTILLAS_ARCHIVOS, PLANES_PDF } from '@/lib/documentos';
 import { linkBienvenida, mensajeCobro } from '@/lib/venta';
 import { enHorasHabiles } from '@/lib/horario';
-import { ETAPA_CONTACTAR_60, ventana } from '@/lib/formato';
+import { COLUMNAS_ESPERA_A_MANO, ETAPA_CONTACTAR_60, ventana } from '@/lib/formato';
 import { fechaAcordadaAt, fechaCorta } from '@/lib/fecha-acordada';
 import { alVolverDeLaBase } from '@/lib/bases';
 import { alEntrarMensaje, esperarSiEstaEnAuditoria, modoIa, pasarAAuditoriaMedica, programarSecuencia } from '@/lib/secuencias';
@@ -578,6 +578,32 @@ export async function seguirConLaIA(conversacionId) {
   });
   if (esperaRespuesta) after(() => responderComoAsesor(conversacionId, ultimo.id).catch((e) => console.error('seguir_con_ia', conversacionId, e)));
   return { ok: true, contesta: esperaRespuesta };
+}
+
+// ───────────── Columnas de espera a mano (Darío, 21-oct-2026: "los muevo yo") ─────────────
+// Pasar a "Cotizado/No contesta 30 días" (o las de 60) desde la ficha o el Embudo hace lo mismo que cuando lo pasa el
+// CRM solo (aColumna60 en lib/seguimiento.js): chat cerrado (sale de Mis chats y de "Para hoy"), sin seguimientos ni
+// mensajes, y desde los 30 (o 60) días puede entrar en una campaña. Si escribe antes, vuelve al embudo.
+export async function pasarAColumnaDeEspera(conversacionId, nombre) {
+  const dias = COLUMNAS_ESPERA_A_MANO[nombre];
+  if (!dias) return { error: 'Columna inválida.' };
+  const supabase = await createClient();
+  const user = await usuarioActual(supabase);
+  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  const { data: conv } = await supabase.from('conversaciones').select('id, contacto_id, contacto:contactos(etapa:etapas(nombre))').eq('id', conversacionId).maybeSingle();
+  if (!conv) return { error: 'No tenés acceso a esta conversación.' };
+  if (conv.contacto?.etapa?.nombre === 'Auditoría médica') return { error: 'Está en auditoría médica: a estos leads no les sale nada automático.' };
+  const admin = createAdminClient();
+  const { data: etapa } = await admin.from('etapas').select('id').eq('nombre', nombre).maybeSingle();
+  if (!etapa) return { error: `Falta crear la columna "${nombre}".` };
+  const campania = new Date(Date.now() + dias * 86_400_000);
+  await admin.from('contactos').update({ etapa_id: etapa.id, temperatura: 'frio', campania_desde: campania.toISOString() }).eq('id', conv.contacto_id);
+  await admin.from('conversaciones').update({ ...CHAT_CERRADO, seguimientos_sin_respuesta: 0, seguimiento_responsable: 'ia', seguimiento_por_asesor: false }).eq('id', conversacionId);
+  await admin.from('mensajes').insert({
+    conversacion_id: conversacionId, direccion: 'saliente', autor: 'sistema', tipo: 'texto', estado: 'enviado',
+    texto: `Pasó a "${nombre}": no recibe nada hasta el ${fechaCorta(campania)}; desde ahí puede entrar en una campaña.`
+  });
+  return { ok: true, etapaId: etapa.id, fecha: campania.toISOString() };
 }
 
 // ───────────── "Contactar en 60 días" (Darío, 20-oct-2026: "por ahora no lo voy a hacer") ─────────────

@@ -4,11 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { CHAT_CERRADO, SELECT_EMBUDO, TAREA_LINK_PAGO, traerEmbudo } from '@/lib/consultas';
 import { MAX_FILAS_SUELTAS, anotarCambio, mezclarFilas, pendientesVacios } from '@/lib/en-vivo';
-import { COLUMNAS_60, ETAPA_CONTACTAR_60, MOTIVOS_PERDIDA, TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, pesosCorto } from '@/lib/formato';
+import { COLUMNAS_60, COLUMNAS_ESPERA_A_MANO, ETAPA_CONTACTAR_60, MOTIVOS_PERDIDA, TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, pesosCorto } from '@/lib/formato';
 import EnVivo from './EnVivo';
 import { useAhora } from '../componentes/Reloj';
 import Deslizable from '../componentes/Deslizable';
 import { eliminarLead } from './acciones';
+import { contactarEn60, pasarAColumnaDeEspera } from '../bandeja/[id]/acciones';
 
 const SIN_TEXTO = { audio: 'Audio de voz', imagen: 'Imagen', video: 'Video', documento: 'Documento', ubicacion: 'Ubicación', plantilla: 'Plantilla', otro: 'Mensaje' };
 const resumenUltimo = (t) => (t ? SIN_TEXTO[t.match(/^\[(\w+)\]$/)?.[1]] ?? t : 'Sin mensajes');
@@ -141,6 +142,13 @@ export default function Tablero({ etapas, inicial }) {
     const previo = conv.contacto.etapa_id;
     const saleDePerdido = etapas.find((e) => e.id === previo)?.nombre === 'Perdido';
     setConversaciones((l) => l.map((c) => (c.id === conv.id ? { ...c, contacto: { ...c.contacto, etapa_id: etapaId } } : c)));
+    // Columnas de espera (30/60 días) y "Contactar en 60 días": lo mismo que desde la ficha (chat cerrado, sale de Mis chats
+    // y de "Para hoy"); antes, arrastrar solo cambiaba la etapa y el chat seguía con su próximo paso
+    if (COLUMNAS_ESPERA_A_MANO[destino?.nombre] || destino?.nombre === ETAPA_CONTACTAR_60) {
+      const r = await (destino.nombre === ETAPA_CONTACTAR_60 ? contactarEn60(conv.id) : pasarAColumnaDeEspera(conv.id, destino.nombre)).catch((e) => ({ error: e.message }));
+      if (r?.error) { alert(r.error); setConversaciones((l) => l.map((c) => (c.id === conv.id ? { ...c, contacto: { ...c.contacto, etapa_id: previo } } : c))); }
+      return;
+    }
     const { error } = await supabase.from('contactos').update({ etapa_id: etapaId, ...(motivo ? { motivo_perdida: motivo } : {}) }).eq('id', conv.contacto.id);
     // Perdido: el chat se cierra y sale de Mis chats, aunque haya quedado sin contestar
     if (!error && motivo) await supabase.from('conversaciones').update(CHAT_CERRADO).eq('id', conv.id);
