@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { zonaPorCaracteristica } from '@/lib/caracteristicas';
 import { ZONAS_AUDIO, audiosDelPlan, zonaDeAudio } from '@/lib/audios-plan';
 import { createClient } from '@/lib/supabase/client';
+import { urlFirmada } from '@/lib/url-firmada';
 import { CAMPANIAS, ZONA_ROTULO, campaniaPara, campaniasPara, campaniaSugerida, cargaBU, cotizar, edadCotizable, ordenarPlanes, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
 import { PROVINCIAS_LISTA, datosProvincia, provinciaDesdeTexto, zonaGbaDe } from '@/lib/provincias';
 import { REGIONES, TIERS, cartillaDe, planPdf, regionSugerida, tierDePlan } from '@/lib/documentos';
@@ -295,9 +296,9 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
   async function escuchar(a) {
     if (sonando === a.id) { escucha.current?.pause(); setSonando(null); return; }
     escucha.current?.pause();
-    const { data } = await supabase.storage.from('audios').createSignedUrl(a.storage_path, 600);
-    if (!data) return;
-    const el = new Audio(data.signedUrl);
+    const link = await urlFirmada('audios', a.storage_path); // reusado: si ya lo escuchaste, sale de la caché
+    if (!link) return;
+    const el = new Audio(link);
     el.onended = () => setSonando(null);
     escucha.current = el; setSonando(a.id); el.play().catch(() => setSonando(null));
   }

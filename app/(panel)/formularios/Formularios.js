@@ -6,6 +6,7 @@ import { enviarDesdeBandeja } from '../bandeja/[id]/acciones';
 import { refrescarFormularios } from './acciones';
 import { BUCKET_FORMULARIOS, MAX_MB_FORMULARIO, PREFIJO_FORMULARIOS } from '@/lib/formularios';
 import { nombreVisible, ventana } from '@/lib/formato';
+import { CACHE_ARCHIVO } from '@/lib/cache-archivos';
 
 const ACEPTA = '.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png';
 const tamano = (b) => (b ? (b > 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`) : '');
@@ -91,7 +92,7 @@ export default function Formularios({ inicial }) {
     setSubiendo(true);
     try {
       const path = `${crypto.randomUUID()}.${ext}`;
-      const { error: errSubida } = await supabase.storage.from(BUCKET_FORMULARIOS).upload(path, archivo, { contentType: archivo.type || undefined });
+      const { error: errSubida } = await supabase.storage.from(BUCKET_FORMULARIOS).upload(path, archivo, { contentType: archivo.type || undefined, cacheControl: CACHE_ARCHIVO });
       if (errSubida) throw errSubida;
       const nombre = form.nombre.value.trim() || archivo.name.replace(/\.[^.]+$/, '');
       const { data, error: errFila } = await supabase.from('formularios').insert({

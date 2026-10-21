@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { urlFirmada } from '@/lib/url-firmada';
 import { USOS_PLANTILLA, problemasPlantilla } from '@/lib/plantillas-uso';
 import { enviarAMeta, guardarUsos, sincronizarPlantillas } from './acciones';
+import { CACHE_ARCHIVO } from '@/lib/cache-archivos';
 
 const ESTADOS = {
   APPROVED: { rotulo: 'Aprobada', clase: 'ok' },
@@ -17,11 +19,11 @@ const MOTIVOS = {
   INVALID_FORMAT: 'formato inválido', TAG_CONTENT_MISMATCH: 'la categoría no coincide con el texto', ABUSIVE_CONTENT: 'contenido no permitido',
   INCORRECT_CATEGORY: 'categoría incorrecta', PROMOTIONAL: 'es promocional (va como Marketing)', SCAM: 'parece engañosa'
 };
-// Imagen de la plantilla (bucket privado): se pide un link temporal para mostrarla
+// Imagen de la plantilla (bucket privado): link reusado por días (el navegador la guarda en caché)
 function ImagenPlantilla({ path }) {
   const [url, setUrl] = useState(null);
   useEffect(() => {
-    createClient().storage.from('plantillas').createSignedUrl(path, 600).then(({ data }) => setUrl(data?.signedUrl ?? null));
+    urlFirmada('plantillas', path).then(setUrl);
   }, [path]);
   return url ? <img className="plantilla-imagen" src={url} alt="Imagen de la plantilla" /> : null;
 }
@@ -96,7 +98,7 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [], mi
       if (!['image/jpeg', 'image/png'].includes(imagen.type)) return setAviso('La imagen tiene que ser JPG o PNG.');
       if (imagen.size > 5 * 1048576) return setAviso('La imagen supera los 5 MB.');
       const ruta = `${datos.nombre}-${crypto.randomUUID()}.${imagen.type === 'image/png' ? 'png' : 'jpg'}`;
-      const { error: errImg } = await supabase.storage.from('plantillas').upload(ruta, imagen, { contentType: imagen.type });
+      const { error: errImg } = await supabase.storage.from('plantillas').upload(ruta, imagen, { contentType: imagen.type, cacheControl: CACHE_ARCHIVO });
       if (errImg) return setAviso(`No se pudo subir la imagen: ${errImg.message}`);
       datos.imagen_path = ruta;
       datos.nota = null;

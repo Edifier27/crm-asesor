@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { duracionGuardada, duracionOgg, guardarDuracion } from '@/lib/url-firmada';
 
 // Nota de voz como en WhatsApp: play directo, onda que se va pintando, duración y velocidad 1× / 1,5× / 2×.
-// El link (firmado) se pide recién al tocar play; mientras suena una, se pausan las demás.
+// El archivo se baja recién al tocar play (preload="none": abrir el chat no gasta transferencia); mientras suena una,
+// se pausan las demás.
 const VELOCIDADES = [1, 1.5, 2];
 const reloj = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -21,20 +23,21 @@ function onda(semilla, n = 34) {
 /**
  * @param {string} id            para la onda y para pausar las demás
  * @param {string} [url]         link ya disponible (audio recién grabado)
- * @param {() => Promise<string|null>} [obtenerUrl]  pide el link al tocar play
+ * @param {(nuevo?: boolean) => Promise<string|null>} [obtenerUrl]  pide el link (nuevo = no usar el guardado)
  * @param {number} [duracion]    segundos (si se conoce antes de cargar)
+ * @param {string} [path]        archivo en Storage: para recordar la duración en este navegador
  * @param {string} [iniciales] / [estiloAvatar]  avatar con el micrófono, como WhatsApp
  * @param {function} [onTexto] si la nota tiene transcripción: tocar el círculo la muestra u oculta (textoVisible)
  * @param {string} [titulo]      de quién es (para la barrita que sigue sonando si salís del chat)
  */
-export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, duracion = 0, iniciales, estiloAvatar, escuchado = false, onEscuchar, onTexto, textoVisible = false, titulo }) {
+export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, duracion = 0, path = null, iniciales, estiloAvatar, escuchado = false, onEscuchar, onTexto, textoVisible = false, titulo }) {
   const audio = useRef(null);
   const tocarAlCargar = useRef(false);
   const [url, setUrl] = useState(urlInicial);
   const [cargando, setCargando] = useState(false);
   const [sonando, setSonando] = useState(false);
   const [actual, setActual] = useState(0);
-  const [total, setTotal] = useState(duracion);
+  const [total, setTotal] = useState(() => duracion || (path ? duracionGuardada(path) : 0));
   const [velocidad, setVelocidad] = useState(1);
   const [error, setError] = useState(false);
   const barras = useRef(onda(id)).current;
@@ -64,16 +67,22 @@ export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, dura
     if (url && tocarAlCargar.current) { tocarAlCargar.current = false; audio.current?.play().catch(() => setError(true)); }
   }, [url]);
 
-  // Duración visible antes de tocar play (como WhatsApp): cuando el audio aparece en pantalla se pide su link
-  // y el navegador lee solo el encabezado del archivo para saber cuánto dura.
+  // Al aparecer en pantalla se pide el link (firmar no baja el archivo; los de todo el chat salen en una sola consulta),
+  // así al tocar play arranca enseguida. Si no se sabe cuánto dura, se averigua leyendo solo el final del OGG (unos KB)
+  // y queda guardado en este navegador: se ve la duración antes de tocar play, como WhatsApp.
   const caja = useRef(null);
   useEffect(() => {
-    if (url || duracion || !obtenerUrl || !caja.current || typeof IntersectionObserver === 'undefined') return;
+    if (url || !obtenerUrl || !caja.current || typeof IntersectionObserver === 'undefined') return;
     const vigia = new IntersectionObserver(async ([e]) => {
       if (!e.isIntersecting) return;
       vigia.disconnect();
       const link = await obtenerUrl().catch(() => null);
-      if (link) setUrl((u) => u ?? link);
+      if (!link) return;
+      setUrl((u) => u ?? link);
+      if (!duracion && path && /\.(ogg|opus)$/i.test(path) && !duracionGuardada(path)) {
+        const s = await duracionOgg(link);
+        if (s) { guardarDuracion(path, s); setTotal((t) => t || s); }
+      }
     }, { rootMargin: '300px' });
     vigia.observe(caja.current);
     return () => vigia.disconnect();
@@ -81,23 +90,23 @@ export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, dura
 
   // Algunos audios (OGG grabados en el celu) no traen la duración en el encabezado: se la averigua yendo al final
   function leerDuracion(a) {
-    if (Number.isFinite(a.duration) && a.duration > 0) { setTotal(a.duration); return; }
+    if (Number.isFinite(a.duration) && a.duration > 0) { setTotal(a.duration); guardarDuracion(path, a.duration); return; }
     const alTerminar = () => {
       a.removeEventListener('timeupdate', alTerminar);
-      if (Number.isFinite(a.duration)) setTotal(a.duration);
+      if (Number.isFinite(a.duration)) { setTotal(a.duration); guardarDuracion(path, a.duration); }
       a.currentTime = 0;
     };
     a.addEventListener('timeupdate', alTerminar);
     a.currentTime = 1e7;
   }
 
-  // El link firmado vence: si falla, se pide uno nuevo una vez
+  // El link guardado puede haber vencido: si falla, se pide uno nuevo una vez y se reproduce
   const reintento = useRef(false);
   async function alFallar() {
     if (obtenerUrl && !reintento.current) {
       reintento.current = true;
-      const link = await obtenerUrl().catch(() => null);
-      if (link) { setUrl(link); return; }
+      const link = await obtenerUrl(true).catch(() => null);
+      if (link) { tocarAlCargar.current = true; setUrl(link); return; }
     }
     setError(true);
   }
@@ -162,7 +171,7 @@ export default function NotaDeVoz({ id, url: urlInicial = null, obtenerUrl, dura
           </span>
         )}
       {url && (
-        <audio ref={audio} src={url} preload="metadata"
+        <audio ref={audio} src={url} preload="none"
           onLoadedMetadata={(e) => { leerDuracion(e.currentTarget); e.currentTarget.playbackRate = velocidad; }}
           onDurationChange={(e) => { if (Number.isFinite(e.currentTarget.duration)) setTotal(e.currentTarget.duration); }}
           onTimeUpdate={(e) => { if (e.currentTarget.currentTime < 1e6) setActual(e.currentTarget.currentTime); }}

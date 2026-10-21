@@ -6,6 +6,7 @@ import { createClient, usuarioActual } from '@/lib/supabase/server';
 import { CHAT_CERRADO, TAREA_LINK_PAGO } from '@/lib/consultas';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { enviarMensaje, remitenteDeLaCuenta, SELECT_CONV_ENVIO } from '@/lib/whatsapp/enviar';
+import { despacharAudio } from '@/lib/whatsapp/envio-audio';
 import { enviarReaccion, marcarLeidoMeta } from '@/lib/whatsapp/meta';
 import { responderComoAsesor } from '@/lib/ia/asesor';
 import { BUCKET_DOCUMENTOS, CARTILLAS_ARCHIVOS, PLANES_PDF } from '@/lib/documentos';
@@ -121,13 +122,23 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
     documento = { path: f.path, nombre: nombreArchivo(f.nombre, f.path), bucket: BUCKET_FORMULARIOS };
     after(() => createAdminClient().rpc('contar_envio_formulario', { p_id: f.id }));
   }
-  // Audio grabado desde la bandeja: tiene que estar en la carpeta de grabaciones del bucket "audios"
+  // Audio grabado desde la bandeja. Lo normal (21-oct-2026): primero se guarda el mensaje pendiente con la ruta que arma
+  // el servidor, el navegador sube ahí el archivo y después pide despacharAudioPendiente. Si ya viene subido (path), sale ya.
+  let subirA = null;
+  if (tipo === 'grabacion' && !grabacion?.path) {
+    if (!['ogg', 'm4a'].includes(grabacion?.extension)) return { error: 'Audio inválido.' };
+    subirA = `grabaciones/${crypto.randomUUID()}.${grabacion.extension}`;
+    grabacion = { path: subirA, duracion: grabacion.duracion };
+  }
   if (tipo === 'grabacion' && !/^grabaciones\/[0-9a-f-]{36}\.(ogg|m4a)$/.test(grabacion?.path ?? '')) return { error: 'Audio inválido.' };
+  if (tipo === 'grabacion' && !ventana(conv.ventana_expira_at).abierta) return { error: 'La ventana de 24 h está cerrada: solo se pueden enviar plantillas aprobadas.' };
 
   try {
     const r = await enviarMensaje({
       conversacionId, tipo: tipo === 'grabacion' ? 'audio' : tipo, texto, audioId, plantillaId, documento, grabacion, archivo, respondeA,
-      autor: 'asesor', perfilId: user.id, conv
+      autor: 'asesor', perfilId: user.id, conv,
+      // Audios: los manda el servidor (con reintentos) aunque se cierre el chat o la pestaña
+      despachoAudio: subirA ? 'despues' : 'segundoPlano'
     });
     // Se le mandó un formulario de auditoría médica: el lead pasa a esa columna del Embudo
     const etapaId = pideAuditoria ? await pasarAAuditoriaMedica(createAdminClient(), conv.contacto_id) : null;
@@ -139,10 +150,30 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
       // En automático la IA maneja sus seguimientos; el del cotizado ("pudiste ver el plan?") corre en todos los modos
       await programarSecuencia(admin, conversacionId, { soloCotizado: (await modoIa(admin, conv.cuenta)) === 'automatico' });
     });
-    return { ok: true, id: r.id, mensaje: r.mensaje, simulado: r.simulado, ...(etapaId ? { etapaId } : {}) };
+    return { ok: true, id: r.id, mensaje: r.mensaje, simulado: r.simulado, ...(subirA ? { subirA } : {}), ...(etapaId ? { etapaId } : {}) };
   } catch (e) {
     return { error: e.message };
   }
+}
+
+// Audio guardado como pendiente (grabación ya subida) o que quedó 'fallido' (botón Reintentar de la burbuja): lo manda el
+// servidor después de responder, con sus reintentos. Si se cierra el chat o la pestaña, sigue igual.
+export async function despacharAudioPendiente(mensajeId) {
+  const supabase = await createClient();
+  const user = await usuarioActual(supabase);
+  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  // Con la sesión del asesor: solo mensajes de sus chats
+  const { data: m } = await supabase.from('mensajes').select('id, tipo, direccion, estado').eq('id', mensajeId).maybeSingle();
+  if (!m || m.tipo !== 'audio' || m.direccion !== 'saliente') return { error: 'No tenés acceso a este mensaje.' };
+  if (!['pendiente', 'fallido'].includes(m.estado)) return { ok: true };
+  const admin = createAdminClient();
+  if (m.estado === 'fallido') {
+    let { error } = await admin.from('mensajes').update({ estado: 'pendiente', error: null, envio_intentos: 0, envio_proximo_at: null }).eq('id', m.id).eq('estado', 'fallido');
+    if (error) ({ error } = await admin.from('mensajes').update({ estado: 'pendiente', error: null }).eq('id', m.id).eq('estado', 'fallido')); // sin la 0065
+    if (error) return { error: error.message };
+  }
+  after(() => despacharAudio(admin, m.id).catch(() => {}));
+  return { ok: true };
 }
 
 // Reacción del asesor a un mensaje (como en WhatsApp). Requiere la ventana de 24 h abierta.
@@ -461,7 +492,7 @@ export async function reenviarMensaje(mensajeId, destinoId) {
   }
 
   try {
-    const r = await enviarMensaje({ conversacionId: destino.id, ...datos, autor: 'asesor', perfilId: user.id });
+    const r = await enviarMensaje({ conversacionId: destino.id, ...datos, autor: 'asesor', perfilId: user.id, despachoAudio: 'segundoPlano' });
     await admin.from('mensajes').update({ reenviado: true }).eq('id', r.id);
     return { ok: true };
   } catch (e) {

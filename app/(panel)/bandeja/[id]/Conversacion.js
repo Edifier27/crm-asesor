@@ -8,7 +8,7 @@ import { SELECT_MENSAJE, MENSAJES_POR_TANDA } from '@/lib/consultas';
 import Redactor from './Redactor';
 import Simulador from './Simulador';
 import Burbuja from '../../componentes/Burbuja';
-import { avisarLectura, enviarDesdeBandeja, reaccionar, registrarDocumento, seguirConLaIA } from './acciones';
+import { avisarLectura, despacharAudioPendiente, enviarDesdeBandeja, reaccionar, registrarDocumento, seguirConLaIA } from './acciones';
 import PanelChat from './PanelChat';
 import Reenviar from './Reenviar';
 import BarraSeleccion from './BarraSeleccion';
@@ -16,6 +16,7 @@ import { guardarChatEnMemoria } from '@/lib/chat-memoria';
 import { limpiarAtajo } from '../../asesor/RespuestasRapidas';
 import { useAhora } from '../../componentes/Reloj';
 import { colorAvatar, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo, ultimoDelCliente, ventana } from '@/lib/formato';
+import { CACHE_ARCHIVO } from '@/lib/cache-archivos';
 
 const ORIGENES = { swiss_medical: 'asignado por Swiss Medical', web: 'vía formulario', whatsapp: 'escribió por WhatsApp', manual: 'cargado a mano' };
 // La marca vence a los 2 minutos por si una ejecución se cortó sin limpiarla
@@ -92,7 +93,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
     setSubiendoArchivo(true); setAvisoAccion('');
     try {
       const path = `${contacto.id}/${destino === 'enviar' ? 'enviados/' : ''}${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from('documentos-clientes').upload(path, archivo, { contentType: archivo.type || undefined });
+      const { error } = await supabase.storage.from('documentos-clientes').upload(path, archivo, { contentType: archivo.type || undefined, cacheControl: CACHE_ARCHIVO });
       if (error) throw error;
       const r = destino === 'enviar'
         ? await enviarDesdeBandeja(conversacion.id, { tipo: 'archivo', archivo: { path, nombre: archivo.name.slice(0, 200), mime: archivo.type } })
@@ -257,6 +258,8 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
   // ───── Envío instantáneo (como WhatsApp) ─────
   // El mensaje aparece ya en el chat ("local") con el reloj; sale por detrás con hasta 3 intentos.
   // Si falla, queda en el chat con "Reintentar" (el audio grabado no se pierde).
+  // Audio grabado (21-oct-2026): 1) se guarda el mensaje pendiente en la base, 2) se sube el archivo (unos KB), 3) el
+  // SERVIDOR lo manda a WhatsApp con sus reintentos: desde ahí ya no importa si cerrás el chat o la pestaña.
   const [locales, setLocales] = useState([]);
   const actualizarLocal = (id, cambios) => setLocales((l) => l.map((x) => (x.id === id ? { ...x, ...cambios } : x)));
   const quitarLocal = (id) => setLocales((l) => l.filter((x) => x.id !== id));
@@ -268,16 +271,53 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
     if (data) setMensajes((prev) => (prev.some((x) => x.id === id) ? prev : [...prev, data].sort(porFecha)));
   }
 
+  // Pone en el chat el mensaje guardado (con el audio local para escucharlo sin bajarlo) y saca la copia local
+  function confirmarLocal(local, mensaje, id) {
+    if (mensaje) {
+      const real = local.urlLocal ? { ...mensaje, urlLocal: local.urlLocal } : mensaje;
+      setMensajes((prev) => (prev.some((x) => x.id === real.id)
+        ? prev.map((x) => (x.id === real.id && local.urlLocal ? { ...x, urlLocal: local.urlLocal } : x))
+        : [...prev, real].sort(porFecha)));
+      quitarLocal(local.id);
+      return;
+    }
+    traerMensaje(id).then(() => quitarLocal(local.id));
+  }
+
+  // Audio grabado: guardar → subir → que lo mande el servidor. Cada paso hecho no se repite al reintentar.
+  async function despacharGrabacion(local, datos, audio) {
+    let d = datos;
+    if (!d.mensajeId) {
+      const r = await enviarDesdeBandeja(conversacion.id, { ...d, tipo: 'grabacion', grabacion: { extension: audio.extension, duracion: audio.duracion } });
+      if (r.error) return { error: r.error, definitivo: true };
+      d = { ...d, mensajeId: r.id, subirA: r.subirA, mensaje: r.mensaje };
+      actualizarLocal(local.id, { mensajeId: r.id });
+    }
+    if (!d.subido) {
+      const { error } = await supabase.storage.from('audios').upload(d.subirA, audio.blob, { contentType: audio.mime, cacheControl: CACHE_ARCHIVO });
+      // Si un intento anterior ya lo había subido, está bien
+      if (error && !/exist|duplicate/i.test(error.message)) return { error: error.message, d };
+      d = { ...d, subido: true };
+    }
+    const r = await despacharAudioPendiente(d.mensajeId);
+    if (r.error) return { error: r.error, d };
+    return { ok: true, d };
+  }
+
   async function despachar(local, datos, audio) {
     actualizarLocal(local.id, { estado: 'pendiente', error: null, reintentar: null, restan: null, deshacer: null });
     let d = datos;
     for (let intento = 1; intento <= 3; intento++) {
       try {
-        if (audio && !d.grabacion) {
-          const path = `grabaciones/${crypto.randomUUID()}.${audio.extension}`;
-          const { error } = await supabase.storage.from('audios').upload(path, audio.blob, { contentType: audio.mime });
-          if (error) throw new Error(error.message);
-          d = { ...d, grabacion: { path, duracion: audio.duracion } };
+        if (audio) {
+          const r = await despacharGrabacion(local, d, audio);
+          if (r.d) d = r.d;
+          if (r.ok) { confirmarLocal(local, d.mensaje, d.mensajeId); return; }
+          if (r.definitivo) {
+            actualizarLocal(local.id, { estado: 'fallido', error: r.error, reintentar: () => despachar(local, d, audio) });
+            return;
+          }
+          throw new Error(r.error);
         }
         const r = await enviarDesdeBandeja(conversacion.id, d);
         if (r.error) {
@@ -287,9 +327,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
         }
         // El servidor devuelve el mensaje ya guardado: se pone en el chat al instante, sin volver a pedirlo.
         // Si el aviso en vivo llegó antes, queda el de ese aviso (puede traer un estado más nuevo)
-        if (r.mensaje) setMensajes((prev) => (prev.some((x) => x.id === r.mensaje.id) ? prev : [...prev, r.mensaje].sort(porFecha)));
-        else await traerMensaje(r.id);
-        quitarLocal(local.id);
+        confirmarLocal(local, r.mensaje, r.id);
         return;
       } catch {
         if (intento === 3) {
@@ -382,7 +420,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
           const m = Object.fromEntries(SELECT_MENSAJE.split(', ').map((k) => [k, fila[k]]));
           setMensajes((prev) => {
             const i = prev.findIndex((x) => x.id === m.id);
-            const lista = i >= 0 ? prev.with(i, m) : [...prev, m];
+            const lista = i >= 0 ? prev.with(i, prev[i].urlLocal ? { ...m, urlLocal: prev[i].urlLocal } : m) : [...prev, m];
             return lista.sort(porFecha);
           });
           if (eventType === 'INSERT' && m.direccion === 'entrante') marcarLeido();
@@ -449,15 +487,18 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
   // Si el mensaje "oficial" ya llegó por la conexión en vivo, la copia dibujada al instante se esconde (nunca se ven dos)
   const usados = new Set();
   const yaLlego = (l) => {
-    if (l.estado === 'fallido' || l.estado === 'esperando') return false;
+    if (l.mensajeId || l.estado === 'fallido' || l.estado === 'esperando') return false;
     const real = mensajes.find((x) => !usados.has(x.id) && x.direccion === 'saliente' && x.autor === 'asesor'
       && x.tipo === l.tipo && (l.tipo === 'audio' || x.texto === l.texto)
       && Math.abs(new Date(x.creado_at) - new Date(l.creado_at)) < 120_000);
     if (real) usados.add(real.id);
     return Boolean(real);
   };
+  // Grabación ya guardada pero todavía subiéndose: se ve una sola vez (la copia local, con su audio)
+  locales.forEach((l) => l.mensajeId && usados.add(l.mensajeId));
   const localesVisibles = locales.filter((l) => !yaLlego(l));
-  const lista = localesVisibles.length ? [...mensajes, ...localesVisibles] : mensajes;
+  const ocultos = new Set(localesVisibles.map((l) => l.mensajeId).filter(Boolean));
+  const lista = localesVisibles.length ? [...mensajes.filter((x) => !ocultos.has(x.id)), ...localesVisibles] : mensajes;
   const avatarCliente = { iniciales: iniciales(contacto), estilo: colorAvatar(contacto.telefono), nombre: nombreVisible(contacto) };
   const miNombre = equipo?.nombres?.[equipo?.yo] ?? '';
   const primerNombreCliente = contacto.nombre?.trim().split(/\s+/)[0] || '';
@@ -472,6 +513,12 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
       if (error) { setMensajes((l) => l.map((x) => (x.id === m.id ? { ...x, destacado_at: m.destacado_at } : x))); setAvisoAccion(error.message); }
     },
     onReenviar: (m) => setReenviando(m),
+    // Audio que quedó "no se pudo enviar": lo vuelve a mandar el servidor
+    onReintentar: async (m) => {
+      setMensajes((l) => l.map((x) => (x.id === m.id ? { ...x, estado: 'pendiente', error: null } : x)));
+      const r = await despacharAudioPendiente(m.id).catch(() => ({ error: 'Sin conexión: probá de nuevo.' }));
+      if (r.error) { setMensajes((l) => l.map((x) => (x.id === m.id ? { ...x, estado: 'fallido', error: r.error } : x))); }
+    },
     onSeleccionar: (m) => alternarSeleccion(m),
     // Fijar arriba del chat (hasta 4, como WhatsApp): al fijar el quinto se suelta el más viejo
     onFijar: async (m) => {

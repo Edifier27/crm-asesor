@@ -7,8 +7,9 @@ const MAX_SEGUNDOS = 300;
 // Respaldo si no se puede codificar Opus: formatos nativos que acepta WhatsApp (como archivo de audio). WebM no.
 const FORMATOS_NATIVOS = [['audio/ogg;codecs=opus', 'ogg'], ['audio/mp4;codecs=mp4a.40.2', 'm4a'], ['audio/mp4', 'm4a']];
 const BARRAS = 42;
-// Una nota de voz con sonido pesa unos 6 KB por segundo (medido en 400 audios del CRM: ninguno por debajo de 4,4 KB/s).
-// Si pesa menos de 1 KB por segundo, el micrófono no mandó sonido.
+// Una nota de voz con sonido pesaba unos 6 KB por segundo (medido en 400 audios del CRM: ninguno por debajo de 4,4 KB/s);
+// desde el 21-oct-2026 se graba a 24 kbps (unos 3 KB/s, mínimo esperado ~2,2). Si pesa menos de 1 KB por segundo, el
+// micrófono no mandó sonido.
 const BYTES_MINIMOS_POR_SEGUNDO = 1000;
 
 const reloj = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -96,6 +97,7 @@ export default function Grabador({ deshabilitado, onListo, onError, onEstado, di
       encoderPath: '/opus/encoderWorker.min.js',
       encoderApplication: 2048, // voz
       encoderSampleRate: 48000,
+      encoderBitRate: 24000,    // como las notas de voz de WhatsApp: pesa la mitad y se oye igual de bien
       numberOfChannels: 1
     });
     rec.ondataavailable = (bytes) => terminar(new Blob([bytes], { type: 'audio/ogg' }), 'ogg', 'audio/ogg');

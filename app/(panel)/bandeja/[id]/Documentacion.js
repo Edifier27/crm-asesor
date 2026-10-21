@@ -7,6 +7,7 @@ import { cuitLindo, DOCUMENTOS_REQUERIDOS, TIPOS_DOCUMENTO } from '@/lib/formato
 import { tipoDeModalidad } from '@/lib/venta';
 import { borrarDocumento, clasificarDocumento, registrarDocumento, releerDocumento, renombrarDocumento, verDocumentoCliente } from './acciones';
 import VisorArchivo, { muestraPdf, tipoArchivo } from '../../componentes/VisorArchivo';
+import { CACHE_ARCHIVO } from '@/lib/cache-archivos';
 
 const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'application/pdf': 'pdf' };
 const cubre = { dni_frente: ['dni_frente', 'dni_completo'], dni_dorso: ['dni_dorso', 'dni_completo'], recibo: ['recibo'], opcion_cambio: ['opcion_cambio'] };
@@ -79,7 +80,7 @@ export default function Documentacion({ contacto, etapa, inicial, onContacto }) 
     setSubiendo(true); setAviso('');
     try {
       const path = `${contacto.id}/${crypto.randomUUID()}.${EXT[archivo.type] ?? 'bin'}`;
-      const { error } = await supabase.storage.from('documentos-clientes').upload(path, archivo, { contentType: archivo.type || undefined });
+      const { error } = await supabase.storage.from('documentos-clientes').upload(path, archivo, { contentType: archivo.type || undefined, cacheControl: CACHE_ARCHIVO });
       if (error) throw error;
       const r = await registrarDocumento(contacto.id, { path, mime: archivo.type, nombre: archivo.name });
       if (r.error) throw new Error(r.error);
