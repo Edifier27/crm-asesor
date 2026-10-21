@@ -15,6 +15,11 @@ import { abrirHaciaArriba } from '../componentes/haciaArriba';
 import { useAhora } from '../componentes/Reloj';
 import { recordarChat } from '@/lib/chat-abriendo';
 import { alCambiarBorradores, todosLosBorradores } from '@/lib/borradores';
+import { guardarListaEnMemoria } from '@/lib/chat-memoria';
+
+// En el celular la lista se dibuja de a tandas (Darío, 21-oct-2026: "que cargue más rápido"): los primeros 60 chats y
+// el resto a medida que bajás. Los datos de los 300 ya están (contadores y filtros iguales); solo se dibuja menos.
+const TANDA_LISTA = 60;
 
 // Los mensajes sin texto llegan como "[audio]", "[imagen]", etc.
 const SIN_TEXTO = { audio: 'Audio de voz', imagen: 'Imagen', video: 'Video', documento: 'Documento', ubicacion: 'Ubicación', plantilla: 'Plantilla', otro: 'Mensaje' };
@@ -336,6 +341,27 @@ export default function ListaChats({ inicial, iaInicial }) {
   }, [conversaciones, enBandeja, filtro, busqueda, verArchivados, ahora]);
   const chip = { filtro, setFiltro };
 
+  // Dibujar de a tandas: al cambiar de filtro o de búsqueda vuelve a la primera
+  const [cuantos, setCuantos] = useState(TANDA_LISTA);
+  useEffect(() => { setCuantos(TANDA_LISTA); }, [filtro, busqueda, verArchivados]);
+  const centinela = useRef(null);
+  const hayMas = visibles.length > cuantos;
+  useEffect(() => {
+    if (!hayMas || !centinela.current || typeof IntersectionObserver === 'undefined') return;
+    const vigia = new IntersectionObserver(([e]) => { if (e.isIntersecting) setCuantos((n) => n + TANDA_LISTA); }, { rootMargin: '600px' });
+    vigia.observe(centinela.current);
+    return () => vigia.disconnect();
+  }, [hayMas, cuantos]);
+
+  // Los primeros chats de "Todos" quedan en el navegador: la próxima vez que abras el CRM se ven al instante
+  useEffect(() => {
+    if (filtro !== 'todos' || busqueda.trim() || verArchivados) return;
+    guardarListaEnMemoria(visibles.slice(0, 25).map((c) => ({
+      id: c.id, contacto: { nombre: c.contacto?.nombre ?? null, telefono: c.contacto?.telefono ?? null },
+      texto: resumenUltimo(c.ultimo_mensaje_texto), propio: Boolean(c.ultimo_es_propio), cuando: cuando(c), no_leidos: c.no_leidos ?? 0
+    })));
+  }, [visibles, filtro, busqueda, verArchivados]);
+
   return (
     <section className={`lista${activo ? ' con-chat' : ''}${panel.achicada ? ' achicada' : panel.ancho && panel.ancho < 330 ? ' angosta' : ''}`} aria-label="Lista de chats"
       style={!panel.achicada && panel.ancho ? { '--ancho-lista': `${panel.ancho}px` } : undefined}>
@@ -392,7 +418,7 @@ export default function ListaChats({ inicial, iaInicial }) {
         </button>
       )}
       <ul className="chats" ref={listaRef} onScroll={guardarPosicion} onTouchStart={alTocar} onTouchMove={alArrastrar} onTouchEnd={alSoltar} onTouchCancel={alSoltar}>
-        {visibles.map((c) => {
+        {visibles.slice(0, cuantos).map((c) => {
           // Te escribió y todavía no le respondiste: fila resaltada (azul; roja si espera hace más de una hora)
           const espera = tiempoDeEspera(c.espera_desde, ahora);
           return (
@@ -451,6 +477,7 @@ export default function ListaChats({ inicial, iaInicial }) {
           </li>
           );
         })}
+        {hayMas && <li ref={centinela} className="lista-mas" aria-hidden="true" />}
         {/* Resultados en los mensajes, como en WhatsApp: abajo de los chats, con el pedacito donde aparece */}
         {busqueda.trim().length >= 3 && (
           <li className="buscar-mensajes-titulo">{enMensajes.buscando ? 'Buscando en los mensajes…' : enMensajes.lista.length ? 'Mensajes' : 'Ningún mensaje con eso'}</li>

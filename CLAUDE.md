@@ -142,6 +142,10 @@ Nunca commitear secretos.
 - "TODOS" CON GANADOS Y PERDIDOS (21-oct-2026): `traerLista` (lib/consultas.js) suma los chats cerrados en Ganado/Perdido;
   en Mis chats se ven solo en "Todos" y al buscar, con su etapa como etiqueta. Los demás filtros y contadores, sin ellos.
 - Fotos y videos del cliente muestran abajo el texto que escribió (texto_original si la IA renombró el archivo).
+- CELULAR MÁS RÁPIDO (21-oct-2026): `public/sw.js` se activa siempre (`componentes/GuardarApp.js`) y guarda en el
+  dispositivo SOLO piezas fijas (`/_next/static`, íconos, fondos, `/opus`); pantallas, datos y archivos van siempre a
+  internet. La lista abre al instante con los últimos 25 chats guardados (`guardarListaEnMemoria` → `ListaCargando`) y se
+  dibuja de a 60 (`TANDA_LISTA`). El saldo de IA del layout va en paralelo y trae solo los consumos necesarios.
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.

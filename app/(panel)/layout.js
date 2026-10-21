@@ -7,6 +7,7 @@ import RielLinks from './RielLinks';
 import RielPlegable from './RielPlegable';
 import Avisos from './componentes/Avisos';
 import ReproductorGlobal from './componentes/ReproductorGlobal';
+import GuardarApp from './componentes/GuardarApp';
 import VersionNueva from './componentes/VersionNueva';
 import { Reloj } from './componentes/Reloj';
 import Intro from './componentes/Intro';
@@ -38,10 +39,13 @@ export async function generateMetadata() {
 
 export default async function PanelLayout({ children }) {
   const supabase = await createClient();
-  const [{ user, perfil }, { data: usoTodos }, galletas] = await Promise.all([
+  // Todo junto (antes el saldo de IA se pedía después, uno detrás del otro: la pantalla tardaba más en abrir)
+  const [{ user, perfil }, { data: usoTodos }, galletas, saldos] = await Promise.all([
     perfilActual(),
     supabase.from('uso_sistema').select('*').maybeSingle(),
-    cookies()
+    cookies(),
+    // Crédito de IA (solo lo ve el administrador)
+    perfilActual().then(({ perfil: p }) => (p?.rol === 'admin' ? saldosIa(supabase).catch(() => []) : []))
   ]);
   // Animación de entrada solo al abrir el CRM (no al recargar ni al cambiar de sección): ver componentes/Intro.js
   const conIntro = !galletas.get('intro');
@@ -50,9 +54,7 @@ export default async function PanelLayout({ children }) {
   const uso = perfil?.rol === 'admin' ? usoTodos : null;
   const alerta = estadoUso(uso);
   // Crédito de IA casi agotado (solo lo ve el administrador)
-  const sinCredito = perfil?.rol === 'admin'
-    ? (await saldosIa(supabase).catch(() => [])).filter((s) => s.credito && s.queda < SALDO_BAJO_USD)
-    : [];
+  const sinCredito = saldos.filter((s) => s.credito && s.queda < SALDO_BAJO_USD);
 
   return (
     // Chats sin responder: en la cuenta que lo pidió quedan siempre azules, sin pasar a rojo (perfiles.espera_roja, 0055)
@@ -82,6 +84,7 @@ export default async function PanelLayout({ children }) {
       <Reloj inicial={Date.now()}>{children}</Reloj>
       <Avisos />
       <ReproductorGlobal />
+      <GuardarApp />
       <VersionNueva actual={process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev'} usuarioId={user.id ?? null} />
     </div>
   );
