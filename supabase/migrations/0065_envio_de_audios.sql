@@ -8,7 +8,7 @@ alter table public.audios add column if not exists meta_media_numero text; -- ph
 alter table public.audios add column if not exists meta_media_at timestamptz;
 
 -- 2) Mensajes salientes de audio: el envio lo hace el servidor con reintentos. Si la funcion se corta, el cron de cada
---    10 minutos retoma los que quedaron "pendiente" (hasta 5 intentos en total; despues queda "fallido" con Reintentar).
+--    10 minutos retoma los que quedaron "pendiente" (hasta 3 veces; despues queda "fallido" con Reintentar).
 alter table public.mensajes add column if not exists envio_intentos smallint not null default 0;
 alter table public.mensajes add column if not exists envio_proximo_at timestamptz; -- hasta cuando lo tiene tomado un envio
 
