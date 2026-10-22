@@ -146,7 +146,7 @@ Nunca commitear secretos.
   dispositivo SOLO piezas fijas (`/_next/static`, íconos, fondos, `/opus`); pantallas, datos y archivos van siempre a
   internet. La lista abre al instante con los últimos 25 chats guardados (`guardarListaEnMemoria` → `ListaCargando`) y se
   dibuja de a 60 (`TANDA_LISTA`). El saldo de IA del layout va en paralelo y trae solo los consumos necesarios.
-- AHORRO EN META (migración 0068, 22-oct-2026): `plantillas.version_utilidad` = su versión de utilidad; al mandar, si
+- AHORRO EN META (migraciones 0068 y 0070, 22-oct-2026): `plantillas.version_utilidad` = su versión de utilidad (0070: COPIA EXACTA del texto, nombre + "_u", solo las que no hablan de promos; las reescrituras `_util` de la 0068 quedaron sin uso); al mandar, si
   está aprobada (activa + categoria utility) sale esa (`enviarMensaje` en lib/whatsapp/enviar.js); si Meta la reclasifica,
   vuelve la original. Las versiones no se eligen sueltas en los seguimientos de la IA. Con la ventana de 24 h abierta,
   toda plantilla sin imagen sale como TEXTO (gratis; sin botones); si Meta responde 131047, sale como plantilla.
