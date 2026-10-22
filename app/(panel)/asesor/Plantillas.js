@@ -290,8 +290,8 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [], mi
           ))}
           <p className="selector-detalle">
             Seguimientos: ya no hace falta armar secuencias. A quien no contesta, la IA le manda la plantilla aprobada que
-            mejor encaja con la charla: a las 48 h, 72 h y 5 días si nunca contestó; a las 24 h, 48 h, 72 h y 5 días si le
-            respondiste y no volvió a escribir. Si le falta una plantilla, te deja la propuesta arriba para que la apruebes.
+            mejor encaja con la charla: una a los 5 días si nunca contestó; a las 24 h, 72 h, 7 días y 20 días si se le
+            cotizó; a las 24 h, 48 h, 72 h y 5 días si le respondiste y no volvió a escribir. Si le falta una plantilla, te deja la propuesta arriba para que la apruebes.
           </p>
         </div>
       </section>

@@ -153,7 +153,10 @@ Nunca commitear secretos.
   Campañas/promos siguen siendo marketing.
 - MENOS PLANTILLAS (22-oct-2026): al que nunca contestó, la bienvenida y UNA plantilla a los 5 días (finde → lunes;
   `SEGUIMIENTO_NUNCA`, `MAX_PLANTILLAS_NUNCA` corta también las secuencias en curso y las listas fijas) y enseguida a
-  "No contesta 30 días". La IA manda UN texto por turno
+  "No contesta 30 días". Cotizado: 24 h, 72 h, 7 días y 20 días del último mensaje (`SEGUIMIENTO_COTIZADO`, también
+  para los que estaban en curso con una cadencia vieja: `SEGUIMIENTOS_VIEJOS`) y enseguida a "Cotizado 30 días".
+  PrepagaYa ya no manda a Kommo: solo CRM o mail (los destinos viejos de Kommo se leen como el CRM de esa cuenta).
+  La IA manda UN texto por turno
   (`textosEnviados` en lib/ia/asesor.js; la cotización puede ir igual). Campaña Kommo solo a los que contestaron
   (`scripts/campania-kommo.mjs`, `--con-nunca` para sumar el otro grupo; SQL 0069 frena los pendientes de Darío).
   Plantillas con nombre fijo en el saludo (`tieneNombreFijo`) no salen en seguimientos ni se mandan a Meta.
