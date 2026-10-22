@@ -56,7 +56,14 @@ function describirEnvio(e) {
   }
   if (e.tipo === 'plan') return `Folleto del plan ${e.plan} (PDF)`;
   if (e.tipo === 'audio') return `Audio del plan ${e.plan}: ${e.titulo}`;
+  if (e.tipo === 'sanatorios') return `Sanatorios de su zona (plan ${e.plan})`;
   return `Cartilla ${TIERS[e.tier]} · ${REGIONES[e.region]} (plan ${e.plan})`;
+}
+
+// "Te paso los principales sanatorios de Swiss Medical en <zona> con el <plan>:" (mensajeSanatorios de lib/cartilla-swiss.js)
+function claveSanatorios(texto) {
+  const m = /^Te paso los principales sanatorios de Swiss Medical en .*?(?: con el ([^:\n]+))?:/.exec(texto ?? '');
+  return m ? `sanatorios:${m[1] ?? ''}` : null;
 }
 
 export default function Cotizacion({ conversacionId, contacto, onContacto, lista, audios = [] }) {
@@ -216,20 +223,21 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
   // Plan o cartilla en ventana emergente dentro del CRM
   // Lo que ya salió por el chat (Darío, 16-oct-2026): audios de la biblioteca y PDF de plan o cartilla, los haya mandado
   // el asesor (desde la ficha o el chat) o la IA. Cada botón queda con su ✓ Enviado; se puede volver a mandar.
-  const [yaEnviado, setYaEnviado] = useState({}); // 'audio:<id>' | 'doc:<path>' → fecha
+  // Sanatorios (Darío, 22-oct-2026): es un texto; se reconoce por su primera línea, salga de la ficha o del menú + del chat.
+  const [yaEnviado, setYaEnviado] = useState({}); // 'audio:<id>' | 'doc:<path>' | 'sanatorios:<plan>' → fecha
   const marcarEnviado = (clave) => setYaEnviado((m) => ({ ...m, [clave]: new Date().toISOString() }));
   useEffect(() => {
     let vigente = true;
     const sumar = (filas) => setYaEnviado((m) => {
       const n = { ...m };
       for (const f of filas) {
-        const clave = f.audio_id ? `audio:${f.audio_id}` : f.media_path ? `doc:${f.media_path}` : null;
+        const clave = f.audio_id ? `audio:${f.audio_id}` : f.media_path ? `doc:${f.media_path}` : claveSanatorios(f.texto);
         if (clave && (!n[clave] || n[clave] < f.creado_at)) n[clave] = f.creado_at;
       }
       return n;
     });
-    supabase.from('mensajes').select('audio_id, media_path, creado_at').eq('conversacion_id', conversacionId).eq('direccion', 'saliente')
-      .or('audio_id.not.is.null,media_path.not.is.null').order('creado_at', { ascending: false }).limit(300)
+    supabase.from('mensajes').select('audio_id, media_path, texto, creado_at').eq('conversacion_id', conversacionId).eq('direccion', 'saliente')
+      .or('audio_id.not.is.null,media_path.not.is.null,texto.like.Te*paso*los*principales*sanatorios*').order('creado_at', { ascending: false }).limit(300)
       .then(({ data }) => { if (vigente && data) sumar(data); });
     const canal = supabase.channel(`enviados-${conversacionId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes', filter: `conversacion_id=eq.${conversacionId}` },
@@ -287,6 +295,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
       if (!texto) return;
       const r = await enviarDesdeBandeja(conversacionId, { tipo: 'texto', texto });
       setAviso(r.error ?? 'Sanatorios enviados');
+      if (!r.error) { marcarEnviado(`sanatorios:${planDocsActivo}`); await registrar({ tipo: 'sanatorios', plan: planDocsActivo }); }
     });
   }
 
@@ -519,7 +528,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
           <div className="doc-fila">
             <span className="doc-nombre">🏥 Sanatorios de su zona</span>
             <button type="button" className="boton-secundario" onClick={verSanatorios}>{sanatorios?.plan === planDocsActivo ? 'Ocultar' : 'Ver'}</button>
-            <button type="button" className="boton-primario" disabled={enviando} onClick={enviarSanatorios}>Enviar sanatorios</button>
+            {botonEnviar({ clave: `sanatorios:${planDocsActivo}`, rotulo: 'Enviar sanatorios', onEnviar: enviarSanatorios })}
           </div>
           {sanatorios?.plan === planDocsActivo && <p className="sanatorios-vista">{sanatorios.texto}</p>}
           {audiosDelPlan(audios, planDocsActivo, zona, zonaAudio).map((a) => (
