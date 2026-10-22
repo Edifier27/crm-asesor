@@ -151,6 +151,11 @@ Nunca commitear secretos.
   vuelve la original. Las versiones no se eligen sueltas en los seguimientos de la IA. Con la ventana de 24 h abierta,
   toda plantilla sin imagen sale como TEXTO (gratis; sin botones); si Meta responde 131047, sale como plantilla.
   Campañas/promos siguen siendo marketing.
+- MENOS PLANTILLAS (22-oct-2026): al que nunca contestó, 2 plantillas (24 h y 5 d: `SEGUIMIENTO_NUNCA`,
+  `MAX_PLANTILLAS_NUNCA` corta también las secuencias en curso y las listas fijas). La IA manda UN texto por turno
+  (`textosEnviados` en lib/ia/asesor.js; la cotización puede ir igual). Campaña Kommo solo a los que contestaron
+  (`scripts/campania-kommo.mjs`, `--con-nunca` para sumar el otro grupo; SQL 0069 frena los pendientes de Darío).
+  Plantillas con nombre fijo en el saludo (`tieneNombreFijo`) no salen en seguimientos ni se mandan a Meta.
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.

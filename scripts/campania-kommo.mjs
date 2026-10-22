@@ -1,4 +1,5 @@
-// Crea las dos difusiones de la campaña Kommo de una cuenta (los que contestaron y los que nunca contestaron), de a poco:
+// Crea la difusión de la campaña Kommo de una cuenta, de a poco. Desde el 22-oct-2026 solo a los que contestaron alguna
+// vez (los que nunca contestaron respondían la mitad y se pagaban igual); con --con-nunca suma también ese grupo:
 // 5 mensajes cada 10 minutos (solo lunes a viernes de 8 a 20), 50 por grupo el primer día y 100 por día después.
 // Arrancan solas cuando Meta aprueba la plantilla (mientras no esté activa, esperan) y nunca antes de --desde. Uso:
 //   node --env-file=.env.local scripts/campania-kommo.mjs --cuenta=gaby --desde=2026-10-20T09:00            (muestra qué haría)
@@ -33,7 +34,7 @@ const sufijo = esGaby ? '_gaby' : '';
 const GRUPOS = [
   { nombre: 'Kommo · contestaron alguna vez', segmento: 'contestaron', etiqueta: 'Kommo · contestó', plantilla: `recontacto_kommo_contesto${sufijo}_img` },
   { nombre: 'Kommo · nunca contestaron', segmento: 'nunca', etiqueta: 'Kommo · no contestó', plantilla: `recontacto_kommo_nuevo${sufijo}_img` }
-];
+].filter((g) => g.segmento !== 'nunca' || process.argv.includes('--con-nunca'));
 console.log(`Cuenta: ${perfil.nombre} · arranca ${DESDE} (si la plantilla ya está aprobada)`);
 for (const g of GRUPOS) {
   const { data: p } = await s.from('plantillas').select('id, activa, estado_meta').eq('nombre', g.plantilla).maybeSingle();
