@@ -146,6 +146,11 @@ Nunca commitear secretos.
   dispositivo SOLO piezas fijas (`/_next/static`, íconos, fondos, `/opus`); pantallas, datos y archivos van siempre a
   internet. La lista abre al instante con los últimos 25 chats guardados (`guardarListaEnMemoria` → `ListaCargando`) y se
   dibuja de a 60 (`TANDA_LISTA`). El saldo de IA del layout va en paralelo y trae solo los consumos necesarios.
+- AHORRO EN META (migración 0068, 22-oct-2026): `plantillas.version_utilidad` = su versión de utilidad; al mandar, si
+  está aprobada (activa + categoria utility) sale esa (`enviarMensaje` en lib/whatsapp/enviar.js); si Meta la reclasifica,
+  vuelve la original. Las versiones no se eligen sueltas en los seguimientos de la IA. Con la ventana de 24 h abierta,
+  toda plantilla sin imagen sale como TEXTO (gratis; sin botones); si Meta responde 131047, sale como plantilla.
+  Campañas/promos siguen siendo marketing.
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.
