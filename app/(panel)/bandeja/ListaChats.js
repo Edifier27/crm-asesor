@@ -8,7 +8,7 @@ import NuevoLead from './NuevoLead';
 import Atajos from './Atajos';
 import Deslizable from '../componentes/Deslizable';
 import GestorEtiquetas from './GestorEtiquetas';
-import { ETAPAS_SOLO_EN_TODOS, traerLista } from '@/lib/consultas';
+import { ETAPAS_SOLO_EN_TODOS, PREFIJO_NO_SUPO, traerLista } from '@/lib/consultas';
 import { MAX_FILAS_SUELTAS, anotarCambio, mezclarFilas, pendientesVacios } from '@/lib/en-vivo';
 import { TEMPERATURAS, colorAvatar, colorEtiqueta, cuandoSeguimiento, fechaCorta, iniciales, nombreVisible, tiempoDeEspera } from '@/lib/formato';
 import { abrirHaciaArriba } from '../componentes/haciaArriba';
@@ -29,6 +29,8 @@ const pasoMio = (c, ahora) => (c.seguimiento_responsable === 'asesor' ? cuandoSe
 // Orden: el cliente que escribió último va arriba (Darío, 16-oct-2026). Lo que mandamos nosotros (respuestas, plantillas,
 // seguimientos de la IA) no mueve el chat: si no, tapaba a los que acababan de escribir. Si nunca escribió, cuenta cuando entró.
 const cuando = (c) => c.orden_bandeja ?? c.ultimo_mensaje_at;
+// La IA no supo qué responder y el cliente sigue esperando: arriba de todo, con el cartel (Darío, 28-oct-2026)
+const noSupo = (c) => Boolean(c.espera_desde && c.seguimiento_responsable === 'asesor' && c.seguimiento_motivo?.startsWith(PREFIJO_NO_SUPO));
 const reciente = (c) => new Date(cuando(c) ?? 0).getTime();
 
 // Venta hecha (Falta de cobro), Ganado o Perdido con el chat en manos del sistema: no van en Mis chats (Darío, 13-oct-2026).
@@ -337,7 +339,7 @@ export default function ListaChats({ inicial, iaInicial }) {
       return [c.contacto?.nombre, c.contacto?.telefono, ...etiquetasDe(c).map((e) => e.nombre)]
         .some((v) => v?.toLowerCase().includes(q));
     // Fijados arriba (el último fijado primero); el resto, el mensaje más nuevo arriba
-    }).sort((a, b) => (b.fijada_at ? new Date(b.fijada_at).getTime() : 0) - (a.fijada_at ? new Date(a.fijada_at).getTime() : 0) || reciente(b) - reciente(a));
+    }).sort((a, b) => Number(noSupo(b)) - Number(noSupo(a)) || (b.fijada_at ? new Date(b.fijada_at).getTime() : 0) - (a.fijada_at ? new Date(a.fijada_at).getTime() : 0) || reciente(b) - reciente(a));
   }, [conversaciones, enBandeja, filtro, busqueda, verArchivados, ahora]);
   const chip = { filtro, setFiltro };
 
@@ -454,6 +456,11 @@ export default function ListaChats({ inicial, iaInicial }) {
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 10l5 5 5-5" /></svg>
                   </span>
                 </span>
+                {noSupo(c) && (
+                  <span className="cartel-no-supo" title={c.seguimiento_motivo.slice(PREFIJO_NO_SUPO.length)}>
+                    ❓ La IA no supo qué responder: <span className="cartel-no-supo-pregunta">{c.seguimiento_motivo.slice(PREFIJO_NO_SUPO.length)}</span>
+                  </span>
+                )}
                 {/* Sin el próximo paso ni el consejo de la IA: eso está en la ficha (Darío, 16-oct-2026). Solo etiquetas */}
                 <span className="chat-etiquetas">
                   {/* Cuenta con "bandeja simple" (CSS): solo se ve esta, de dónde vino el dato; el resto, todas las etiquetas */}
