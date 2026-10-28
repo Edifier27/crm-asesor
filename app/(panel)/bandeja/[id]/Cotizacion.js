@@ -6,7 +6,7 @@ import { zonaPorCaracteristica } from '@/lib/caracteristicas';
 import { ZONAS_AUDIO, audiosDelPlan, zonaDeAudio } from '@/lib/audios-plan';
 import { createClient } from '@/lib/supabase/client';
 import { urlFirmada } from '@/lib/url-firmada';
-import { CAMPANIAS, ZONA_ROTULO, campaniaPara, campaniasPara, campaniaSugerida, cargaBU, cotizar, edadCotizable, ordenarPlanes, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
+import { CAMPANIAS, EDAD_MAX_HIJO, ZONA_ROTULO, campaniaPara, campaniasPara, campaniaSugerida, cargaBU, cotizar, edadCotizable, ordenarPlanes, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
 import { PROVINCIAS_LISTA, datosProvincia, provinciaDesdeTexto, zonaGbaDe } from '@/lib/provincias';
 import { REGIONES, TIERS, cartillaDe, planPdf, regionSugerida, tierDePlan } from '@/lib/documentos';
 import { fechaCorta, hora } from '@/lib/formato';
@@ -193,6 +193,18 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
     const nuevos = miembros.map((m, j) => (j === i ? { ...m, ...campos } : m));
     miembrosAMano.current = true; setMiembros(nuevos); persistir({ miembros: nuevos });
   };
+  // Un hijo no puede tener 30 años o más: no se deja tildar, y si se le sube la edad pasa a adulto, con un aviso
+  const [errHijo, setErrHijo] = useState(null);
+  const errHijoTimer = useRef();
+  const avisarHijo = (i) => { setErrHijo(i); clearTimeout(errHijoTimer.current); errHijoTimer.current = setTimeout(() => setErrHijo(null), 3500); };
+  const marcarHijo = (i, esHijo) => {
+    if (esHijo && miembros[i].edad !== '' && Number(miembros[i].edad) > EDAD_MAX_HIJO) { avisarHijo(i); return; }
+    setMiembro(i, { esHijo });
+  };
+  const cambiarEdad = (i, edad) => {
+    if (miembros[i].esHijo && edad !== '' && Number(edad) > EDAD_MAX_HIJO) { setMiembro(i, { edad, esHijo: false }); avisarHijo(i); }
+    else setMiembro(i, { edad });
+  };
 
   function enviarCotizacion() {
     const planes = resultados.filter((r) => elegidos.includes(r.plan));
@@ -366,12 +378,13 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
         {miembros.map((m, i) => (
           <div key={i} className="cot-miembro">
             <input type="number" inputMode="numeric" min="1" max="99" value={m.edad} placeholder="Edad"
-              aria-label={`Edad del integrante ${i + 1}`} onChange={(e) => setMiembro(i, { edad: e.target.value === '0' ? '1' : e.target.value })} />
-            <label className="check"><input type="checkbox" checked={m.esHijo} onChange={(e) => setMiembro(i, { esHijo: e.target.checked })} /> Hijo/a</label>
+              aria-label={`Edad del integrante ${i + 1}`} onChange={(e) => cambiarEdad(i, e.target.value === '0' ? '1' : e.target.value)} />
+            <label className="check"><input type="checkbox" checked={m.esHijo} onChange={(e) => marcarHijo(i, e.target.checked)} /> Hijo/a</label>
             {miembros.length > 1 && (
               <button type="button" className="boton-icono" aria-label="Quitar integrante"
-                onClick={() => { const n = miembros.filter((_, j) => j !== i); miembrosAMano.current = true; setMiembros(n); persistir({ miembros: n }); }}>×</button>
+                onClick={() => { const n = miembros.filter((_, j) => j !== i); miembrosAMano.current = true; setMiembros(n); persistir({ miembros: n }); setErrHijo(null); }}>×</button>
             )}
+            {errHijo === i && <p role="alert" className="cot-error-hijo">Con 30 años o más no puede ir como hijo</p>}
           </div>
         ))}
         <button type="button" className="boton-secundario" onClick={() => { miembrosAMano.current = true; setMiembros([...miembros, { edad: '', esHijo: miembros.length > 1 }]); }}>+ Integrante</button>
@@ -418,7 +431,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
 
       <div className="cot-campanias" role="group" aria-label="Campaña">
         {campaniasPara(modalidad).map((c) => (
-          <button key={c.id} type="button" title={c.detalle} aria-pressed={campania === c.id}
+          <button key={c.id} type="button" title={modalidad === 'directo' && c.detalleDirecto ? c.detalleDirecto : c.detalle} aria-pressed={campania === c.id}
             className={`chip-filtro${campania === c.id ? ' activo' : ''}`} onClick={() => { campaniaAMano.current = true; cambiar(setCampaniaElegida, 'campania')(c.id); }}>
             {c.rotulo}
           </button>

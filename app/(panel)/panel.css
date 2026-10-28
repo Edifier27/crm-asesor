@@ -399,7 +399,8 @@
 .cot-cabecera { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .cot-vigencia { font-size: 12px; color: var(--texto-suave); }
 .cot-miembros { display: flex; flex-direction: column; gap: 6px; }
-.cot-miembro { display: flex; align-items: center; gap: 8px; }
+.cot-miembro { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cot-error-hijo { flex-basis: 100%; margin: 0; font-size: 12px; font-weight: 600; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 4px 8px; }
 .cot-miembro input[type="number"] { width: 80px; font: inherit; padding: 7px 9px; border: 1px solid var(--borde); border-radius: 8px; }
 .cot-miembro .boton-icono { width: 32px; height: 32px; font-size: 18px; margin-left: auto; }
 .cot-miembros > .boton-secundario { align-self: flex-start; }
