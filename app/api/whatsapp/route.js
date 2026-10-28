@@ -7,7 +7,7 @@ import { procesarEvento } from '@/lib/whatsapp/procesar';
 
 export const runtime = 'nodejs';
 // Incluye la espera y la respuesta del asesor IA, que corre después de contestarle 200 a Meta
-export const maxDuration = 120;
+export const maxDuration = 300; // la IA espera 30-55 s antes de contestar (ritmo de una persona) y después trabaja
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
