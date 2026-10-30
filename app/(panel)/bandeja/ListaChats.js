@@ -191,7 +191,13 @@ export default function ListaChats({ inicial, iaInicial }) {
     // Si la conexión en vivo se cortó y volvió (celular bloqueado, sin señal), se pone al día
     let reconectado = false;
     canal.subscribe((estado) => { if (estado === 'SUBSCRIBED') { if (reconectado) recargar(); reconectado = true; } });
-    const alVolver = () => document.visibilityState === 'visible' && recargar();
+    // Al volver a la pestaña, la lista entera solo si estuvo un rato afuera: yendo y viniendo de WhatsApp a cada rato la
+    // recargaba siempre y el CRM se trababa (Darío, 30-oct-2026). Mientras tanto la mantiene al día el tiempo real
+    let oculta = 0;
+    const alVolver = () => {
+      if (document.visibilityState === 'hidden') { oculta = Date.now(); return; }
+      if (Date.now() - oculta > 60_000) recargar();
+    };
     document.addEventListener('visibilitychange', alVolver);
     window.addEventListener('online', recargar);
     return () => {
