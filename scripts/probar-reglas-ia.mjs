@@ -1,5 +1,5 @@
 // Prueba de lib/ia/reglas-mensaje.js: node scripts/probar-reglas-ia.mjs
-import { motivoPlanFueraDeZona, motivoProhibido } from '../lib/ia/reglas-mensaje.js';
+import { motivoPlanFueraDeZona, motivoPrecioEspecialConRecibo, motivoProhibido } from '../lib/ia/reglas-mensaje.js';
 
 const NOMBRES = ['Darío', 'Gabriela', 'Gaby'];
 // [texto, debe bloquearse]
@@ -66,5 +66,19 @@ console.table(ZONAS.map(([texto, zona, bloquear]) => {
   if (!bien) fallas++;
   return { texto, zona, obtenido: motivo ?? 'sale', '': bien ? '✓' : '✗' };
 }));
-console.log(fallas ? `${fallas} caso(s) fallaron` : `Los ${CASOS.length + ZONAS.length} casos dan lo esperado`);
+// Precio especial de monotributo con recibo de sueldo en el grupo (Facundo, 2-nov-2026)
+const MONO = [
+  ['buenísimo, para monotributistas hay un precio especial', { cotizacion: { modalidad: 'derivacion', sueldos: ['4500000'] } }, true],
+  ['buenísimo, para monotributistas hay un precio especial', { relevamiento: { situacion: 'Titular en relación de dependencia, pareja monotributista' } }, true],
+  ['buenísimo, para monotributistas hay un precio especial', { cotizacion: { modalidad: 'directo' }, relevamiento: { situacion: 'monotributista' } }, false],
+  ['buenísimo, para monotributistas hay un precio especial', {}, false],
+  ['buenísimo, aguardame un segundo que te lo recalculo para los dos', { cotizacion: { modalidad: 'derivacion', sueldos: ['4500000'] } }, false]
+];
+console.table(MONO.map(([texto, contacto, bloquear]) => {
+  const motivo = motivoPrecioEspecialConRecibo(texto, contacto);
+  const bien = Boolean(motivo) === bloquear;
+  if (!bien) fallas++;
+  return { texto: texto.slice(0, 50), contacto: JSON.stringify(contacto).slice(0, 60), obtenido: motivo ? 'bloquea' : 'sale', '': bien ? '✓' : '✗' };
+}));
+console.log(fallas ? `${fallas} caso(s) fallaron` : `Los ${CASOS.length + ZONAS.length + MONO.length} casos dan lo esperado`);
 process.exit(fallas ? 1 : 0);
