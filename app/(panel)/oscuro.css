@@ -114,3 +114,7 @@
 :root[data-modo="oscuro"] .app .columna-cantidad { background: #2E3131; color: #E9EDEF; }
 :root[data-modo="oscuro"] .app :is(.pagina, main.pagina) { background-color: #111414; }
 :root[data-modo="oscuro"] .app :is(.tabla, .tabla td) { background-color: transparent; color: #E9EDEF; }
+
+/* Calculadora de IMC (Formularios) */
+:root[data-modo="oscuro"] .app .imc-resultado { background: #2A2F31; }
+:root[data-modo="oscuro"] .app .imc-alto { background: #3A2024; color: #F7B5BE; }

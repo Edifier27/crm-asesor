@@ -7,6 +7,7 @@ import { refrescarFormularios } from './acciones';
 import { BUCKET_FORMULARIOS, MAX_MB_FORMULARIO, PREFIJO_FORMULARIOS } from '@/lib/formularios';
 import { nombreVisible, ventana } from '@/lib/formato';
 import { CACHE_ARCHIVO } from '@/lib/cache-archivos';
+import CalculadoraImc from './CalculadoraImc';
 
 const ACEPTA = '.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png';
 const tamano = (b) => (b ? (b > 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`) : '');
@@ -138,6 +139,8 @@ export default function Formularios({ inicial }) {
       </header>
 
       {aviso && <p className="pp-aviso" role="status">{aviso}</p>}
+
+      <CalculadoraImc />
 
       <section className="tarjeta">
         {formularios.length > 5 && (
