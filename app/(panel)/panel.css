@@ -929,3 +929,13 @@ a.riel-usuario { text-decoration: none; color: inherit; }
   .imc-quitar { grid-row: 1; grid-column: 2; justify-self: end; padding: 4px 10px; }
   .imc-resultado { grid-column: 1 / -1; }
 }
+
+/* Consultar CUIL (Formularios) */
+.cuil { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.cuil-fila { display: grid; grid-template-columns: minmax(110px, 180px) auto 1fr; gap: 10px; align-items: end; }
+.cuil-sexo { display: flex; gap: 6px; }
+.cuil-resultado strong { letter-spacing: 0.04em; }
+.cuil-resultado button { margin-left: auto; padding: 4px 12px; }
+@media (max-width: 640px) {
+  .cuil-fila { grid-template-columns: 1fr; }
+}
