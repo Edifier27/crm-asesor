@@ -11,6 +11,7 @@ import ReproductorGlobal from '../(panel)/componentes/ReproductorGlobal';
 import Intro from '../(panel)/componentes/Intro';
 import Tablero from '../(panel)/embudo/Tablero';
 import CalculadoraImc from '../(panel)/formularios/CalculadoraImc';
+import CalculadoraCuil from '../(panel)/formularios/CalculadoraCuil';
 
 // Tono de prueba (WAV) para escuchar la nota de voz sin servidor
 function tono(segundos = 6) {
@@ -73,7 +74,7 @@ export default function VistaPrevia() {
   const [imc, setImc] = useState(false);
   useEffect(() => { setImc(new URLSearchParams(location.search).has('imc')); }, []);
   // /vista-previa?imc → la calculadora de IMC de Formularios
-  if (imc) return <main className="pagina"><CalculadoraImc /></main>;
+  if (imc) return <main className="pagina"><CalculadoraImc /><CalculadoraCuil /></main>;
   if (embudo) return <div className="app"><Tablero key={cantidad} etapas={ETAPAS_EJEMPLO} inicial={cantidad ? muchosLeads(cantidad) : LEADS_EJEMPLO} /></div>;
   if (!audio) return null;
 
