@@ -1,5 +1,5 @@
 // Prueba de lib/ia/reglas-mensaje.js: node scripts/probar-reglas-ia.mjs
-import { motivoPlanFueraDeZona, motivoPrecioEspecialConRecibo, motivoProhibido } from '../lib/ia/reglas-mensaje.js';
+import { motivoPlanFueraDeZona, motivoPrecioEspecialConRecibo, motivoProhibido, soloMayores66 } from '../lib/ia/reglas-mensaje.js';
 
 const NOMBRES = ['Darío', 'Gabriela', 'Gaby'];
 // [texto, debe bloquearse]
@@ -80,5 +80,16 @@ console.table(MONO.map(([texto, contacto, bloquear]) => {
   if (!bien) fallas++;
   return { texto: texto.slice(0, 50), contacto: JSON.stringify(contacto).slice(0, 60), obtenido: motivo ? 'bloquea' : 'sale', '': bien ? '✓' : '✗' };
 }));
-console.log(fallas ? `${fallas} caso(s) fallaron` : `Los ${CASOS.length + ZONAS.length + MONO.length} casos dan lo esperado`);
+// Persona sola de 66 o más: la IA deja de hablarle (Darío, 3-nov-2026)
+const EDADES = [
+  [[{ edad: 67 }], true], [[{ edad: '70' }], true], [[{ edad: 66 }, { edad: 72 }], true],
+  [[{ edad: 65 }], false], [[{ edad: 65 }, { edad: 69 }], false], [[{ edad: 40 }, { edad: 38 }, { edad: 70 }], false],
+  [[], false], [[{ edad: null }], false]
+];
+console.table(EDADES.map(([integrantes, esperado]) => {
+  const r = soloMayores66(integrantes);
+  if (r !== esperado) fallas++;
+  return { edades: integrantes.map((i) => i.edad).join(', ') || '(sin dato)', esperado, obtenido: r, '': r === esperado ? '✓' : '✗' };
+}));
+console.log(fallas ? `${fallas} caso(s) fallaron` : `Los ${CASOS.length + ZONAS.length + MONO.length + EDADES.length} casos dan lo esperado`);
 process.exit(fallas ? 1 : 0);
