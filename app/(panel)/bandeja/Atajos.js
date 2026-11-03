@@ -12,11 +12,10 @@ const ATAJOS = [
   ['Ctrl + Alt + U', 'Marcar el chat abierto como no leído'],
   ['Ctrl + Alt + E', 'Archivar o desarchivar el chat abierto'],
   ['Ctrl + Shift + F', 'Buscar dentro del chat abierto'],
-  ['Esc', 'Cerrar el chat (o el panel abierto)'],
+  ['Esc', 'Cerrar la foto, el documento o el panel abierto (el chat sigue abierto)'],
   ['Ctrl + /', 'Ver esta lista']
 ];
 
-const escribiendo = (el) => el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
 
 /**
  * visibles: los chats en el orden de la lista. activo: id del chat abierto.
@@ -51,7 +50,8 @@ export default function Atajos({ visibles, activo, onNoLeido, onArchivar }) {
       } else if (ctrl && e.altKey && tecla === 'u' && actual) noLeido(actual);
       else if (ctrl && e.altKey && tecla === 'e' && actual) archivar(actual);
       else if (ctrl && e.shiftKey && tecla === 'f' && id) document.querySelector('.cabecera-icono[aria-label="Buscar en el chat"]')?.click();
-      else if (e.key === 'Escape' && id && !escribiendo(document.activeElement) && !document.querySelector('dialog[open], .panel-chat, .ficha.abierta, .menu-mensaje')) router.push('/bandeja');
+      // Esc ya no cierra el chat (Darío, 3-nov-2026): al cerrar una foto agrandada con Esc también lo sacaba de la
+      // conversación. Esc solo cierra la foto, el documento o el panel abierto; cada uno escucha su propio Esc.
       else hecho = false;
       if (hecho) e.preventDefault();
     }
