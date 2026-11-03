@@ -11,6 +11,7 @@ import ProximoPaso from './ProximoPaso';
 import Venta from './Venta';
 import Documentacion from './Documentacion';
 import AuditoriaMedica from './AuditoriaMedica';
+import EnviarACamio from './EnviarACamio';
 
 const ORIGENES = { swiss_medical: 'Swiss Medical', web: 'Web', whatsapp: 'WhatsApp', manual: 'Manual' };
 
@@ -292,6 +293,8 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
 
       <Cotizacion key={JSON.stringify(contacto.cotizacion?.sueldos ?? [])} conversacionId={conversacion.id} contacto={contacto} lista={lista} audios={audios}
         onContacto={(campos) => setContacto((c) => ({ ...c, ...campos }))} />
+
+      <EnviarACamio contacto={contacto} />
     </aside>
     </>
   );

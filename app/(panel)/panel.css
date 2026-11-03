@@ -939,3 +939,7 @@ a.riel-usuario { text-decoration: none; color: inherit; }
 @media (max-width: 640px) {
   .cuil-fila { grid-template-columns: 1fr; }
 }
+
+/* Enviar a Camio (ficha del lead, al pie) */
+.enviar-camio { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--linea); }
+.enviar-camio .boton-secundario { width: 100%; }
