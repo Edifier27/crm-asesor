@@ -6,7 +6,7 @@ import { zonaPorCaracteristica } from '@/lib/caracteristicas';
 import { ZONAS_AUDIO, audiosDelPlan, zonaDeAudio } from '@/lib/audios-plan';
 import { createClient } from '@/lib/supabase/client';
 import { urlFirmada } from '@/lib/url-firmada';
-import { CAMPANIAS, EDAD_MAX_HIJO, ZONA_ROTULO, campaniaPara, campaniasPara, campaniaSugerida, cargaBU, cotizar, edadCotizable, ordenarPlanes, detalleCotizacion, miembrosDesdeRelevamiento, pesos } from '@/lib/cotizador';
+import { CAMPANIAS, EDAD_MAX_HIJO, ZONA_ROTULO, campaniaPara, campaniasPara, campaniaSugerida, cargaBU, cotizar, edadCotizable, ordenarPlanes, detalleCotizacion, miembrosDesdeRelevamiento, pesos, planTopeAportes } from '@/lib/cotizador';
 import { PROVINCIAS_LISTA, datosProvincia, provinciaDesdeTexto, zonaGbaDe } from '@/lib/provincias';
 import { REGIONES, TIERS, cartillaDe, planPdf, regionSugerida, tierDePlan } from '@/lib/documentos';
 import { fechaCorta, hora } from '@/lib/formato';
@@ -134,6 +134,8 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [lista, JSON.stringify(validos), zona, modalidad, campania, JSON.stringify(sueldos)]
   );
+  // Con recibo de sueldo: el plan más alto que cubren los aportes sin diferencia (es el que conviene cotizar)
+  const tope = modalidad === 'derivacion' ? planTopeAportes(resultados)?.plan : null;
   const region = regionSugerida(zona, contacto.relevamiento?.localidad, provincia);
   // Ningún plan viene marcado: el folleto, la cartilla y los audios aparecen recién al tocar uno (Darío, 14-oct-2026:
   // mandaba sin querer el folleto del S1 que venía marcado)
@@ -451,6 +453,7 @@ export default function Cotizacion({ conversacionId, contacto, onContacto, lista
                 onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); alternarPlan(r.plan); } }}>
                 {elegido && <span className="plan-tilde" aria-hidden="true">✓</span>}
                 <span className="plan-nombre">{r.plan}</span>
+                {tope === r.plan && <span className="plan-tope" title="El plan más alto que cubren sus aportes sin pagar diferencia">Sin diferencia · el más alto</span>}
                 {ultimoEnvio[r.plan] && <span className="plan-enviado">Enviado {cuando(ultimoEnvio[r.plan])}</span>}
                 {r.lista !== r.conDescuento && <span className="plan-lista">{pesos(r.lista)}</span>}
                 {r.aporte > 0 && <span className="plan-desc">Aporte −{pesos(r.aporte)}</span>}
