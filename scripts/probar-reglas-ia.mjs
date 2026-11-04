@@ -1,5 +1,5 @@
 // Prueba de lib/ia/reglas-mensaje.js: node scripts/probar-reglas-ia.mjs
-import { motivoPlanFueraDeZona, motivoPrecioEspecialConRecibo, motivoProhibido } from '../lib/ia/reglas-mensaje.js';
+import { motivoIgnoraFreno, motivoPlanFueraDeZona, motivoPrecioEspecialConRecibo, motivoProhibido } from '../lib/ia/reglas-mensaje.js';
 
 const NOMBRES = ['Darío', 'Gabriela', 'Gaby'];
 // [texto, debe bloquearse]
@@ -80,5 +80,20 @@ console.table(MONO.map(([texto, contacto, bloquear]) => {
   if (!bien) fallas++;
   return { texto: texto.slice(0, 50), contacto: JSON.stringify(contacto).slice(0, 60), obtenido: motivo ? 'bloquea' : 'sale', '': bien ? '✓' : '✗' };
 }));
-console.log(fallas ? `${fallas} caso(s) fallaron` : `Los ${CASOS.length + ZONAS.length + MONO.length} casos dan lo esperado`);
+// "Sí, pero por ahora no": no se festeja ni se empuja el cierre (Vale, de Gaby, 4-nov-2026)
+const VALE = 'Hola si pero por ahora no estoy complicada con los números';
+const FRENOS = [
+  ['me alegra Vale, entonces con lo de los turnos que te tiene cansada lo ideal es resolverlo ya. si lo dejamos listo antes de fin de mes arrancás el 1 de diciembre, lo armamos con el S2 o te queda más cómodo el SMG20 sin copagos?', [VALE], true],
+  ['buenísimo! lo armamos con el S2?', ['lo veo más adelante'], true],
+  ['te entiendo Vale, es un momento complicado. contame, es más por el valor de la cuota o por el momento?', [VALE], false],
+  ['me alegra que te haya gustado! lo armamos con el S2 o el SMG20?', ['sí, me encantó'], false],
+  ['dale, te entiendo. para cuándo te parece que lo retomemos?', ['no me alcanza este mes'], false]
+];
+console.table(FRENOS.map(([texto, cliente, bloquear]) => {
+  const motivo = motivoIgnoraFreno(texto, cliente);
+  const bien = Boolean(motivo) === bloquear;
+  if (!bien) fallas++;
+  return { texto: texto.slice(0, 50), cliente: cliente.join(' | ').slice(0, 40), obtenido: motivo ? 'bloquea' : 'sale', '': bien ? '✓' : '✗' };
+}));
+console.log(fallas ? `${fallas} caso(s) fallaron` : `Los ${CASOS.length + ZONAS.length + MONO.length + FRENOS.length} casos dan lo esperado`);
 process.exit(fallas ? 1 : 0);
