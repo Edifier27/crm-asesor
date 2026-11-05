@@ -34,7 +34,12 @@ const CASOS = [
   ['los chicos tienen el 50% de descuento', true],
   ['los monotributistas tienen un precio especial', false],
   ['descuento en medicamentos del 40% al 70%', false],
-  ['cobertura al 100% desde el primer día', false]
+  ['cobertura al 100% desde el primer día', false],
+  // Copago de estudios (5-nov-2026): fijo solo en consultas; en estudios no se dan montos
+  ['el S1 tiene un copago fijo de 14 mil en consultas y estudios', true],
+  ['una resonancia en estudios sale $20.000', true],
+  ['pagás un copago fijo de $14.000 en las consultas', false],
+  ['el copago fijo es el de las consultas; en los estudios depende del estudio, hay tres niveles', false]
 ];
 
 let fallas = 0;
