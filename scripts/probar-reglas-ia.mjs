@@ -1,4 +1,5 @@
 // Prueba de lib/ia/reglas-mensaje.js: node scripts/probar-reglas-ia.mjs
+import { evaluarSalud, esInstructivoCambioDeOpcion } from '../lib/ia/salud.js';
 import { motivoIgnoraFreno, motivoPlanFueraDeZona, motivoPrecioEspecialConRecibo, motivoProhibido } from '../lib/ia/reglas-mensaje.js';
 
 const NOMBRES = ['Darío', 'Gabriela', 'Gaby'];
@@ -95,5 +96,32 @@ console.table(FRENOS.map(([texto, cliente, bloquear]) => {
   if (!bien) fallas++;
   return { texto: texto.slice(0, 50), cliente: cliente.join(' | ').slice(0, 40), obtenido: motivo ? 'bloquea' : 'sale', '': bien ? '✓' : '✗' };
 }));
-console.log(fallas ? `${fallas} caso(s) fallaron` : `Los ${CASOS.length + ZONAS.length + MONO.length + FRENOS.length} casos dan lo esperado`);
+// Salud del desregulado antes del cambio de opción: solo siguen hipotiroidismo e hipertensión (Darío, 5-nov-2026)
+const T = (medicacion, preexistencias, peso_kg = 75, altura_cm = 170) => ({ parentesco: 'Titular', peso_kg, altura_cm, medicacion, preexistencias });
+const SALUD = [
+  [[T('no', 'no')], 'sigue'],
+  [[T('no tomo nada', 'ninguna, todo bien')], 'sigue'],
+  [[T('levotiroxina 50', 'hipotiroidismo')], 'sigue'],
+  [[T('enalapril', 'presión alta')], 'sigue'],
+  [[T('losartán y levotiroxina', 'hipertensión e hipotiroidismo')], 'sigue'],
+  [[T('metformina', 'diabetes')], 'deriva'],
+  [[T('no', 'asma')], 'deriva'],
+  [[T('no', 'hipotiroidismo y asma')], 'deriva'],
+  [[T('no', 'no', 120, 170)], 'deriva'],
+  [[T('no', 'no', 48, 175)], 'deriva'],
+  [[T('no', 'no'), { ...T('no', 'cirugía de rodilla'), parentesco: 'Pareja' }], 'deriva'],
+  [[T(null, 'no')], 'falta'],
+  [[T('no', 'no', null, null)], 'falta'],
+  [[], 'falta']
+];
+console.table(SALUD.map(([grupo, esperado]) => {
+  const e = evaluarSalud(grupo);
+  const obtenido = e.derivar ? 'deriva' : e.faltan.length ? 'falta' : 'sigue';
+  if (obtenido !== esperado) fallas++;
+  return { grupo: grupo.map((g) => `${g.parentesco}: ${g.preexistencias ?? '?'} / ${g.medicacion ?? '?'} / ${g.peso_kg ?? '?'}kg`).join(' + ').slice(0, 70), obtenido, '': obtenido === esperado ? '✓' : '✗' };
+}));
+for (const [texto, es] of [['te paso el instructivo para el cambio de opción en Mi SSSalud', true], ['perfecto, aguardame un segundo', false]]) {
+  if (esInstructivoCambioDeOpcion(texto) !== es) { fallas++; console.log('✗ instructivo:', texto); }
+}
+console.log(fallas ? `${fallas} caso(s) fallaron` : `Los ${CASOS.length + ZONAS.length + MONO.length + FRENOS.length + SALUD.length + 2} casos dan lo esperado`);
 process.exit(fallas ? 1 : 0);
