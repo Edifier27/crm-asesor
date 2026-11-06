@@ -1,5 +1,6 @@
 // Prueba de lib/ia/reglas-mensaje.js: node scripts/probar-reglas-ia.mjs
-import { motivoPlanFueraDeZona, motivoPrecioEspecialConRecibo, motivoProhibido, soloMayores66 } from '../lib/ia/reglas-mensaje.js';
+import { evaluarSalud, esInstructivoCambioDeOpcion } from '../lib/ia/salud.js';
+import { motivoIgnoraFreno, motivoPlanFueraDeZona, motivoPrecioEspecialConRecibo, motivoProhibido, soloMayores66 } from '../lib/ia/reglas-mensaje.js';
 
 const NOMBRES = ['Darío', 'Gabriela', 'Gaby'];
 // [texto, debe bloquearse]
@@ -91,5 +92,47 @@ console.table(EDADES.map(([integrantes, esperado]) => {
   if (r !== esperado) fallas++;
   return { edades: integrantes.map((i) => i.edad).join(', ') || '(sin dato)', esperado, obtenido: r, '': r === esperado ? '✓' : '✗' };
 }));
-console.log(fallas ? `${fallas} caso(s) fallaron` : `Los ${CASOS.length + ZONAS.length + MONO.length + EDADES.length} casos dan lo esperado`);
+// "Sí, pero por ahora no": no se festeja ni se empuja el cierre (Vale, de Gaby, 4-nov-2026)
+const VALE = 'Hola si pero por ahora no estoy complicada con los números';
+const FRENOS = [
+  ['me alegra Vale, entonces con lo de los turnos que te tiene cansada lo ideal es resolverlo ya. si lo dejamos listo antes de fin de mes arrancás el 1 de diciembre, lo armamos con el S2 o te queda más cómodo el SMG20 sin copagos?', [VALE], true],
+  ['buenísimo! lo armamos con el S2?', ['lo veo más adelante'], true],
+  ['te entiendo Vale, es un momento complicado. contame, es más por el valor de la cuota o por el momento?', [VALE], false],
+  ['me alegra que te haya gustado! lo armamos con el S2 o el SMG20?', ['sí, me encantó'], false],
+  ['dale, te entiendo. para cuándo te parece que lo retomemos?', ['no me alcanza este mes'], false]
+];
+console.table(FRENOS.map(([texto, cliente, bloquear]) => {
+  const motivo = motivoIgnoraFreno(texto, cliente);
+  const bien = Boolean(motivo) === bloquear;
+  if (!bien) fallas++;
+  return { texto: texto.slice(0, 50), cliente: cliente.join(' | ').slice(0, 40), obtenido: motivo ? 'bloquea' : 'sale', '': bien ? '✓' : '✗' };
+}));
+// Salud del desregulado antes del cambio de opción: solo siguen hipotiroidismo e hipertensión (Darío, 5-nov-2026)
+const T = (medicacion, preexistencias, peso_kg = 75, altura_cm = 170) => ({ parentesco: 'Titular', peso_kg, altura_cm, medicacion, preexistencias });
+const SALUD = [
+  [[T('no', 'no')], 'sigue'],
+  [[T('no tomo nada', 'ninguna, todo bien')], 'sigue'],
+  [[T('levotiroxina 50', 'hipotiroidismo')], 'sigue'],
+  [[T('enalapril', 'presión alta')], 'sigue'],
+  [[T('losartán y levotiroxina', 'hipertensión e hipotiroidismo')], 'sigue'],
+  [[T('metformina', 'diabetes')], 'deriva'],
+  [[T('no', 'asma')], 'deriva'],
+  [[T('no', 'hipotiroidismo y asma')], 'deriva'],
+  [[T('no', 'no', 120, 170)], 'deriva'],
+  [[T('no', 'no', 48, 175)], 'deriva'],
+  [[T('no', 'no'), { ...T('no', 'cirugía de rodilla'), parentesco: 'Pareja' }], 'deriva'],
+  [[T(null, 'no')], 'falta'],
+  [[T('no', 'no', null, null)], 'falta'],
+  [[], 'falta']
+];
+console.table(SALUD.map(([grupo, esperado]) => {
+  const e = evaluarSalud(grupo);
+  const obtenido = e.derivar ? 'deriva' : e.faltan.length ? 'falta' : 'sigue';
+  if (obtenido !== esperado) fallas++;
+  return { grupo: grupo.map((g) => `${g.parentesco}: ${g.preexistencias ?? '?'} / ${g.medicacion ?? '?'} / ${g.peso_kg ?? '?'}kg`).join(' + ').slice(0, 70), obtenido, '': obtenido === esperado ? '✓' : '✗' };
+}));
+for (const [texto, es] of [['te paso el instructivo para el cambio de opción en Mi SSSalud', true], ['perfecto, aguardame un segundo', false]]) {
+  if (esInstructivoCambioDeOpcion(texto) !== es) { fallas++; console.log('✗ instructivo:', texto); }
+}
+console.log(fallas ? `${fallas} caso(s) fallaron` : `Los ${CASOS.length + ZONAS.length + MONO.length + FRENOS.length + SALUD.length + EDADES.length + 2} casos dan lo esperado`);
 process.exit(fallas ? 1 : 0);

@@ -8,7 +8,7 @@ const MAX_SEGUNDOS = 300;
 const FORMATOS_NATIVOS = [['audio/ogg;codecs=opus', 'ogg'], ['audio/mp4;codecs=mp4a.40.2', 'm4a'], ['audio/mp4', 'm4a']];
 const BARRAS = 42;
 // Una nota de voz con sonido pesaba unos 6 KB por segundo (medido en 400 audios del CRM: ninguno por debajo de 4,4 KB/s);
-// desde el 21-oct-2026 se graba a 24 kbps (unos 3 KB/s, mínimo esperado ~2,2). Si pesa menos de 1 KB por segundo, el
+// desde el 21-oct-2026 se grababa a 24 kbps y desde el 3-nov-2026 a 32 kbps (unos 4 KB/s). Si pesa menos de 1 KB por segundo, el
 // micrófono no mandó sonido.
 const BYTES_MINIMOS_POR_SEGUNDO = 1000;
 
@@ -32,7 +32,7 @@ export default function Grabador({ deshabilitado, onListo, onError, onEstado, di
   const acumulado = useRef(0);      // ms grabados antes de la última pausa
   const tramo = useRef(0);          // inicio del tramo actual
   const temporizador = useRef(null);
-  const medidor = useRef(null);     // { contexto, analizador, stream, intervalo }
+  const medidor = useRef(null);     // { contexto, fuente, analizador, intervalo, propio }
   // Pantalla siempre prendida mientras se graba (Darío, 16-oct-2026: en el celular se bloqueaba a mitad de un audio)
   const pantalla = useRef(null);    // WakeLockSentinel
   const grabandoRef = useRef(false);
@@ -61,14 +61,24 @@ export default function Grabador({ deshabilitado, onListo, onError, onEstado, di
 
   useEffect(() => () => { clearInterval(temporizador.current); apagarMedidor(); try { motor.current?.rec?.stop(); } catch {} }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Onda en vivo: nivel de la voz cada 100 ms (con su propio acceso al micrófono, sirve para los dos motores)
-  async function prenderMedidor() {
+  // Onda en vivo: nivel de la voz cada 100 ms. Usa el MISMO micrófono que la grabación (3-nov-2026: antes abría un
+  // segundo acceso al micrófono con su propio AudioContext; en el celular dos capturas a la vez con cancelación de eco
+  // ensucian el audio y pueden sonar "robóticas").
+  function prenderMedidor() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const contexto = new (window.AudioContext || window.webkitAudioContext)();
+      const m = motor.current;
+      let contexto, fuente, propio = false;
+      if (m?.tipo === 'opus' && m.rec?.audioContext && m.rec?.sourceNode) {
+        contexto = m.rec.audioContext;
+        fuente = m.rec.sourceNode;
+      } else if (m?.stream) {
+        contexto = new (window.AudioContext || window.webkitAudioContext)();
+        fuente = contexto.createMediaStreamSource(m.stream);
+        propio = true;
+      } else return;
       const analizador = contexto.createAnalyser();
       analizador.fftSize = 512;
-      contexto.createMediaStreamSource(stream).connect(analizador);
+      fuente.connect(analizador);
       const datos = new Uint8Array(analizador.fftSize);
       const intervalo = setInterval(() => {
         if (!tramo.current) return; // en pausa la onda se queda quieta
@@ -78,15 +88,15 @@ export default function Grabador({ deshabilitado, onListo, onError, onEstado, di
         const nivel = Math.min(1, Math.sqrt(suma / datos.length) * 4);
         setNiveles((l) => [...l.slice(-(BARRAS - 1)), nivel]);
       }, 100);
-      medidor.current = { contexto, stream, intervalo };
+      medidor.current = { contexto, fuente, analizador, intervalo, propio };
     } catch { /* sin onda: igual se graba */ }
   }
   function apagarMedidor() {
     const m = medidor.current;
     if (!m) return;
     clearInterval(m.intervalo);
-    m.stream.getTracks().forEach((t) => t.stop());
-    m.contexto.close().catch(() => {});
+    try { m.fuente.disconnect(m.analizador); } catch { /* ya desconectado */ }
+    if (m.propio) m.contexto.close().catch(() => {});
     medidor.current = null;
   }
 
@@ -97,8 +107,14 @@ export default function Grabador({ deshabilitado, onListo, onError, onEstado, di
       encoderPath: '/opus/encoderWorker.min.js',
       encoderApplication: 2048, // voz
       encoderSampleRate: 48000,
-      encoderBitRate: 24000,    // como las notas de voz de WhatsApp: pesa la mitad y se oye igual de bien
-      numberOfChannels: 1
+      // 3-nov-2026 (audios que llegaban "robóticos"): el codificador corre dentro del hilo de audio del navegador
+      // (AudioWorklet). Con la complejidad máxima de Opus (10), en un celular cargado no llega a tiempo y el audio se
+      // entrecorta. Con 5 alcanza de sobra para voz. Y 32 kbps en vez de 24 para que la voz suene más natural.
+      encoderComplexity: 5,
+      encoderBitRate: 32000,
+      numberOfChannels: 1,
+      // Sin cancelación de eco (para una nota de voz no hace falta y en el celular puede metalizar la voz)
+      mediaTrackConstraints: { echoCancellation: false, noiseSuppression: true, autoGainControl: true }
     });
     rec.ondataavailable = (bytes) => terminar(new Blob([bytes], { type: 'audio/ogg' }), 'ogg', 'audio/ogg');
     await rec.start(); // pide permiso de micrófono
@@ -109,14 +125,14 @@ export default function Grabador({ deshabilitado, onListo, onError, onEstado, di
   async function empezarNativo() {
     const formato = typeof MediaRecorder !== 'undefined' ? FORMATOS_NATIVOS.find(([t]) => MediaRecorder.isTypeSupported(t)) : null;
     if (!formato) throw new Error('formato');
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const rec = new MediaRecorder(stream, { mimeType: formato[0] });
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: true } });
+    const rec = new MediaRecorder(stream, { mimeType: formato[0], audioBitsPerSecond: 32000 });
     const mime = formato[0].split(';')[0];
     partes.current = [];
     rec.ondataavailable = (e) => e.data.size && partes.current.push(e.data);
     rec.onstop = () => { stream.getTracks().forEach((t) => t.stop()); terminar(new Blob(partes.current, { type: mime }), formato[1], mime); };
     rec.start();
-    motor.current = { tipo: 'nativo', rec };
+    motor.current = { tipo: 'nativo', rec, stream };
   }
 
   async function empezar() {

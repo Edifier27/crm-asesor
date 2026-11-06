@@ -122,6 +122,9 @@ Nunca commitear secretos.
   globitos) queda marcado (`conversaciones.seguimiento_por_asesor`) y, hasta esa fecha, ni la IA (`gestionar_seguimiento`,
   default de fin de turno, cotización) ni `programarSecuencia` lo pisan; solo una fecha acordada con el cliente. Al
   llegar el paso, `procesarUno` saca la marca. Sin la columna no hace nada (las lecturas ignoran el error).
+- TOPE DE APORTES (Darío, 4-nov-2026): con recibo de sueldo, `planTopeAportes` (lib/cotizador.js) = el plan más alto
+  (sin Sport) que los aportes cubren sin diferencia. La IA cotiza ese en vez del que pidió si es más alto
+  (`cotizacionParaIA`, `porAportes`); en la ficha el carrusel lo marca "Sin diferencia · el más alto".
 - AUDITORÍA MÉDICA NO SE TOCA (Darío, 20-oct-2026: preexistencias, tema delicado): nunca sale nada automático. Sin
   seguimientos ni fecha acordada (`procesarUno` lo chequea antes), sin campañas ni base del mes (`lib/bases.js`), sin
   columnas de 60 días, sin mensaje de ausencia, la IA no le escribe (`responderComoAsesor`) y "Que siga la IA" lo rechaza.
