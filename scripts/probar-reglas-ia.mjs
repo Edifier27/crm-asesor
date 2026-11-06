@@ -1,6 +1,6 @@
 // Prueba de lib/ia/reglas-mensaje.js: node scripts/probar-reglas-ia.mjs
 import { evaluarSalud, esInstructivoCambioDeOpcion } from '../lib/ia/salud.js';
-import { motivoIgnoraFreno, motivoPlanFueraDeZona, motivoPrecioEspecialConRecibo, motivoProhibido } from '../lib/ia/reglas-mensaje.js';
+import { motivoIgnoraFreno, motivoPlanFueraDeZona, motivoPrecioEspecialConRecibo, motivoProhibido, soloMayores66 } from '../lib/ia/reglas-mensaje.js';
 
 const NOMBRES = ['Darío', 'Gabriela', 'Gaby'];
 // [texto, debe bloquearse]
@@ -86,6 +86,17 @@ console.table(MONO.map(([texto, contacto, bloquear]) => {
   if (!bien) fallas++;
   return { texto: texto.slice(0, 50), contacto: JSON.stringify(contacto).slice(0, 60), obtenido: motivo ? 'bloquea' : 'sale', '': bien ? '✓' : '✗' };
 }));
+// Persona sola de 66 o más: la IA deja de hablarle (Darío, 3-nov-2026)
+const EDADES = [
+  [[{ edad: 67 }], true], [[{ edad: '70' }], true], [[{ edad: 66 }, { edad: 72 }], true],
+  [[{ edad: 65 }], false], [[{ edad: 65 }, { edad: 69 }], false], [[{ edad: 40 }, { edad: 38 }, { edad: 70 }], false],
+  [[], false], [[{ edad: null }], false]
+];
+console.table(EDADES.map(([integrantes, esperado]) => {
+  const r = soloMayores66(integrantes);
+  if (r !== esperado) fallas++;
+  return { edades: integrantes.map((i) => i.edad).join(', ') || '(sin dato)', esperado, obtenido: r, '': r === esperado ? '✓' : '✗' };
+}));
 // "Sí, pero por ahora no": no se festeja ni se empuja el cierre (Vale, de Gaby, 4-nov-2026)
 const VALE = 'Hola si pero por ahora no estoy complicada con los números';
 const FRENOS = [
@@ -128,5 +139,5 @@ console.table(SALUD.map(([grupo, esperado]) => {
 for (const [texto, es] of [['te paso el instructivo para el cambio de opción en Mi SSSalud', true], ['perfecto, aguardame un segundo', false]]) {
   if (esInstructivoCambioDeOpcion(texto) !== es) { fallas++; console.log('✗ instructivo:', texto); }
 }
-console.log(fallas ? `${fallas} caso(s) fallaron` : `Los ${CASOS.length + ZONAS.length + MONO.length + FRENOS.length + SALUD.length + 2} casos dan lo esperado`);
+console.log(fallas ? `${fallas} caso(s) fallaron` : `Los ${CASOS.length + ZONAS.length + MONO.length + FRENOS.length + SALUD.length + EDADES.length + 2} casos dan lo esperado`);
 process.exit(fallas ? 1 : 0);
