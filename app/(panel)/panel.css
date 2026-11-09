@@ -956,3 +956,5 @@ a.riel-usuario { text-decoration: none; color: inherit; }
 .planilla .estado-baja { color: var(--texto-suave); }
 .planilla .fila-baja { opacity: .55; }
 .planilla-fila-acciones { display: flex; gap: 10px; align-items: center; white-space: nowrap; }
+.planilla .boton-ir-chat { font-size: 12px; padding: 5px 10px; white-space: nowrap; text-decoration: none; }
+.planilla .sin-chat { font-size: 12px; color: var(--texto-suave); }
