@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Salesforce ← AsesorCRM — Pedidos de link de alta (automático)
 // @namespace    sf-crm-pedidos
-// @version      0.3
-// @description  Toma los pedidos de "link de alta" del CRM y los hace solo en Salesforce: candidato → Listo para convertir → Convertir → (cotizás vos) → sincronizar → Generar link → devuelve el link al CRM. Comparte el SEMÁFORO con el script de transición (los leads de OmniCanal tienen prioridad).
+// @version      0.4
+// @description  Toma los pedidos de "link de alta" del CRM y los hace solo en Salesforce: candidato → Listo para convertir → Convertir → (cotizás vos) → sincronizar → Generar link → devuelve el link al CRM. v0.4: además mira la etapa de las Oportunidades de las ventas (falta de cobro / impactada) y se la avisa al CRM. Comparte el SEMÁFORO con el script de transición (los leads de OmniCanal tienen prioridad).
 // @match        https://swissmedical.lightning.force.com/*
 // @noframes
 // @connect      asesorcrm.com.ar
@@ -16,6 +16,8 @@
 //  3. La cotización la hacés vos (v0.3): el script abre el Cotizador y te muestra los datos; cuando tocás
 //     "Ya coticé, seguí", sincroniza, genera el link y se lo devuelve al CRM, que se lo manda al cliente.
 //  4. Si hay un lead de OmniCanal esperando, frena en el próximo paso seguro y deja trabajar a la transición.
+//  5. Cada 20 minutos, si está libre, mira la etapa de las Oportunidades de las ventas en una pestaña invisible (sin
+//     mover la tuya): "En Proceso de Cobro" → el CRM le manda el link de pago al cliente; "Cerrada" → impactada.
 // PASO_A_PASO = true: antes de cada clic te pregunta "¿sigo?". Dejalo así en las primeras pruebas.
 
 (function () {
@@ -29,6 +31,8 @@
   const AUTOMATICO = true;    // false: solo muestra los pedidos y vos tocás "Empezar"
 
   const CRM = 'https://asesorcrm.com.ar/api/salesforce/acciones';
+  const CRM_OPORTUNIDADES = 'https://asesorcrm.com.ar/api/salesforce/oportunidades';
+  const MIRAR_ETAPAS_CADA_MS = 20 * 60 * 1000;
   const CADA_MS = 60 * 1000;
   const INTENTOS_POR_PASO = 3;
 
@@ -259,7 +263,7 @@
     await esperar(2000);
     const tramite = texto(uno('[data-target-selection-name="sfdc:RecordField.Opportunity.SMG_Opportunity_TransactionNumber__c"] .test-id__field-value')).replace(/\D/g, '')
       || (r.link.match(/\/(\d{6,})\/?$/) ?? [])[1] || null;
-    const res = await pedir('PATCH', `${CRM}/${e.accion.id}`, { estado: 'listo', link: r.link, precarga: tramite, salesforce_id: e.accion.datos?.salesforce_id ?? null });
+    const res = await pedir('PATCH', `${CRM}/${e.accion.id}`, { estado: 'listo', link: r.link, precarga: tramite, salesforce_id: e.accion.datos?.salesforce_id ?? null, oportunidad: e.oportunidad ?? null });
     if (res.status !== 200) throw new Error(`El CRM no aceptó el link: ${res.error || res.status}`);
     log(`✓ Link de ${e.accion.datos?.nombre} enviado al CRM`);
     limpiar();
@@ -322,7 +326,47 @@
     panel.querySelector('#crm-empezar').onclick = empezar;
   }
 
+  // ── Etapa de las Oportunidades (v0.4) ──
+  const ETAPA_DE_TAB = { aCotizarPathTab: 'A cotizar', propuestaEnviadaPathTab: 'Propuesta Enviada', amPathTab: 'AM', enProcesoDeAltaPathTab: 'En Proceso de Alta', enProcesoDeCobroPathTab: 'En Proceso de Cobro', closedPathTab: 'Cerrada' };
+  function etapaEnPestanaInvisible(oportunidad) {
+    return new Promise((resolver) => {
+      const f = document.createElement('iframe');
+      f.style.cssText = 'position:fixed;left:-9999px;top:0;width:1200px;height:900px;visibility:hidden';
+      f.src = `/lightning/r/Opportunity/${oportunidad}/view`;
+      document.body.appendChild(f);
+      const t0 = Date.now();
+      const mirar = () => {
+        let tab = null;
+        try { const li = todos('li[data-target-selection-name$="PathTab"].slds-is-current', f.contentDocument)[0]; tab = li?.getAttribute('data-target-selection-name'); } catch (e) {}
+        if (tab || Date.now() - t0 > 45000) { f.remove(); return resolver(tab ? ETAPA_DE_TAB[tab] ?? null : null); }
+        setTimeout(mirar, 1500);
+      };
+      setTimeout(mirar, 5000);
+    });
+  }
+  let mirandoEtapas = false;
+  async function mirarEtapas() {
+    if (mirandoEtapas || CRM_CLAVE.startsWith('PEGAR') || estado() || prioridadDeOtro() || !libreParaMi()) return;
+    mirandoEtapas = true;
+    try {
+      const r = await pedir('GET', CRM_OPORTUNIDADES);
+      if (r.status !== 200) { log(`No pude traer las ventas a mirar: ${r.error || r.status}`); return; }
+      for (const v of r.ventas ?? []) {
+        if (estado() || prioridadDeOtro()) break; // hay un pedido o un lead de OmniCanal: se sigue después
+        const etapa = await etapaEnPestanaInvisible(v.oportunidad);
+        if (!etapa) { log(`No pude leer la etapa de ${v.oportunidad}`); continue; }
+        const res = await pedir('POST', CRM_OPORTUNIDADES, { contacto_id: v.contacto_id, etapa });
+        log(`Oportunidad ${v.oportunidad}: ${etapa}${res.hizo && res.hizo !== 'nada' ? ` → CRM: ${res.hizo}` : ''}`);
+        await esperar(3000);
+      }
+    } finally {
+      mirandoEtapas = false;
+    }
+  }
+
   const conTiempoLibre = (fn) => (typeof requestIdleCallback === 'function' ? requestIdleCallback(fn, { timeout: 2000 }) : setTimeout(fn, 0));
   setTimeout(() => conTiempoLibre(revisarCola), 6000);   // al cargar: si había un pedido a medias, sigue
   setInterval(() => conTiempoLibre(revisarCola), CADA_MS);
+  setTimeout(() => conTiempoLibre(mirarEtapas), 90 * 1000);
+  setInterval(() => conTiempoLibre(mirarEtapas), MIRAR_ETAPAS_CADA_MS);
 })();

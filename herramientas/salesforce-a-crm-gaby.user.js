@@ -4,6 +4,7 @@
 // @version      3.7
 // @description  Automático con reintentos ante cortes de red, pausas variables, anti-duplicado, chequeo de pestaña activa, auto-refresco de la lista SEMÁFORO compartido con el script de pedidos (no se pisan) y el id del candidato para el CRM (v3.7). Envía el lead al CRM de Gabriela (antes Kommo)
 // @match        https://swissmedical.lightning.force.com/*
+// @noframes
 // @connect      asesorcrm.com.ar
 // @grant        GM_xmlhttpRequest
 // ==/UserScript==
