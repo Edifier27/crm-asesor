@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { campaniaPara, cargaBU, cotizar, miembrosDesdeRelevamiento } from '@/lib/cotizador';
-import { datosProvincia } from '@/lib/provincias';
+import { cargaDeLaVenta } from '@/lib/planilla';
 import { nombreMes } from '@/lib/formato';
 import PlanillaVentas from './PlanillaVentas';
 
@@ -10,24 +9,6 @@ export const metadata = { title: 'Planilla de ventas' };
 // Mes actual en Argentina, como 'AAAA-MM'
 const mesDeHoy = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit' }).format(new Date());
 const siguiente = (mes) => { const [a, m] = mes.split('-').map(Number); return m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, '0')}`; };
-
-// Carga BU de una venta del CRM, con la cotización del lead (la misma cuenta que la ficha): se calcula una vez, con la
-// lista vigente cuando aparece en la planilla, y queda guardada (se puede corregir a mano)
-const normalizarPlan = (p) => String(p ?? '').toUpperCase().replace(/[\s.\-_]/g, '');
-
-function cargaDeLaVenta(lista, contacto, fila) {
-  const rel = contacto?.relevamiento ?? {};
-  const cot = contacto?.cotizacion ?? {};
-  const ultima = (cot.enviadas ?? []).find((e) => e.tipo === 'cotizacion');
-  const modalidad = fila.tipo === 'desregulado' ? 'derivacion' : 'directo';
-  const zona = datosProvincia(rel.provincia)?.zona ?? ultima?.zona ?? contacto?.zona;
-  const miembros = miembrosDesdeRelevamiento(rel.integrantes);
-  if (!lista || !zona || !miembros.length || !fila.plan) return null;
-  const r = cotizar(lista, { miembros, zona, modalidad, campania: campaniaPara(ultima?.campania ?? cot.campania ?? 'familiar', modalidad), sueldos: (cot.sueldos ?? []).map(Number) })
-    // "smg 02", "Smg02" o "SMG-02" son el SMG02 (el plan puede venir escrito a mano)
-    .find((x) => normalizarPlan(x.plan) === normalizarPlan(fila.plan));
-  return r ? cargaBU(r.conDescuento, modalidad, zona) : null;
-}
 
 /**
  * Planilla de ventas por mes (Darío, 9-nov-2026; migración 0075): todas las ventas hechas, impactadas o en falta de
