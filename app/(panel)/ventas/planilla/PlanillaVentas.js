@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { pesos } from '@/lib/cotizador';
-import { recordarPago } from './acciones';
+import { recalcularCargaBU, recordarPago } from './acciones';
 
 // Planilla de ventas del mes (Darío, 9-nov-2026; migración 0075). Cada celda se corrige ahí mismo y se guarda al salir;
 // lo corregido a mano ya no lo pisa la venta del CRM (salvo el estado, que sigue a la etapa: impactada / falta de cobro).
@@ -99,7 +99,15 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
     setFilas((l) => l.map((f) => (f.id === fila.id ? { ...f, [campo]: limpio } : f)));
     // El estado no marca la fila como corregida: es lo que sigue a la venta del CRM
     const { error } = await supabase.from('ventas').update({ [campo]: limpio, ...(campo === 'estado' ? {} : { editada_a_mano: true }), actualizado_at: new Date().toISOString() }).eq('id', fila.id);
-    if (error) { setFilas((l) => l.map((f) => (f.id === fila.id ? { ...f, [campo]: antes } : f))); avisar(`No se pudo guardar: ${error.message}`); }
+    if (error) { setFilas((l) => l.map((f) => (f.id === fila.id ? { ...f, [campo]: antes } : f))); avisar(`No se pudo guardar: ${error.message}`); return; }
+    // Cambió el plan o el tipo: la carga BU se vuelve a calcular con el cotizador (Darío, 9-nov-2026)
+    if (campo === 'plan' || campo === 'tipo') {
+      const r = await recalcularCargaBU(fila.id);
+      if (r?.carga_bu != null) {
+        setFilas((l) => l.map((f) => (f.id === fila.id ? { ...f, carga_bu: r.carga_bu } : f)));
+        avisar(`Carga BU recalculada: $ ${Math.round(r.carga_bu).toLocaleString('es-AR')}`);
+      } else if (r?.motivo || r?.error) avisar(r.motivo || r.error);
+    }
   }
 
   // onboarding: venta hecha en el otro sistema (OV larga); se ve en otro color
@@ -178,7 +186,8 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
       </select>;
     }
     if (tipo === 'pesos') {
-      return <input {...comun} inputMode="numeric" defaultValue={f.carga_bu ? Number(f.carga_bu).toLocaleString('es-AR') : ''} placeholder="—"
+      // key con el valor: si se recalcula (cambio de plan o tipo), la celda muestra el nuevo
+      return <input {...comun} key={`bu-${f.id}-${f.carga_bu ?? ''}`} inputMode="numeric" defaultValue={f.carga_bu ? Number(f.carga_bu).toLocaleString('es-AR') : ''} placeholder="—"
         onBlur={(e) => guardar(f, campo, e.target.value)} />;
     }
     return <input {...comun} type={tipo === 'date' ? 'date' : 'text'} inputMode={tipo === 'num' ? 'numeric' : undefined}
