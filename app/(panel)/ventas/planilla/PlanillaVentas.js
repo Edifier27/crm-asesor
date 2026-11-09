@@ -119,7 +119,7 @@ export default function PlanillaVentas({ mes, conMes = false, opcionesMes = [], 
   }
 
   function exportar() {
-    const lineas = [[...columnas.map(([, t]) => csv(t)), ...(conMes ? [csv('OV larga')] : [])].join(';'), ...visibles.map((f) => [
+    const lineas = [[...columnas.map(([, t]) => csv(t)), ...(conMes ? [csv('Onboarding')] : [])].join(';'), ...visibles.map((f) => [
       ...columnas.map(([c]) => csv(c === 'estado' ? ESTADOS[f[c]] : c === 'tipo' ? TIPOS[f[c]] : c === 'mes' ? String(f.mes ?? '').slice(0, 7) : f[c])),
       ...(conMes ? [csv(f.onboarding ? 'Sí' : '')] : [])
     ].join(';'))];
@@ -141,7 +141,7 @@ export default function PlanillaVentas({ mes, conMes = false, opcionesMes = [], 
           </select>
           <button type="button" className={`boton-ov${f.onboarding ? ' activo' : ''}`} aria-pressed={Boolean(f.onboarding)}
             title={f.onboarding ? 'Hecha por OV larga (onboarding). Tocá para sacarlo' : 'Marcar como hecha por OV larga (onboarding)'}
-            onClick={() => guardar(f, 'onboarding', !f.onboarding)}>OVL</button>
+            onClick={() => guardar(f, 'onboarding', !f.onboarding)}>ONBOARDING</button>
         </span>
       );
     }
@@ -225,7 +225,7 @@ export default function PlanillaVentas({ mes, conMes = false, opcionesMes = [], 
         )}
         <p className="selector-detalle">
           {conMes ? 'Cada venta va en su mes de producción: se completa solo con el mes de la venta y lo cambiás en la primera columna (ej.: una venta del 4/11 que cierra octubre).' : 'Va cada venta en el mes en que se hizo.'} Las del CRM entran solas y su estado sigue a la etapa del lead (Ganado = impactada,
-          Falta de cobro = falta de cobro). Lo que corregís acá queda guardado y no se pisa.{conMes ? ' Las ventas hechas por OV larga (onboarding, botón OVL) se ven en lila.' : ''} La carga BU se calcula con la cotización
+          Falta de cobro = falta de cobro). Lo que corregís acá queda guardado y no se pisa.{conMes ? ' Las ventas hechas por OV larga (botón ONBOARDING) se ven en lila.' : ''} La carga BU se calcula con la cotización
           del lead; si no tiene, cargala a mano.
         </p>
       </section>

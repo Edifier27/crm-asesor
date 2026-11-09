@@ -183,7 +183,7 @@ Nunca commitear secretos.
   afiliación = asociarme.swissmedical.com.ar/asesor/<usuario>/<legajo>/<número> (Darío confirma qué es el número).
 - PLANILLA: MES DE PRODUCCIÓN, ORIGEN Y OV LARGA (migración 0076, 9-nov-2026): `ventas.mes` (1° del mes; lo completa el
   trigger `ventas_mes_de_produccion` con el mes de la venta; desplegable en la 1ª columna, las pestañas filtran por él),
-  `ventas.origen` (globito de color; SGC no se ofrece) y `ventas.onboarding` = "OV larga" (botón OVL, "+ Venta por OV
+  `ventas.origen` (globito de color; SGC no se ofrece) y `ventas.onboarding` = "OV larga" (botón ONBOARDING, "+ Venta por OV
   larga", casilla en Registrar venta; fila lila). Tarjetas de arriba filtran (estado y Vendido PrepagaYa/Salesforce con
   carga BU). En falta de cobro: chip de vigencia + "Recordar pago" (`recordarPago` en ventas/planilla/acciones.js: texto
   con la ventana abierta, plantilla del link de pago si está cerrada). En el celular cada venta es una tarjeta. Sin la
