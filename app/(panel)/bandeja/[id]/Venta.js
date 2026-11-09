@@ -25,7 +25,7 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
     tipo: tipoDeModalidad(ultima?.modalidad ?? contacto.cotizacion?.modalidad),
     plan: contacto.plan_cotizado ?? ultima?.planes?.[0]?.plan ?? '',
     monto: contacto.valor ?? ultima?.planes?.[0]?.final ?? '',
-    dni: venta?.dni ?? dniLeido ?? '', precarga: venta?.precarga ?? ''
+    dni: venta?.dni ?? dniLeido ?? '', precarga: venta?.precarga ?? '', onboarding: false
   });
   const link = linkBienvenida(borrador.dni, borrador.precarga);
 
@@ -120,6 +120,10 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
                   onChange={(e) => setBorrador({ ...borrador, monto: e.target.value.replace(/\D/g, '') })} /></span>
             </label>
           </div>
+          <label className="venta-ov">
+            <input type="checkbox" checked={borrador.onboarding} onChange={(e) => setBorrador({ ...borrador, onboarding: e.target.checked })} />
+            Hecha por OV larga (onboarding)
+          </label>
           <p className="pp-explicacion">
             {borrador.tipo === 'directo'
               ? 'Pasa a "Falta de cobro" y ya te queda en Mis chats para mandarle el link de pago (cargás DNI y N° de precarga). Después, cada 48 h hábiles sin pago te vuelve a aparecer para recordárselo. No sale nada automático.'
