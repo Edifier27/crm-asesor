@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Salesforce ← AsesorCRM — Pedidos de link de alta
 // @namespace    sf-crm-pedidos
-// @version      0.1
-// @description  Trae los pedidos de "link de alta" que hacés desde la ficha del CRM y devuelve el N° de precarga. Versión 0.1: semiautomática (te muestra el pedido, te abre el lead y vos cargás el número); los pasos dentro de Salesforce se automatizan en la próxima versión.
+// @version      0.2
+// @description  Trae los pedidos de "link de alta" que hacés desde la ficha del CRM y le devuelve el Link de autogestión de la Oportunidad. Versión 0.2: semiautomática (te muestra el pedido, te abre el lead y toma el link de la pantalla); los pasos dentro de Salesforce se automatizan en la próxima versión.
 // @match        https://swissmedical.lightning.force.com/*
 // @connect      asesorcrm.com.ar
 // @grant        GM_xmlhttpRequest
@@ -69,7 +69,9 @@
         Plan <b>${texto(d.plan)}</b> · ${texto(d.tipo_venta)} · ${texto(d.zona)}${d.localidad ? ` (${texto(d.localidad)})` : ''}<br>
         ${texto(edades(d))}${d.sueldos?.length ? ` · sueldo ${texto(d.sueldos.join(' + '))}` : ''}<br>
         <button data-accion="abrir" style="margin-top:6px">${d.salesforce_id ? 'Abrir el lead' : 'Copiar teléfono para buscarlo'}</button>
-        <div style="margin-top:6px">N° de precarga: <input data-campo="precarga" inputmode="numeric" style="width:110px"></div>
+        <div style="margin-top:6px">Link de autogestión: <input data-campo="link" placeholder="https://asociarme…" style="width:100%"></div>
+        <button data-accion="leer" style="margin-top:4px">Tomar el link de esta pantalla</button>
+        <div style="margin-top:6px">N° de trámite (opcional): <input data-campo="tramite" inputmode="numeric" style="width:110px"></div>
         <button data-accion="listo" style="margin-top:6px;background:#0B6E5F;color:#fff;border:0;border-radius:6px;padding:4px 10px">Listo: mandar al CRM</button>
         <button data-accion="error" style="margin-top:6px">No se pudo</button>
       </div>`;
@@ -77,7 +79,12 @@
     panel.querySelectorAll('[data-id]').forEach((caja) => {
       const accion = acciones.find((a) => a.id === caja.dataset.id);
       caja.querySelector('[data-accion="abrir"]').onclick = () => abrir(accion);
-      caja.querySelector('[data-accion="listo"]').onclick = () => terminar(accion, caja.querySelector('[data-campo="precarga"]').value);
+      caja.querySelector('[data-accion="leer"]').onclick = () => {
+        const link = linkEnPantalla();
+        if (link) caja.querySelector('[data-campo="link"]').value = link;
+        else alert('No veo un link de autogestión en esta pantalla: abrí la Oportunidad y tocá "Generar Link Autogestión".');
+      };
+      caja.querySelector('[data-accion="listo"]').onclick = () => terminar(accion, caja.querySelector('[data-campo="link"]').value, caja.querySelector('[data-campo="tramite"]').value);
       caja.querySelector('[data-accion="error"]').onclick = () => fallar(accion);
     });
   }
@@ -100,11 +107,21 @@
       : 'Te copié el teléfono: pegalo en el buscador de Salesforce para encontrar el lead.');
   }
 
-  async function terminar(accion, precarga) {
-    const numero = String(precarga ?? '').replace(/\D/g, '');
-    if (numero.length < 4) { alert('Cargá el N° de precarga que te dio Salesforce.'); return; }
+  // El "Link de autogestión" de la Oportunidad (campo con ese nombre, o el cartel de "Generar Link Autogestión")
+  function linkEnPantalla() {
+    const buscar = (raiz) => {
+      for (const a of raiz.querySelectorAll('a[href*="asociarme."]')) if (/^https:\/\/asociarme\.(swissmedical|clubswiss)\.com\.ar\//i.test(a.href)) return a.href;
+      for (const el of raiz.querySelectorAll('*')) if (el.shadowRoot) { const l = buscar(el.shadowRoot); if (l) return l; }
+      return null;
+    };
+    return buscar(document);
+  }
+
+  async function terminar(accion, link, tramite) {
+    const url = String(link ?? '').trim();
+    if (!/^https:\/\/asociarme\.(swissmedical|clubswiss)\.com\.ar\//i.test(url)) { alert('Pegá el Link de autogestión (empieza con https://asociarme…).'); return; }
     if (!(await tomar(accion))) return;
-    const r = await pedir('PATCH', `${CRM}/${accion.id}`, { estado: 'listo', precarga: numero, salesforce_id: idDelCandidato() });
+    const r = await pedir('PATCH', `${CRM}/${accion.id}`, { estado: 'listo', link: url, precarga: String(tramite ?? '').replace(/\D/g, '') || null, salesforce_id: idDelCandidato() });
     if (r.status === 200) { log(`✓ Link de ${accion.datos?.nombre} enviado al CRM`); revisar(); }
     else alert(r.error || `Error ${r.status}`);
   }

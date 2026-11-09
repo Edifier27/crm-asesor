@@ -6,7 +6,7 @@ import { cancelarPedidoSalesforce, enviarLinkPago, pedirLinkSalesforce } from '.
 
 // Link de alta desde Salesforce (Darío, 9-nov-2026; lib/salesforce.js). Se pide desde acá y lo resuelve el script de
 // Salesforce del asesor (Tampermonkey, en su compu, con Salesforce abierto). El estado se ve en vivo; cuando vuelve con el
-// N° de precarga, el link queda listo para "Enviar al cliente" (el mismo envío del link de pago, con o sin ventana de 24 h).
+// Link de autogestión de la Oportunidad, queda listo para "Enviar al cliente" (con o sin ventana de 24 h).
 // Sin la migración 0074 no se muestra.
 const ESTADOS = {
   pendiente: 'Esperando al script de Salesforce (tiene que estar abierto en tu compu)…',
@@ -33,11 +33,11 @@ export default function PedidoSalesforce({ conversacionId, contacto, etapa, dniL
     return () => { vivo = false; supabase.removeChannel(canal); };
   }, [contacto.id, supabase]);
 
-  // Cuando vuelve el link, la venta de la ficha queda con el DNI y el N° de precarga (para "Falta de cobro")
+  // Cuando vuelve el link, la venta de la ficha queda con el DNI y el link de alta (igual que en la base: lib/salesforce.js)
   const listoId = pedido?.estado === 'listo' ? pedido.id : null;
   useEffect(() => {
-    if (!listoId || !pedido?.precarga) return;
-    onContacto?.({ venta: { ...(contacto.venta ?? {}), dni: pedido.datos?.dni ?? contacto.venta?.dni, precarga: pedido.precarga } });
+    if (!listoId || !pedido?.link) return;
+    onContacto?.({ venta: { ...(contacto.venta ?? {}), dni: pedido.datos?.dni ?? contacto.venta?.dni, link_alta: pedido.link } });
   }, [listoId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (pedido === undefined || pedido === false || ['Perdido', 'Auditoría médica'].includes(etapa)) return null;
@@ -61,11 +61,11 @@ export default function PedidoSalesforce({ conversacionId, contacto, etapa, dniL
         <>
           <span className="link-pago">
             <a href={pedido.link} target="_blank" rel="noreferrer">Link de alta</a>
-            {pedido.precarga ? ` · precarga ${pedido.precarga}` : ''}{pedido.datos?.dni ? ` · DNI ${pedido.datos.dni}` : ''}
+            {pedido.precarga ? ` · trámite ${pedido.precarga}` : ''}{pedido.datos?.dni ? ` · DNI ${pedido.datos.dni}` : ''}
           </span>
           <div className="acciones">
             <button type="button" className="boton-primario" disabled={ocupado}
-              onClick={() => correr(() => enviarLinkPago(conversacionId, { dni: pedido.datos?.dni, precarga: pedido.precarga }), 'Link enviado al cliente.')}>
+              onClick={() => correr(() => enviarLinkPago(conversacionId, { dni: pedido.datos?.dni, precarga: pedido.precarga, linkAlta: pedido.link }), 'Link enviado al cliente.')}>
               Enviar al cliente
             </button>
             <button type="button" className="boton-secundario" onClick={() => {
@@ -88,7 +88,7 @@ export default function PedidoSalesforce({ conversacionId, contacto, etapa, dniL
             <input inputMode="numeric" value={dni} maxLength={10} placeholder="Sin puntos"
               onChange={(e) => setDni(e.target.value.replace(/\D/g, ''))} /></label>
           <p className="pp-explicacion">
-            El script de Salesforce {contacto.salesforce_id || /^salesforce/i.test(contacto.origen_detalle ?? '') ? 'busca este lead' : 'lo carga como lead nuevo'}, lo cotiza con el plan de la ficha y te devuelve el link. Tiene que estar Salesforce abierto en tu compu.
+            El script de Salesforce {contacto.salesforce_id || /^salesforce/i.test(contacto.origen_detalle ?? '') ? 'busca este lead' : 'lo carga como lead nuevo'}, lo cotiza con el plan de la ficha y te devuelve el link de autogestión. Tiene que estar Salesforce abierto en tu compu.
           </p>
           <div className="acciones">
             <button type="button" className="boton-primario" disabled={ocupado || dni.length < 7}

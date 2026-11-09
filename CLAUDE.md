@@ -167,11 +167,13 @@ Nunca commitear secretos.
   opera un script de Tampermonkey en su compu. Ficha → "Pedir link a Salesforce" (`PedidoSalesforce.js`, pide DNI) deja un
   pedido en `acciones_salesforce` ('transicionar' si vino de Salesforce, 'cargar_nuevo' si no; `datos` = lo de la ficha). El
   script (`herramientas/salesforce-pedidos.user.js`) lo trae con GET `/api/salesforce/acciones` y avisa con PATCH
-  `/api/salesforce/acciones/[id]` (en_curso / listo con N° de precarga / error); auth = clave personal (`x-api-key`, Mi
-  perfil → Script de Salesforce; tabla `claves_script`, solo el hash). Con DNI + precarga el CRM arma el link de alta
-  (`linkBienvenida`) y "Enviar al cliente" usa `enviarLinkPago`. Los scripts de leads (v3.6) mandan `salesforce_id`
-  (00Q… de la URL) → `contactos.salesforce_id`. v0.1 del script de pedidos: semiautomático (abre el lead, se carga la
-  precarga a mano); los pasos dentro de Salesforce se automatizan cuando se inspeccionen.
+  `/api/salesforce/acciones/[id]` (en_curso / listo con `link` / error); auth = clave personal (`x-api-key`, Mi perfil →
+  Script de Salesforce; tabla `claves_script`, solo el hash). El link que vuelve es el "Link de autogestión" de la
+  Oportunidad (manual B2C: Candidato → Listo para convertir → Convertir → Oportunidad "A cotizar" → Cotizador → Cotizar →
+  "Generar Link Autogestión"), dominio asociarme.swissmedical|clubswiss (`linkAsociarme` en lib/venta.js); "Enviar al
+  cliente" = `enviarLinkPago` con `linkAlta` (texto `mensajeAltaOnline`). Sin link, DNI + N° de precarga arman el de
+  bienvenida. Los scripts de leads (v3.6) mandan `salesforce_id` (00Q… de la URL) → `contactos.salesforce_id`. Script de
+  pedidos v0.2: semiautomático (abre el lead, toma el link de la pantalla); los pasos de Salesforce se automatizan después.
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.
