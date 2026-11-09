@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { pesos } from '@/lib/cotizador';
 import { recordarPago } from './acciones';
@@ -41,6 +42,7 @@ export default function PlanillaVentas({ mes, conMes = false, opcionesMes = [], 
     ? [['mes', 'Mes de producción', 'mes'], ...COLUMNAS.slice(0, 2), ['origen', 'Origen', 'origen'], ...COLUMNAS.slice(2)]
     : COLUMNAS;
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
   const [filas, setFilas] = useState(inicial);
   const [verBajas, setVerBajas] = useState(false);
   const [aviso, setAviso] = useState('');
@@ -84,6 +86,8 @@ export default function PlanillaVentas({ mes, conMes = false, opcionesMes = [], 
     if (error) return avisar(`No se pudo cambiar el mes: ${error.message}`);
     if (valor === mes) return setFilas((l) => l.map((f) => (f.id === fila.id ? { ...f, mes: destino } : f)));
     setFilas((l) => l.filter((f) => f.id !== fila.id));
+    // Que aparezca la pestaña del otro mes aunque todavía no tuviera ventas
+    router.refresh();
     avisar(`${fila.nombre || 'La venta'} pasó a ${opcionesMes.find((o) => o.valor === valor)?.rotulo ?? valor}`);
   }
 
