@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Salesforce → AsesorCRM (Gabriela Lazarte) — Automático CRM
 // @namespace    sf-crm-gabriela
-// @version      3.5
+// @version      3.6
 // @description  Automático con reintentos ante cortes de red, pausas variables, anti-duplicado, chequeo de pestaña activa, auto-refresco de la lista. Envía el lead al CRM de Gabriela (antes Kommo)
 // @match        https://swissmedical.lightning.force.com/*
 // @connect      asesorcrm.com.ar
@@ -204,6 +204,12 @@
   }
 
   // ÚNICO CAMBIO de lógica: el lead va al CRM de Gabriela en vez de a Kommo (el saludo automático lo manda el CRM)
+  // El id del candidato que está abierto: aparece en la dirección de la pestaña (/lightning/r/Lead/00Q…/view)
+  function idDelCandidato() {
+    const m = location.href.match(/\/(00Q[A-Za-z0-9]{12}(?:[A-Za-z0-9]{3})?)(?=[\/?#]|$)/);
+    return m ? m[1] : null;
+  }
+
   function enviarAlCrm(d) {
     const lead = {
       asesor: ASESOR,
@@ -212,6 +218,8 @@
       nombre: primerNombre(d.nombre),
       telefono: d.telefono,
       email: d.email,
+      // v3.6: el id del candidato en Salesforce (00Q…), para que el CRM lo encuentre directo al pedir el link de alta
+      salesforce_id: idDelCandidato(),
     };
 
     log(`Enviando al CRM: ${d.nombre} / ${d.telefono}`);

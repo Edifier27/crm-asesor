@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import { TEMAS } from '@/lib/temas';
 import { guardarModo, leerModo } from '@/lib/modo';
 import NotificacionesPush from '../componentes/NotificacionesPush';
+import { generarClaveScript } from './acciones';
 
 export default function Perfil({ id, email, nombreInicial, temaInicial }) {
   const router = useRouter();
@@ -23,6 +24,15 @@ export default function Perfil({ id, email, nombreInicial, temaInicial }) {
     setAvisos(leerPreferencias());
     setPermiso(typeof Notification === 'undefined' ? 'no' : Notification.permission);
   }, []);
+  // Clave del script de Salesforce: se ve una sola vez, al generarla
+  const [claveSf, setClaveSf] = useState('');
+  const [avisoSf, setAvisoSf] = useState('');
+  async function nuevaClaveSf() {
+    setAvisoSf('');
+    const r = await generarClaveScript().catch((e) => ({ error: e.message }));
+    if (r.error) return setAvisoSf(r.error);
+    setClaveSf(r.clave);
+  }
   const cambiarAviso = (campos) => { const p = { ...avisos, ...campos }; setAvisos(p); guardarPreferencias(p); };
 
   async function guardar(campos, previo) {
@@ -118,6 +128,22 @@ export default function Perfil({ id, email, nombreInicial, temaInicial }) {
         )}
         {permiso === 'denied' && <p className="selector-detalle">Las notificaciones están bloqueadas para este sitio: activalas desde el candadito de la barra de direcciones.</p>}
         <NotificacionesPush />
+      </section>
+
+      <section className="tarjeta">
+        <h2>Script de Salesforce</h2>
+        <p className="selector-detalle">La clave que va en el script de Tampermonkey (CRM_CLAVE) para que Salesforce reciba tus pedidos de link de alta y te devuelva los resultados. Es personal: el script con tu clave solo ve tus pedidos.</p>
+        {claveSf ? (
+          <>
+            <input className="clave-script" readOnly value={claveSf} onFocus={(e) => e.target.select()} aria-label="Tu clave del script" />
+            <p className="selector-detalle">Copiala ahora y pegala en el script: no se vuelve a mostrar.</p>
+            <button type="button" className="boton-secundario" onClick={() => navigator.clipboard?.writeText(claveSf).then(() => setAvisoSf('Copiada'), () => {})}>Copiar clave</button>
+          </>
+        ) : (
+          <button type="button" className="boton-secundario" onClick={nuevaClaveSf}>Generar clave</button>
+        )}
+        <p className="selector-detalle">Si generás una nueva, la anterior deja de andar.</p>
+        {avisoSf && <p className="selector-detalle">{avisoSf}</p>}
       </section>
 
       <section className="tarjeta">

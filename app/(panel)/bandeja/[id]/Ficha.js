@@ -9,6 +9,7 @@ import { COLORES_ETIQUETA, COLUMNAS_60, COLUMNAS_ESPERA_A_MANO, ETAPA_COTIZADO_3
 import Cotizacion from './Cotizacion';
 import ProximoPaso from './ProximoPaso';
 import Venta from './Venta';
+import PedidoSalesforce from './PedidoSalesforce';
 import Documentacion from './Documentacion';
 import AuditoriaMedica from './AuditoriaMedica';
 
@@ -152,6 +153,10 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
 
       <Venta key={dniLeido ?? 'sin-dni'} conversacionId={conversacion.id} contacto={contacto} etapas={etapas} dniLeido={dniLeido}
         onCambio={(campos) => setContacto((c) => ({ ...c, ...campos }))} />
+
+      <PedidoSalesforce conversacionId={conversacion.id} contacto={contacto} dniLeido={dniLeido}
+        etapa={etapas.find((e) => e.id === contacto.etapa_id)?.nombre}
+        onContacto={(campos) => setContacto((c) => ({ ...c, ...campos }))} />
 
       <Documentacion contacto={contacto} etapa={etapas.find((e) => e.id === contacto.etapa_id)?.nombre}
         inicial={(conversacion.contacto.documentos ?? []).sort((a, b) => a.creado_at.localeCompare(b.creado_at))}

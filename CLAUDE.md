@@ -163,6 +163,15 @@ Nunca commitear secretos.
   (`textosEnviados` en lib/ia/asesor.js; la cotización puede ir igual). Campaña Kommo solo a los que contestaron
   (`scripts/campania-kommo.mjs`, `--con-nunca` para sumar el otro grupo; SQL 0069 frena los pendientes de Darío).
   Plantillas con nombre fijo en el saludo (`tieneNombreFijo`) no salen en seguimientos ni se mandan a Meta.
+- SALESFORCE ↔ CRM (migración 0074, 9-nov-2026, `lib/salesforce.js`): Salesforce de SMG no tiene API para el asesor; lo
+  opera un script de Tampermonkey en su compu. Ficha → "Pedir link a Salesforce" (`PedidoSalesforce.js`, pide DNI) deja un
+  pedido en `acciones_salesforce` ('transicionar' si vino de Salesforce, 'cargar_nuevo' si no; `datos` = lo de la ficha). El
+  script (`herramientas/salesforce-pedidos.user.js`) lo trae con GET `/api/salesforce/acciones` y avisa con PATCH
+  `/api/salesforce/acciones/[id]` (en_curso / listo con N° de precarga / error); auth = clave personal (`x-api-key`, Mi
+  perfil → Script de Salesforce; tabla `claves_script`, solo el hash). Con DNI + precarga el CRM arma el link de alta
+  (`linkBienvenida`) y "Enviar al cliente" usa `enviarLinkPago`. Los scripts de leads (v3.6) mandan `salesforce_id`
+  (00Q… de la URL) → `contactos.salesforce_id`. v0.1 del script de pedidos: semiautomático (abre el lead, se carga la
+  precarga a mano); los pasos dentro de Salesforce se automatizan cuando se inspeccionen.
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.
