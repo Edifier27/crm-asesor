@@ -17,6 +17,10 @@ const SECCIONES = [
     icono: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>
   },
   {
+    href: '/ventas/planilla', nombre: 'Planilla de ventas',
+    icono: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M3 15h18M9 4v16" /></>
+  },
+  {
     href: '/bases', nombre: 'Bases (más de 30 días)',
     icono: <><rect x="3" y="4" width="18" height="5" rx="1" /><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9" /><path d="M10 13h4" /></>
   },
@@ -45,8 +49,11 @@ const EQUIPO = {
 
 export default function RielLinks({ esAdmin }) {
   const ruta = usePathname();
-  return (esAdmin ? [...SECCIONES, EQUIPO] : SECCIONES).map((s) => {
-    const activo = ruta.startsWith(s.href);
+  const lista = esAdmin ? [...SECCIONES, EQUIPO] : SECCIONES;
+  // La sección más específica que coincide (en /ventas/planilla se marca la planilla, no el tablero)
+  const actual = lista.filter((s) => ruta === s.href || ruta.startsWith(`${s.href}/`)).sort((a, b) => b.href.length - a.href.length)[0]?.href;
+  return lista.map((s) => {
+    const activo = s.href === actual;
     return (
       <Link key={s.href} href={s.href} className={`riel-boton${activo ? ' activo' : ''}`} aria-label={s.nombre} title={s.nombre}
         aria-current={activo ? 'page' : undefined}>

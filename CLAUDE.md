@@ -174,6 +174,13 @@ Nunca commitear secretos.
   cliente" = `enviarLinkPago` con `linkAlta` (texto `mensajeAltaOnline`). Sin link, DNI + N° de precarga arman el de
   bienvenida. Los scripts de leads (v3.6) mandan `salesforce_id` (00Q… de la URL) → `contactos.salesforce_id`. Script de
   pedidos v0.2: semiautomático (abre el lead, toma el link de la pantalla); los pasos de Salesforce se automatizan después.
+- PLANILLA DE VENTAS (migración 0075, 9-nov-2026, `/ventas/planilla`): tabla `ventas` (una fila por venta, RLS por cuenta),
+  pestañas por mes (el de la fecha de venta). Las del CRM entran solas (trigger `venta_a_planilla` sobre `contactos.venta`
+  y `etapa_id`; estado: Ganado = impactada, Falta de cobro = falta_de_cobro, Perdido = baja; desregulado → vigencia 1 del mes
+  siguiente). Se cargan y corrigen a mano (`editada_a_mano`: el trigger ya no pisa nombre/plan/cuota, sí el estado). La
+  carga BU se calcula una vez con la cotización del lead (`cargaBU`, lista activa) al abrir la planilla. CSV para Excel.
+  Links de Salesforce: link de desregulación (paso 2) = https://asociarme.swissmedical.com.ar/planes/reingreso; link de
+  afiliación = asociarme.swissmedical.com.ar/asesor/<usuario>/<legajo>/<número> (Darío confirma qué es el número).
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.

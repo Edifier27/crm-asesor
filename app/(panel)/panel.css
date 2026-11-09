@@ -941,3 +941,18 @@ a.riel-usuario { text-decoration: none; color: inherit; }
   .cuil-fila { grid-template-columns: 1fr; }
 }
 .clave-script { width: 100%; font: 13px ui-monospace, monospace; padding: 8px 10px; border: 1px solid #CFE6E0; border-radius: 8px; background: #F0F7F5; }
+/* Planilla de ventas (ventas/planilla) */
+.planilla-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.planilla-bajas { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--texto-suave); }
+.tabla.planilla td { padding: 4px 6px; }
+.tabla.planilla td:last-child, .tabla.planilla th:last-child { text-align: left; }
+.planilla .celda { font: inherit; font-size: 13px; width: 100%; min-width: 90px; border: 1px solid transparent; border-radius: 6px; padding: 5px 6px; background: transparent; color: inherit; }
+.planilla .celda:hover { border-color: var(--linea-suave); }
+.planilla .celda:focus { outline: none; border-color: var(--acento); background: var(--fondo, #fff); }
+.planilla .celda-text { min-width: 150px; }
+.planilla .celda-pesos { text-align: right; font-variant-numeric: tabular-nums; }
+.planilla .estado-impactada { color: #15803D; font-weight: 700; }
+.planilla .estado-falta_de_cobro { color: #C2410C; font-weight: 700; }
+.planilla .estado-baja { color: var(--texto-suave); }
+.planilla .fila-baja { opacity: .55; }
+.planilla-fila-acciones { display: flex; gap: 10px; align-items: center; white-space: nowrap; }
