@@ -188,6 +188,9 @@ Nunca commitear secretos.
   carga BU). En falta de cobro: chip de vigencia + "Recordar pago" (`recordarPago` en ventas/planilla/acciones.js: texto
   con la ventana abierta, plantilla del link de pago si está cerrada). En el celular cada venta es una tarjeta. Sin la
   0076 la planilla anda como antes (por fecha de venta).
+- ORIGEN E INCLUSIONES (migración 0077, 9-nov-2026): en la planilla el origen se elige entre SGC, Salesforce, PrepagaYa,
+  Referido, Afinidad e Inclusión (las viejas con otro origen lo conservan). Inclusión abre titular, persona a incluir y
+  valor (`ventas.titular/incluido/valor_inclusion`); sin la 0077 no se ofrece Inclusión.
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.

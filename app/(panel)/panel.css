@@ -983,7 +983,10 @@ a.riel-usuario { text-decoration: none; color: inherit; }
   .planilla-ventas .tabla-scroll, .pagina-planilla .tabla-scroll { overflow-x: visible; }
 }
 /* Origen del dato (globito de color) y ventas hechas por onboarding (OV, lila pastel) */
-.planilla .origen-celda { display: inline-flex; align-items: center; gap: 6px; }
+.planilla .origen-celda { display: inline-flex; flex-wrap: wrap; max-width: 300px; align-items: center; gap: 6px; }
+.planilla .inclusion-campos { display: grid; gap: 4px; width: 100%; }
+.planilla .inclusion-campos input { min-width: 0; width: 100%; font-size: 12px; padding: 4px 8px; border: 1px solid #D9CCF4; border-radius: 6px; background: #FAF7FF; }
+:root[data-modo="oscuro"] .planilla .inclusion-campos input { background: transparent; border-color: #5B4A8A; }
 .planilla .pildora-origen { min-width: 150px; border-radius: 999px; font-weight: 700; font-size: 12px; padding: 4px 10px; border: 1px solid var(--linea-suave); }
 .planilla .boton-ov { font: 700 10px/1 inherit; letter-spacing: .03em; white-space: nowrap; padding: 5px 8px; border-radius: 999px; border: 1px dashed #B9A6E8; background: transparent; color: #7C5CC4; cursor: pointer; }
 .planilla .boton-ov.activo { border-style: solid; background: #7C5CC4; color: #fff; }

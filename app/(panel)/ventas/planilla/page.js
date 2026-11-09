@@ -48,6 +48,10 @@ export default async function PaginaPlanilla({ searchParams }) {
     );
   }
 
+  // Inclusiones (migración 0077): titular, persona a incluir y valor; sin las columnas no se ofrecen
+  const { error: sinInclusion } = await supabase.from('ventas').select('titular, incluido, valor_inclusion').limit(1);
+  const conInclusion = conMes && !sinInclusion;
+
   // Meses con ventas (para las pestañas) + el actual
   const campoMes = conMes ? 'mes' : 'fecha_venta';
   const { data: fechas } = await supabase.from('ventas').select(campoMes).order(campoMes, { ascending: false }).limit(2000);
@@ -84,7 +88,7 @@ export default async function PaginaPlanilla({ searchParams }) {
           <Link key={m} href={`/ventas/planilla?mes=${m}`} className={`chip-filtro${m === mes ? ' activo' : ''}`}>{nombreMes(`${m}-01`)}</Link>
         ))}
       </nav>
-      <PlanillaVentas key={mes} mes={mes} conMes={conMes} opcionesMes={opcionesMes.map((m) => ({ valor: m, rotulo: nombreMes(`${m}-01`) }))}
+      <PlanillaVentas key={mes} mes={mes} conMes={conMes} conInclusion={conInclusion} opcionesMes={opcionesMes.map((m) => ({ valor: m, rotulo: nombreMes(`${m}-01`) }))}
         inicial={(filas ?? []).map((f) => ({ ...f, chat: chatDe[f.contacto_id] ?? null }))} />
     </div>
   );
