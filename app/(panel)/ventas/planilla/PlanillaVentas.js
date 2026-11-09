@@ -107,13 +107,15 @@ export default function PlanillaVentas({ mes, inicial }) {
         ) : (
           <div className="tabla-scroll">
             <table className="tabla planilla">
-              <thead><tr>{COLUMNAS.map(([c, t]) => <th key={c}>{t}</th>)}<th aria-label="Acciones" /></tr></thead>
+              <thead><tr>{COLUMNAS.map(([c, t]) => <th key={c}>{t}</th>)}<th>Conversación</th></tr></thead>
               <tbody>
                 {visibles.map((f) => (
                   <tr key={f.id} className={f.estado === 'baja' ? 'fila-baja' : ''}>
                     {COLUMNAS.map((col) => <td key={col[0]}>{celda(f, col)}</td>)}
                     <td className="planilla-fila-acciones">
-                      {f.chat && <Link href={`/bandeja/${f.chat}`} title="Abrir el chat">Chat</Link>}
+                      {f.chat
+                        ? <Link href={`/bandeja/${f.chat}`} className="boton-secundario boton-ir-chat">Ir a la conversación</Link>
+                        : <span className="sin-chat">Cargada a mano</span>}
                       {!f.contacto_id && (
                         <button type="button" className="boton-link-texto" onClick={() => borrar(f)}>{borrando === f.id ? '¿Seguro?' : 'Borrar'}</button>
                       )}
