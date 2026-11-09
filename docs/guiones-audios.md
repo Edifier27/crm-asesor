@@ -65,3 +65,58 @@ nombre del cliente, así sirve para cualquiera.
 > Te escribo porque estamos cerrando los ingresos de este mes y dentro de unos días nos aumenta la lista de precios.
 > Si lo querés congelar con el valor que te pasé, la idea es que lo hagamos ahora.
 > Para avanzar solo necesito tu DNI de frente y dorso. Lo dejamos listo hoy?
+
+---
+
+# Audios de cierre y cobro (9-nov-2026)
+
+Genéricos: sin nombre ni precio, así sirven para cualquiera. Ver el proceso completo en `docs/embudo-cierre.md`.
+Al subirlos en **Audios**, ponelos en zona **todas**. En "cuándo usarlo" copiá la línea de *Cuándo* de cada uno.
+
+## 7. Antes del link: salud (todos)
+*Cuándo: el cliente dijo que sí, antes de mandarle el link.*
+> Buenísimo, ¡me alegra un montón! Antes de mandarte el link, necesito que me comentes un par de cosas.
+> Si tomás alguna medicación o tenés alguna preexistencia, algo que te hayan diagnosticado en el último año.
+> Lo que fue hace más tiempo, como una fractura de hace años, no hace falta.
+> Y pasame tu peso y tu altura. Si son varios, de cada uno.
+> Con eso ya te mando el link y lo dejamos listo.
+
+## 8. Cómo completar el link (directo)
+*Cuándo: junto con el link de alta, si es particular o monotributista.*
+> Te acabo de mandar el link. Es cortito, en unos minutos lo terminás.
+> Primero ponés tu DNI. Después te aparece un cuestionario de salud: respondelo tranquilo, con lo que me contaste.
+> Si no tenés nada de lo que te pregunta, va que no.
+> Después elegís la forma de pago: tarjeta de crédito, débito, Rapipago, Pago Fácil o billetera virtual, la que te quede más cómoda.
+> Y al final elegís la vigencia: inmediata, que arrancás ya y pagás solo los días que quedan del mes, o desde el 1 del mes que viene.
+> Cualquier duda me escribís y lo vemos juntos.
+
+## 9. Cómo completar el link (desregulado)
+*Cuándo: junto con el primer link, si deriva aportes.*
+> Te acabo de mandar el link. Primero ponés tu DNI y completás el cuestionario de salud con lo que me contaste: si no tenés nada de lo que te pregunta, va que no.
+> Vos no tenés que pagar nada: tus aportes van directo a Swiss Medical y después te llega la factura.
+> Arrancás el 1 del mes que viene.
+> Cuando termines este, te paso un segundo link, que es el de los aportes. Avisame cuando lo completes.
+
+## 10. Segundo link (desregulado)
+*Cuándo: cuando completó el primer link.*
+> ¡Genial, ya está el primero! Ahora te paso el segundo link, que es el último paso.
+> Ahí vas a adjuntar tu último recibo de sueldo y la opción de cambio, que es el trámite que hacés en la página de la Superintendencia con tu clave fiscal.
+> Te va a pedir el CUIT de la empresa donde trabajás, que está en el recibo, y la vigencia, que es el 1 del mes que viene.
+> Cuando lo termines, ya quedás adentro.
+
+## 11. Cómo se paga (si pregunta)
+*Cuándo: pregunta cómo o cuándo se paga.*
+> Aceptamos todos los medios: tarjeta de crédito, débito, Rapipago, Pago Fácil y billeteras virtuales.
+> Si elegís vigencia inmediata, pagás un proporcional, solo los días que quedan del mes. Si arrancás el mes que viene, pagás el mes entero.
+> A las 24 horas de que completes el link te llega el link de pago, y tenés 20 días para abonarlo. Apenas pagás, empezás con la cobertura.
+
+## 12. Link de pago (directo)
+*Cuándo: a las 24 h, junto con el link de pago.*
+> Ya está generado tu link de pago, te lo dejo acá abajo.
+> Lo podés pagar con el medio que quieras y apenas se acredita arrancás con la cobertura.
+> Cuando lo pagues mandame el comprobante así te confirmo el alta.
+
+## 13. Recordatorio de pago (directo con vigencia del mes siguiente)
+*Cuándo: última semana del mes, si todavía no pagó.*
+> ¿Cómo andás? Te escribo porque ya estamos en la última semana del mes y tu cobertura arranca el 1.
+> Para que quede activa tenés que abonar el link que te mandé. ¿Pudiste hacerlo? Si necesitás que te lo reenvíe, avisame.

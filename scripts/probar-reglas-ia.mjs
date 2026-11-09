@@ -120,6 +120,8 @@ const SALUD = [
   [[T('levotiroxina 50', 'hipotiroidismo')], 'sigue'],
   [[T('enalapril', 'presión alta')], 'sigue'],
   [[T('losartán y levotiroxina', 'hipertensión e hipotiroidismo')], 'sigue'],
+  [[T('no', 'miopía y astigmatismo')], 'sigue'],
+  [[T('T4', 'hipotiroidismo, uso anteojos')], 'sigue'],
   [[T('metformina', 'diabetes')], 'deriva'],
   [[T('no', 'asma')], 'deriva'],
   [[T('no', 'hipotiroidismo y asma')], 'deriva'],
