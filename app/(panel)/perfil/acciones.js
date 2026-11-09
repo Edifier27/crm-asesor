@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notificarCuenta } from '@/lib/push';
+import { generarClave } from '@/lib/salesforce';
 
 /** Manda una notificación de prueba a todos los dispositivos de quien la pide. */
 export async function probarNotificacion() {
@@ -15,4 +16,17 @@ export async function probarNotificacion() {
     titulo: 'Prueba de notificación', cuerpo: 'Así te va a llegar cuando te escriba un cliente.', url: '/bandeja', tag: 'prueba', prueba: true
   });
   return enviados ? { enviados } : { error: 'No hay ningún dispositivo activado para tu cuenta.' };
+}
+
+/** Clave personal para el script de Salesforce (se muestra una sola vez; la anterior deja de andar). */
+export async function generarClaveScript() {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  const cuenta = data?.claims?.sub;
+  if (!cuenta) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  try {
+    return { clave: await generarClave(createAdminClient(), cuenta) };
+  } catch (e) {
+    return { error: /claves_script/.test(e.message) ? 'Falta correr el SQL 0074 en Supabase.' : e.message };
+  }
 }

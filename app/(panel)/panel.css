@@ -940,3 +940,4 @@ a.riel-usuario { text-decoration: none; color: inherit; }
 @media (max-width: 640px) {
   .cuil-fila { grid-template-columns: 1fr; }
 }
+.clave-script { width: 100%; font: 13px ui-monospace, monospace; padding: 8px 10px; border: 1px solid #CFE6E0; border-radius: 8px; background: #F0F7F5; }

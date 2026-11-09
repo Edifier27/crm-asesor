@@ -28,6 +28,7 @@ import { mensajeSanatorios, sanatoriosPara } from '@/lib/cartilla-swiss';
 import { esGba } from '@/lib/provincias';
 import { fuenteDelLead } from '@/lib/fuentes';
 import { ETIQUETA_IA_COMPLETA } from '@/lib/ia/ia-completa';
+import { datosDelPedido, tipoDePedido } from '@/lib/salesforce';
 
 // Solo se pueden ver/enviar los PDF del catálogo (planes y cartillas)
 const DOCUMENTOS_VALIDOS = new Set([...Object.values(PLANES_PDF).map((p) => p.path), ...CARTILLAS_ARCHIVOS.map((c) => c.path)]);
@@ -633,4 +634,35 @@ export async function contactarEn60(conversacionId) {
     texto: `Pasó a "Contactar en 60 días": no recibe nada hasta el ${fechaCorta(fecha)}, y ese día se lo retoma solo.`
   });
   return { ok: true, etapaId: etapa.id, fecha: fecha.toISOString() };
+}
+
+// ───────────── Link de alta desde Salesforce (Darío, 9-nov-2026; lib/salesforce.js, migración 0074) ─────────────
+// El pedido queda en la cola y lo resuelve el script de Salesforce del asesor (Tampermonkey). Cuando vuelve con el
+// N° de precarga, el link aparece en la ficha y se manda con "Enviar al cliente" (el mismo envío del link de pago).
+export async function pedirLinkSalesforce(conversacionId, { dni } = {}) {
+  const ctx = await contextoVenta(conversacionId);
+  if (ctx.error) return ctx;
+  const { conv, admin, user } = ctx;
+  const { data: contacto } = await admin.from('contactos').select('*').eq('id', conv.contacto.id).maybeSingle();
+  if (!contacto) return { error: 'No encuentro el contacto.' };
+  const datos = datosDelPedido(contacto, { dni });
+  if (!datos.dni) return { error: 'Cargá el DNI del titular: sin DNI no se puede armar el link de alta.' };
+  if (!datos.plan) return { error: 'Falta el plan: cotizale primero o registrá la venta con el plan.' };
+  const { data, error } = await admin.from('acciones_salesforce').insert({
+    cuenta: conv.cuenta, contacto_id: contacto.id, conversacion_id: conv.id, tipo: tipoDePedido(contacto), datos, creado_por: user.id
+  }).select().single();
+  if (error) return { error: error.code === '23505' ? 'Ya hay un pedido en curso para este lead.' : `No se pudo pedir: ${error.message}` };
+  await admin.from('contactos').update({ venta: { ...(contacto.venta ?? {}), dni: datos.dni } }).eq('id', contacto.id);
+  return { ok: true, accion: data };
+}
+
+export async function cancelarPedidoSalesforce(id) {
+  const supabase = await createClient();
+  const user = await usuarioActual(supabase);
+  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  // Con la sesión del asesor: solo puede cancelar los suyos (RLS)
+  const { data, error } = await supabase.from('acciones_salesforce').update({ estado: 'cancelado', terminado_at: new Date().toISOString() })
+    .eq('id', id).in('estado', ['pendiente', 'en_curso', 'error']).select().maybeSingle();
+  if (error) return { error: error.message };
+  return data ? { ok: true, accion: data } : { error: 'Ese pedido ya terminó.' };
 }
