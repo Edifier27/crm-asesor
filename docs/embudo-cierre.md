@@ -54,6 +54,13 @@ Solo entran las ventas ya hechas: **impactadas** o **en falta de cobro** (lo dic
 Columnas: nombre y apellido, DNI, N° de precarga, plan, carga BU (lo que se comisiona), directo o desregulado,
 estado (impactada / falta de cobro), fecha de venta. Se puede cargar a mano también.
 
+## Qué ya hace el CRM solo (PR del 9-nov, lib/cobro.js)
+1. La IA cierra la salud OK → el CRM pide el link de alta a la cola del script (`pedirLinkAutomatico`, con el DNI
+   leído de la foto).
+2. El script devuelve el link → el CRM se lo manda al cliente con los pasos según directo o desregulado.
+3. Directo: a las 24 h hábiles le manda el link de pago (si tiene DNI y N° de precarga); a las 48 h, un
+   "¿pudiste abonar?"; si sigue sin pagar, al asesor.
+
 ## Falta definir / pedirle a Darío
 - [ ] El **link genérico de desregulación** (segundo link).
 - [ ] Confirmar que el **link de pago** es `linkBienvenida(DNI, N° de precarga)` y que sale a las 24 h (hoy
