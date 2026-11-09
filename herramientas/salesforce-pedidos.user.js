@@ -33,6 +33,9 @@
   const CRM = 'https://asesorcrm.com.ar/api/salesforce/acciones';
   const CRM_OPORTUNIDADES = 'https://asesorcrm.com.ar/api/salesforce/oportunidades';
   const MIRAR_ETAPAS_CADA_MS = 20 * 60 * 1000;
+  // APAGADO (9-nov-2026): Salesforce no se deja cargar en un iframe y recarga la página entera (corta OmniCanal).
+  // Se prende cuando esté probada la forma de abrir la Oportunidad sin recargar.
+  const MIRAR_ETAPAS = false;
   const CADA_MS = 60 * 1000;
   const INTENTOS_POR_PASO = 3;
 
@@ -346,7 +349,7 @@
   }
   let mirandoEtapas = false;
   async function mirarEtapas() {
-    if (mirandoEtapas || CRM_CLAVE.startsWith('PEGAR') || estado() || prioridadDeOtro() || !libreParaMi()) return;
+    if (!MIRAR_ETAPAS || mirandoEtapas || CRM_CLAVE.startsWith('PEGAR') || estado() || prioridadDeOtro() || !libreParaMi()) return;
     mirandoEtapas = true;
     try {
       const r = await pedir('GET', CRM_OPORTUNIDADES);
