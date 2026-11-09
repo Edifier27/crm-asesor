@@ -17,11 +17,12 @@ const COLUMNAS = [
   ['vigencia', 'Vigencia', 'date'], ['notas', 'Notas', 'text']
 ];
 
-// Origen del dato con su color (los mismos nombres del tablero de ventas, lib/fuentes.js). SGC ya no se usa: no se ofrece
+// Origen del dato con su color (Darío, 9-nov-2026: solo estos). Las ventas viejas con otro origen (Kommo, Botmaker…) lo
+// conservan y lo muestran, pero no se ofrece para las nuevas. Inclusión (migración 0077) pide titular, a quién se incluye y valor
 const ORIGENES = {
-  Salesforce: '#0176D3', PrepagaYa: '#0E7490', Botmaker: '#DB2777', Kommo: '#2563EB', 'WhatsApp directo': '#15803D',
-  Web: '#7C3AED', 'Swiss Medical (otros)': '#B45309', 'Carga manual': '#64748B'
+  SGC: '#B45309', Salesforce: '#0176D3', PrepagaYa: '#0E7490', Referido: '#15803D', Afinidad: '#DB2777', 'Inclusión': '#7C3AED'
 };
+const INCLUSION = 'Inclusión';
 const colorOrigen = (o) => ORIGENES[o] ?? '#64748B';
 
 // Vigencia de una venta: inmediata (mismo mes de la venta) o del mes que viene ("Vigencia diciembre")
@@ -35,7 +36,7 @@ function vigenciaDe(f) {
 const hoyAR = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date());
 const csv = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
-export default function PlanillaVentas({ mes, conMes = false, opcionesMes = [], inicial }) {
+export default function PlanillaVentas({ mes, conMes = false, conInclusion = false, opcionesMes = [], inicial }) {
   // Primera columna: el mes de producción (se completa solo con el de la venta; se cambia a mano, ej. a octubre)
   // Y, con la misma migración (0076), el origen del dato después del nombre
   const columnas = conMes
@@ -92,7 +93,7 @@ export default function PlanillaVentas({ mes, conMes = false, opcionesMes = [], 
   }
 
   async function guardar(fila, campo, valor) {
-    const limpio = typeof valor === 'boolean' ? valor : valor === '' ? null : ['carga_bu'].includes(campo) ? Number(String(valor).replace(/\D/g, '')) || null : valor;
+    const limpio = typeof valor === 'boolean' ? valor : valor === '' ? null : ['carga_bu', 'valor_inclusion'].includes(campo) ? Number(String(valor).replace(/\D/g, '')) || null : valor;
     if ((fila[campo] ?? null) === limpio) return;
     const antes = fila[campo];
     setFilas((l) => l.map((f) => (f.id === fila.id ? { ...f, [campo]: limpio } : f)));
@@ -119,9 +120,11 @@ export default function PlanillaVentas({ mes, conMes = false, opcionesMes = [], 
   }
 
   function exportar() {
-    const lineas = [[...columnas.map(([, t]) => csv(t)), ...(conMes ? [csv('Onboarding')] : [])].join(';'), ...visibles.map((f) => [
+    const extra = conInclusion ? ['Titular', 'Persona a incluir', 'Valor de la inclusión'] : [];
+    const lineas = [[...columnas.map(([, t]) => csv(t)), ...(conMes ? [csv('Onboarding')] : []), ...extra.map(csv)].join(';'), ...visibles.map((f) => [
       ...columnas.map(([c]) => csv(c === 'estado' ? ESTADOS[f[c]] : c === 'tipo' ? TIPOS[f[c]] : c === 'mes' ? String(f.mes ?? '').slice(0, 7) : f[c])),
-      ...(conMes ? [csv(f.onboarding ? 'Sí' : '')] : [])
+      ...(conMes ? [csv(f.onboarding ? 'Sí' : '')] : []),
+      ...(conInclusion ? [csv(f.titular), csv(f.incluido), csv(f.valor_inclusion)] : [])
     ].join(';'))];
     const url = URL.createObjectURL(new Blob([`﻿${lineas.join('\n')}`], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a'); a.href = url; a.download = `ventas-${mes}.csv`; a.click();
@@ -131,7 +134,8 @@ export default function PlanillaVentas({ mes, conMes = false, opcionesMes = [], 
   const celda = (f, [campo, , tipo]) => {
     const comun = { 'aria-label': campo, className: `celda celda-${tipo}` };
     if (tipo === 'origen') {
-      const opciones = f.origen && !ORIGENES[f.origen] ? [f.origen, ...Object.keys(ORIGENES)] : Object.keys(ORIGENES);
+      const ofrecidos = Object.keys(ORIGENES).filter((o) => o !== INCLUSION || conInclusion);
+      const opciones = f.origen && !ofrecidos.includes(f.origen) ? [f.origen, ...ofrecidos] : ofrecidos;
       const color = colorOrigen(f.origen);
       return (
         <span className="origen-celda">
@@ -142,6 +146,17 @@ export default function PlanillaVentas({ mes, conMes = false, opcionesMes = [], 
           <button type="button" className={`boton-ov${f.onboarding ? ' activo' : ''}`} aria-pressed={Boolean(f.onboarding)}
             title={f.onboarding ? 'Hecha por onboarding. Tocá para sacarlo' : 'Marcar como hecha por onboarding'}
             onClick={() => guardar(f, 'onboarding', !f.onboarding)}>ONBOARDING</button>
+          {conInclusion && f.origen === INCLUSION && (
+            <span className="inclusion-campos">
+              <input className="celda" aria-label="Titular" placeholder="Titular (nombre y apellido)" defaultValue={f.titular ?? ''}
+                onBlur={(e) => guardar(f, 'titular', e.target.value.trim())} />
+              <input className="celda" aria-label="Persona a incluir" placeholder="A incluir (nombre y apellido)" defaultValue={f.incluido ?? ''}
+                onBlur={(e) => guardar(f, 'incluido', e.target.value.trim())} />
+              <input className="celda" aria-label="Valor de la inclusión" inputMode="numeric" placeholder="Valor de la inclusión $"
+                defaultValue={f.valor_inclusion ? Number(f.valor_inclusion).toLocaleString('es-AR') : ''}
+                onBlur={(e) => guardar(f, 'valor_inclusion', e.target.value)} />
+            </span>
+          )}
         </span>
       );
     }
