@@ -1,6 +1,6 @@
 // El script de Salesforce avisa cómo va un pedido (lib/salesforce.js). Header `x-api-key` = clave personal del asesor.
 // PATCH { estado: 'en_curso' }                          → lo toma (si otro ya lo tomó: 409)
-// PATCH { estado: 'listo', precarga, dni?, link?, salesforce_id? } → el CRM arma el link de alta y lo deja en la ficha
+// PATCH { estado: 'listo', precarga, dni?, link?, salesforce_id?, oportunidad? } → el CRM arma el link de alta y lo deja en la ficha
 // PATCH { estado: 'error', error: 'qué pasó' }          → queda el aviso en el chat para hacerlo a mano
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENCE_EN_CURSO_MIN, cerrarPedido, cuentaDeClave, fallarPedido } from '@/lib/salesforce';
@@ -30,7 +30,7 @@ export async function PATCH(request, { params }) {
     return data ? json({ accion: data }) : json({ error: 'Otro script ya lo está haciendo' }, 409);
   }
   if (datos.estado === 'listo') {
-    const r = await cerrarPedido(supabase, accion, { precarga: datos.precarga, dni: datos.dni, link: datos.link, salesforceId: datos.salesforce_id });
+    const r = await cerrarPedido(supabase, accion, { precarga: datos.precarga, dni: datos.dni, link: datos.link, salesforceId: datos.salesforce_id, oportunidad: datos.oportunidad });
     return r.error ? json({ error: r.error }, 422) : json({ accion: r.accion });
   }
   if (datos.estado === 'error') return json(await fallarPedido(supabase, accion, datos.error));

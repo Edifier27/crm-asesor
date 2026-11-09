@@ -1,9 +1,10 @@
 // ==UserScript==
-// @name         Salesforce → AsesorCRM (Gabriela Lazarte) — Automático CRM
+// @name         Salesforce → AsesorCRM (Gabriela Lazarte) — Automático CRMGABY
 // @namespace    sf-crm-gabriela
-// @version      3.6
-// @description  Automático con reintentos ante cortes de red, pausas variables, anti-duplicado, chequeo de pestaña activa, auto-refresco de la lista. Envía el lead al CRM de Gabriela (antes Kommo)
+// @version      3.7
+// @description  Automático con reintentos ante cortes de red, pausas variables, anti-duplicado, chequeo de pestaña activa, auto-refresco de la lista SEMÁFORO compartido con el script de pedidos (no se pisan) y el id del candidato para el CRM (v3.7). Envía el lead al CRM de Gabriela (antes Kommo)
 // @match        https://swissmedical.lightning.force.com/*
+// @noframes
 // @connect      asesorcrm.com.ar
 // @grant        GM_xmlhttpRequest
 // ==/UserScript==
@@ -27,6 +28,14 @@
 
   // NUEVO: cada cuánto se aprieta el botón "Actualizar" de la lista (1:30hs aprox.)
   const REFRESCAR_INTERVALO_MS = 90 * 60 * 1000;
+
+  // NUEVO v3.5: semáforo compartido con el script cotizador.
+  // Los dos scripts leen/escriben estas claves en el localStorage de Salesforce.
+  const LOCK_KEY = 'smg_flow_lock';          // quién está usando la pantalla ahora
+  const PRIO_KEY = 'smg_flow_prioridad';     // "hay un lead de OmniCanal esperando, frená"
+  const YO = 'transicion';
+  const LOCK_TTL_MS = 6 * 60 * 1000;         // si un script se cuelga, el lock vence solo
+  const PRIO_TTL_MS = 3 * 60 * 1000;
 
   // ═════════════════════════════════════════════════════════════
   //  A partir de acá NO hace falta tocar nada
@@ -203,13 +212,14 @@
     } catch (e) {}
   }
 
-  // ÚNICO CAMBIO de lógica: el lead va al CRM de Gabriela en vez de a Kommo (el saludo automático lo manda el CRM)
-  // El id del candidato que está abierto: aparece en la dirección de la pestaña (/lightning/r/Lead/00Q…/view)
+  // v3.7: el id del candidato que está abierto (/lightning/r/Lead/00Q…/view), para que el CRM lo encuentre directo
+  // al pedir el link de alta (el script de pedidos lo abre sin buscarlo)
   function idDelCandidato() {
     const m = location.href.match(/\/(00Q[A-Za-z0-9]{12}(?:[A-Za-z0-9]{3})?)(?=[\/?#]|$)/);
     return m ? m[1] : null;
   }
 
+  // ÚNICO CAMBIO de lógica: el lead va al CRM de Gabriela en vez de a Kommo (sin saludo automático)
   function enviarAlCrm(d) {
     const lead = {
       asesor: ASESOR,
@@ -218,7 +228,7 @@
       nombre: primerNombre(d.nombre),
       telefono: d.telefono,
       email: d.email,
-      // v3.6: el id del candidato en Salesforce (00Q…), para que el CRM lo encuentre directo al pedir el link de alta
+      enviarBienvenida: false,
       salesforce_id: idDelCandidato(),
     };
 
@@ -297,6 +307,11 @@
 
   // NUEVO: clickea el botón "Actualizar" (refreshButton) de la lista de Candidatos.
   function refrescarLista() {
+    // NUEVO v3.5: no refresca si el cotizador está trabajando
+    if (procesando || !lockLibrePara(YO)) {
+      log('🔄 Refresco salteado: hay un proceso en curso');
+      return;
+    }
     const boton = buscarUnoVisibleEnTodoElDOM('button[name="refreshButton"]');
     if (boton) {
       boton.click();
@@ -317,7 +332,62 @@
     }
   }
 
+  // ═════════════════════════════════════════════════════════════
+  //  SEMÁFORO compartido (v3.5)
+  // ═════════════════════════════════════════════════════════════
+
+  function leerJSON(clave) {
+    try { return JSON.parse(localStorage.getItem(clave) || 'null'); } catch (e) { return null; }
+  }
+
+  // Devuelve quién tiene el lock, o null si está libre/vencido.
+  function duenioLock() {
+    const l = leerJSON(LOCK_KEY);
+    if (!l || Date.now() - l.t > LOCK_TTL_MS) return null;
+    return l.quien;
+  }
+
+  function lockLibrePara(quien) {
+    const d = duenioLock();
+    return !d || d === quien;
+  }
+
+  // Toma el lock y confirma que no lo pisó otra pestaña en el mismo instante.
+  async function tomarLock(quien) {
+    if (!lockLibrePara(quien)) return false;
+    const token = Math.random().toString(36).slice(2);
+    localStorage.setItem(LOCK_KEY, JSON.stringify({ quien, token, t: Date.now() }));
+    await esperar(300);
+    const l = leerJSON(LOCK_KEY);
+    return !!(l && l.token === token);
+  }
+
+  function renovarLock(quien) {
+    const l = leerJSON(LOCK_KEY);
+    if (l && l.quien === quien) {
+      l.t = Date.now();
+      localStorage.setItem(LOCK_KEY, JSON.stringify(l));
+    }
+  }
+
+  function soltarLock(quien) {
+    const l = leerJSON(LOCK_KEY);
+    if (l && l.quien === quien) localStorage.removeItem(LOCK_KEY);
+  }
+
+  function pedirPrioridad() {
+    const p = leerJSON(PRIO_KEY);
+    if (!p || Date.now() - p.t > PRIO_TTL_MS) {
+      localStorage.setItem(PRIO_KEY, JSON.stringify({ quien: YO, t: Date.now() }));
+    }
+  }
+
+  function soltarPrioridad() {
+    localStorage.removeItem(PRIO_KEY);
+  }
+
   let procesando = false;
+  let avisoEsperaMostrado = false;
   let indicador;
 
   function crearIndicador() {
@@ -333,6 +403,7 @@
   }
 
   function marcarPaso(texto) {
+    renovarLock(YO);
     indicador.textContent = texto;
     log(texto);
     avisar(texto, '#0074d9');
@@ -341,9 +412,36 @@
   async function procesarSiguienteLead() {
     if (procesando) return;
     const btnAceptar = buscarUnoVisibleEnTodoElDOM('button[title="Aceptar"]');
-    if (!btnAceptar) return;
+    if (!btnAceptar) {
+      // NUEVO v3.5: si había pedido prioridad y el lead ya no está (lo aceptaron a mano
+      // o venció), libero al cotizador para que no quede pausado de más.
+      const p = leerJSON(PRIO_KEY);
+      if (p && p.quien === YO) {
+        soltarPrioridad();
+        avisoEsperaMostrado = false;
+        indicador.textContent = 'Auto ON — esperando leads…';
+        indicador.style.background = '#0a0';
+      }
+      return;
+    }
 
+    // NUEVO v3.5: si el cotizador está usando la pantalla, le pido que frene
+    // en el próximo paso seguro y espero (el lead de OmniCanal tiene prioridad).
     procesando = true;
+    if (!(await tomarLock(YO))) {
+      pedirPrioridad();
+      if (!avisoEsperaMostrado) {
+        log(`⏸ Hay un lead para aceptar pero "${duenioLock()}" está trabajando — le pedí prioridad, espero que suelte.`);
+        indicador.textContent = 'Lead esperando — pausando al cotizador…';
+        indicador.style.background = '#e67300';
+        avisoEsperaMostrado = true;
+      }
+      procesando = false;
+      return;
+    }
+    avisoEsperaMostrado = false;
+    soltarPrioridad();
+
     indicador.style.background = '#0074d9';
     log('=== INICIO procesamiento de lead ===');
 
@@ -421,6 +519,7 @@
       console.error('SF→CRM automático — detalle del error:', err);
       avisar(`Error en la automatización tras varios intentos: ${err.message} — revisá este lead a mano`, '#c00');
     } finally {
+      soltarLock(YO);
       procesando = false;
       indicador.textContent = 'Auto ON — esperando leads…';
       indicador.style.background = '#0a0';

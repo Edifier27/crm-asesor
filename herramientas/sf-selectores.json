@@ -1,0 +1,146 @@
+{
+  "_nota": "Todo está en shadow DOM nativo (LWC). Usar un deepQuery que recorra shadowRoots. Los quick actions Aura (Descartar, Registrar llamada) están en light DOM dentro de .uiModal.active.",
+  "lead": {
+    "recordTypeIds": { "Prospecto B2B": "012al0000055Tw9AAE", "Prospecto B2C": "012al0000055TxlAAE" },
+    "campo_por_api": "[data-target-selection-name=\"sfdc:RecordField.Lead.<API>\"]  (valor: .test-id__field-value)",
+    "lapiz_editar": "button[title=\"Modificar <Etiqueta>\"]   ej: button[title=\"Modificar Listo para convertir\"]",
+    "listo_para_convertir_edicion": "lightning-input[name=\"SMG_Ready_to_convert__c\"]  (type=checkbox; el input real está en su shadowRoot)",
+    "guardar_edicion": "button[name=\"SaveEdit\"]",
+    "cancelar_edicion": "button[name=\"CancelEdit\"]",
+    "boton_descartar": "button[name=\"Lead.Descartar\"]",
+    "boton_convertir": "button[name=\"Convert\"]  (solo aparece con Listo para convertir = true guardado)",
+    "boton_esperando_respuesta": "button[name=\"Lead.Esperando_Respuesta\"]  → modal con 'Siguiente'. Falla si antes no se registró una llamada",
+    "registrar_llamada": "button[title=\"Registrar una llamada\"] (panel Actividad; Asunto viene precargado 'Llamada') → Guardar .cuf-publisherShareButton",
+    "listo_para_convertir_visible": "El campo recién aparece cuando el candidato está en 'Esperando Respuesta' (en 'Contactar' no está)",
+    "telefono_regla": "AL CREAR: cargar Teléfono SOLO con el número local (ej. 34142247) — Salesforce antepone 549+código de área y queda 5491134142247. AL EDITAR no antepone nada: hay que poner el número completo 549+área+número.",
+    "convertir_pantalla": {
+      "url": "/lightning/cmp/runtime_sales_lead__convertDesktopConsole (se abre como subpestaña)",
+      "radios": "Crear Nueva Cuenta / Elegir Cuenta Existente; Crear Nueva Oportunidad / Elegir Oportunidad Existente (por defecto: crear ambas). Los name son dinámicos (Account4320:0): elegir por texto del label",
+      "no_crear_oportunidad": "lightning-input checkbox 'No crear una oportunidad tras la conversión' (dejar destildado)",
+      "propietario": "lookup 'Propietario de registro' (viene con el usuario logueado)",
+      "estado_convertido": "lightning-combobox[label=\"Estado convertido\"] — única opción 'Converted'",
+      "boton_convertir": "button.slds-button_brand con texto 'Convertir' (light DOM, sin name)",
+      "pantalla_final": "modal 'Se ha convertido su candidato'; ID de la Oportunidad: a.outputLookupLink[data-recordid^=\"006\"] → getAttribute('data-recordid'); Cuenta: [data-recordid^=\"001\"]"
+    },
+    "path_etapas": {
+      "Contactar": "[data-target-selection-name=\"contactarPathTab\"]",
+      "Esperando Respuesta": "[data-target-selection-name=\"esperando_respuestaPathTab\"]",
+      "Descartado": "[data-target-selection-name=\"descartadoPathTab\"]",
+      "Convertido": "[data-target-selection-name=\"convertedPathTab\"]"
+    },
+    "modal_descartar": {
+      "contenedor": ".uiModal.active",
+      "motivo_picklist_aura": ".uiModal.active a.select  (abre .select-options li a[title])",
+      "comentario": ".uiModal.active textarea",
+      "cancelar": ".uiModal.active button.cuf-publisherCancelButton",
+      "guardar": ".uiModal.active button.cuf-publisherShareButton",
+      "motivos": ["Cambio de Plan","Corporativo","Dato Duplicado","Error en servicio","Imposible Contactar","Modalidad de venta","No Elegible DJ ex socio","Por Edad","Retención"]
+    }
+  },
+  "nuevo_candidato_b2c": {
+    "url_alternativa_sin_verificar": "/lightning/o/Lead/new?recordTypeId=012al0000055TxlAAE",
+    "selector_tipo_registro": "input[type=radio][value=\"012al0000055TxlAAE\"] y luego botón con texto \"Siguiente\" (Aura, light DOM)",
+    "campos": {
+      "Tratamiento":        { "sel": "lightning-input-name lightning-combobox[name=\"salutation\"]", "tipo": "lista", "req": false },
+      "Nombre":             { "sel": "lightning-input[name=\"firstName\"]", "tipo": "texto", "req": false },
+      "Apellidos":          { "sel": "lightning-input[name=\"lastName\"]", "tipo": "texto", "req": true },
+      "Producto a Ofrecer": { "sel": "records-record-picklist[field-name=\"SMG_Product_To_Offer__c\"] lightning-combobox", "api": "SMG_Product_To_Offer__c", "tipo": "lista", "req": true },
+      "Edad":               { "sel": "lightning-input[name=\"SMG_Age__c\"]", "tipo": "número", "req": false },
+      "Tipo de Documento":  { "api": "SMG_Document_Type__c", "tipo": "lista", "req": true },
+      "Número de Documento":{ "sel": "lightning-input[name=\"SMG_Document_Number__c\"]", "tipo": "texto", "req": true },
+      "Relación Laboral":   { "api": "SMG_Employment_Relationship__c", "tipo": "lista", "req": false },
+      "Sueldo Bruto":       { "sel": "lightning-input[name=\"Sueldo_Bruto__c\"]", "tipo": "número", "req": false, "visible_si": "Relación Laboral = Relación de Dependencia" },
+      "Cobertura Actual":   { "api": "SMG_Active_Health_Insurance__c", "tipo": "lista", "req": true, "visible_si": "Producto a Ofrecer = Prepaga", "valor_fijo": "Sin Cobertura" },
+      "Obra Social":        { "api": "SMG_Health_Insurance__c", "tipo": "calculado al guardar (no editable)" },
+      "Provincia":          { "api": "SMG_State__c", "tipo": "lista (value numérico)", "req": true },
+      "Partido":            { "api": "SMG_District__c", "tipo": "lookup", "req": false, "input": "input[role=combobox][placeholder=\"Buscar Partidos...\"]", "opcion": "lightning-base-combobox-item[role=option][data-value^=\"a03\"]" },
+      "Localidad":          { "api": "SMG_Locality__c", "tipo": "lookup", "req": false, "input": "input[role=combobox][placeholder=\"Buscar Localidades...\"]" },
+      "Correo":             { "sel": "lightning-input[name=\"Email\"]", "tipo": "email", "req": true },
+      "Código de área":     { "sel": "lightning-input[name=\"SMG_Area_Code__c\"]", "tipo": "número", "req": true },
+      "Teléfono":           { "sel": "lightning-input[name=\"Phone\"]", "tipo": "texto", "req": true },
+      "Cotización para":    { "nota": "No está en el alta B2C. Existe en la Oportunidad (SMG_Quotation_For__c) y en el alta B2B." }
+    },
+    "guardar": "button[name=\"SaveEdit\"] (NO tocado)",
+    "cancelar": "button[name=\"CancelEdit\"]",
+    "opciones": {
+      "Tratamiento": ["Mr.","Ms.","Mrs.","Dr.","Prof.","Mx."],
+      "Producto a Ofrecer": ["Prepaga","Vida individual","Cells"],
+      "Tipo de Documento": ["CI","DU","LC","LE","PA"],
+      "Relación Laboral": ["Relación de Dependencia","Particular"],
+      "Cobertura Actual": ["Osde","Sancor","Galeno","Medicus","Medife","Omint","Hominis","Avalian","Prevención","H. Alemán","Sin Cobertura","Otros"],
+      "Provincia": {"Buenos Aires":"1","Capital Federal":"2","Catamarca":"3","Chaco":"4","Chubut":"5","Córdoba":"6","Corrientes":"7","Entre Ríos":"8","Formosa":"9","Jujuy":"10","La Pampa":"11","La Rioja":"12","Mendoza":"13","Misiones":"14","Neuquén":"15","Río Negro":"17","Salta":"18","San Juan":"19","San Luis":"20","Santa Cruz":"21","Santa Fe":"22","Santiago del Estero":"23","Tierra del Fuego":"24","Tucumán":"25"},
+      "Motivo de Reasignación": ["Dato cruzado / duplicado","Error de asignación original","Reasignación entre Canales","Sin gestión","Solicitud del cliente","Timeout vencido"]
+    }
+  },
+  "oportunidad": {
+    "boton_modificar_etapa": "button[name=\"Opportunity.SMG_QA_ModificarEtapa\"]",
+    "boton_cerrar": "button[name=\"Opportunity.Cerrar_Oportunidad\"]",
+    "boton_cotizador": "button[name=\"Opportunity.Cotizador\"]",
+    "boton_generar_link": "button[name=\"Opportunity.SMG_QA_GenerateSelfServiceLink\"]",
+    "etapa_actual": "li[data-target-selection-name$=\"PathTab\"].slds-is-current",
+    "etapas": {"A cotizar":"aCotizarPathTab","Propuesta Enviada":"propuestaEnviadaPathTab","AM":"amPathTab","En Proceso de Alta":"enProcesoDeAltaPathTab","En Proceso de Cobro":"enProcesoDeCobroPathTab","Cerrada":"closedPathTab"},
+    "pestana_cotizacion": "li[data-target-selection-name=\"flexipage_tab4Tab\"] a[role=tab]",
+    "link_autogestion": "[data-target-selection-name=\"sfdc:RecordField.Opportunity.SMG_SelfService_Link__c\"] lightning-formatted-url  → .value",
+    "numero_tramite": "[data-target-selection-name=\"sfdc:RecordField.Opportunity.SMG_Opportunity_TransactionNumber__c\"] .test-id__field-value"
+  },
+  "cotizador": {
+    "contenedor": "c-smg-lwc-cotizador-container",
+    "zona": "lightning-combobox[label=\"Zona\"]",
+    "integrante_campo": "[data-id=\"<n>\"][data-field=\"relationshipType|age|sex|affiliationCondition|grossSalary\"]",
+    "agregar_integrante": "button.add-member-button",
+    "quitar_integrante": "button.remove-member-button[data-id=\"<n>\"]",
+    "descuento": "lightning-combobox[label=\"Descuento\"]  (esperar que el placeholder deje de ser \"Cargando descuentos...\")",
+    "ir_a_planes": "c-smg-lwc-cotizador-container lightning-button (texto \"Ir a Planes\"; queda deshabilitado mientras cargan descuentos)",
+    "opciones": {
+      "Zona": {"AMBA":"AMBA","Patagonia y Salta":"PATAGONIA_SALTA","Resto del interior del Pais":"RESTO_INTERIOR","Cordoba":"CORDOBA","Buenos Aires y Santa Fe":"BUENOS_AIRES_SANTA_FE","Tierra del Fuego":"TIERRA_DEL_FUEGO"},
+      "Tipo de integrante (titular)": ["Titular"],
+      "Tipo de integrante (adicionales)": {"Conyuge":"Conyuge","Hijo":"Hijo","Hijo Mayor":"HijoMayor","Hijo con Cap. Diferentes":"HijoCapacidadDiferente","Familiar a cargo":"FamiliarCargo"},
+      "Sexo": {"No informado":"1","Femenino":"F","Masculino":"M","No binario":"X"},
+      "Condición de Afiliación": {"Directo":"Directo","SWISS MEDICAL":"Desregulado"},
+      "Descuento": {"0%":"0","15%":"15","25%":"25","30%":"30"}
+    },
+    "precarga": "Al abrir, Edad/Sexo/Condición vienen precargados desde la Oportunidad (Relación Laboral 'Particular' → Condición 'Directo')",
+    "ir_a_planes_crea_cotizacion": "OJO: 'Ir a Planes' ya crea la cotización en el servicio ('La cotización fue creada con el número de tramite N'). Muestra 'Obteniendo planes...' unos 5-10 s",
+    "plan_checkbox": "c-smg-lwc-cotizador-planes lightning-input[data-code=\"SMG02\"]  (códigos: S1,S2,SMG02,SMG20,SMG30,SMG40,SMG50,SMG60,SMG70,SPORT,SPORT+,SPORT-S)",
+    "campania_descuento": "c-smg-lwc-cotizador-planes lightning-combobox (aparece al marcar un plan; se filtra por condición+descuento+plan+zona). value = '1|3AU6|285|SMG02|3SMG02_IDAM19C|15|2024-08-01 00:00:00.0|0'",
+    "campania_observada_directo_15_SMG02_AMBA": ["3AU6 INDIVIDUALES AMBA NUBIAL/ CAMPAÑA DTO.INDIV.15% POR 12 MESES"],
+    "leyenda_campania": "span con 'DESCUENTO ESP 15% POR 12 MESES A PARTIR DEL ALTA DE AFILIACION'",
+    "ir_a_cotizar": "button texto 'Ir a Cotizar' en c-smg-lwc-cotizador-planes",
+    "resumen": {
+      "componente": "c-smg-lwc-cotizador-cotizacion",
+      "numero_tramite": "p que empieza con 'Número de trámite:'",
+      "planes": "p 'Planes seleccionados:'",
+      "campania": "p 'Campaña aplicada:'",
+      "total": "div.quote-row (texto 'Total a pagar$ 295.413,03')",
+      "botones": "Salir / Ir a Planes / Cotizar (lightning-button dentro de c-smg-lwc-cotizador-cotizacion)",
+      "exito": "Toast 'Cotización creada' y bloque 'Cotización creada correctamente'; el botón pasa a 'Cotización creada' (deshabilitado)"
+    }
+  },
+  "busqueda": {
+    "input": "input[type=search][placeholder=\"Buscar...\"]  (dentro de lightning-input)",
+    "url": "/one/one.app#' + btoa(JSON.stringify({componentDef:'forceSearch:searchPageDesktop',attributes:{term:TERM,scopeMap:{type:'TOP_RESULTS'},context:{FILTERS:{}}},state:{}}))"
+  },
+  "sincronizar_cotizacion": {
+    "por_que": "Generar Link falla con 'Aún no ha realizado ninguna cotización válida... debe estar sincronizada' si la cotización no está sincronizada. Cotizar NO sincroniza solo.",
+    "pasos": "Oportunidad → pestaña Cotización → link de la cotización (00015…) → button[name=\"SyncQuote\"] ('Iniciar sincronización') → modal → botón '¿Desea continuar?' → toast 'se ha sincronizado'"
+  },
+  "generar_link_modal": {
+    "tipo": "Screen Flow (flowruntime-flow)",
+    "link": "flowruntime-display-text-lwc lightning-formatted-rich-text a[href*=\"asociarme\"]",
+    "error": "flowruntime-display-text-lwc lightning-formatted-rich-text p (texto del error)",
+    "boton": "flowruntime-navigation-bar button 'Finalizar'",
+    "despues": "Cotizador y Generar Link desaparecen del encabezado; el link queda en SMG_SelfService_Link__c"
+  },
+  "flujo_completo_verificado": [
+    "1 Alta B2C: /lightning/o/Lead/new?recordTypeId=012al0000055TxlAAE (abre B2C directo) → completar → SaveEdit",
+    "2 Registrar una llamada → Guardar",
+    "3 Lead.Esperando_Respuesta → Siguiente",
+    "4 Lápiz Listo para convertir → check → SaveEdit",
+    "5 button[name=Convert] → Convertir → leer data-recordid 006…",
+    "6 /lightning/r/Opportunity/006…/view → Opportunity.Cotizador → Descuento → Ir a Planes → plan → Ir a Cotizar → Cotizar → Salir",
+    "7 Sincronizar la cotización (SyncQuote)",
+    "8 Opportunity.SMG_QA_GenerateSelfServiceLink → leer link → Finalizar"
+  ],
+  "link_formato_nota": "El último segmento es el Número de Trámite de la OPORTUNIDAD/candidato (303067109), no el de la cotización (303067146)",
+  "link_formato": "https://asociarme.swissmedical.com.ar/asesor/<usuarioSMG>/<código, ej. WB274>/<Número de Trámite>"
+}
