@@ -60,9 +60,13 @@ estado (impactada / falta de cobro), fecha de venta. Se puede cargar a mano tamb
 2. El script devuelve el link → el CRM se lo manda al cliente con los pasos según directo o desregulado.
 3. Directo: a las 24 h hábiles le manda el link de pago (si tiene DNI y N° de precarga); a las 48 h, un
    "¿pudiste abonar?"; si sigue sin pagar, al asesor.
+4. Desregulado: cuando avisa que terminó el primer link ("listo", "ya lo completé"), le manda el segundo.
+
+Por ahora solo en la cuenta de Gabriela (`CUENTAS_CIERRE_AUTOMATICO` en `lib/cobro.js`). Para sumar la de Darío,
+agregar su mail a esa lista.
 
 ## Falta definir / pedirle a Darío
-- [ ] El **link genérico de desregulación** (segundo link).
+- [x] Link genérico de desregulación: `https://asociarme.swissmedical.com.ar/planes/reingreso` (`LINK_DESREGULACION` en `lib/venta.js`).
 - [ ] Confirmar que el **link de pago** es `linkBienvenida(DNI, N° de precarga)` y que sale a las 24 h (hoy
       `SECUENCIA_COBRO` en `lib/venta.js` lo manda a las 48 h).
 - [ ] Quién pide el link de alta cuando la IA deja al cliente "listo para cerrar": el asesor con el botón, o el
