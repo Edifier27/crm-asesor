@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Salesforce ← AsesorCRM — Pedidos de link de alta (automático)
 // @namespace    sf-crm-pedidos
-// @version      0.7
+// @version      0.8
 // @description  Toma los pedidos de "link de alta" del CRM y los hace solo en Salesforce: candidato → Listo para convertir → Convertir → (cotizás vos) → sincronizar → Generar link → devuelve el link al CRM. v0.4: además mira la etapa de las Oportunidades de las ventas (falta de cobro / impactada) y se la avisa al CRM. Comparte el SEMÁFORO con el script de transición (los leads de OmniCanal tienen prioridad).
 // @match        https://swissmedical.lightning.force.com/*
 // @noframes
@@ -20,6 +20,8 @@
 //  5. Cada 20 minutos, si está libre y no tocaste la compu en 5 minutos, abre la lista "Mis Oportunidades", lee la
 //     etapa de las ventas y vuelve a donde estabas: "En Proceso de Cobro" → el CRM le manda el link de pago al
 //     cliente; "Cerrada"/"Closed Won" → impactada.
+// v0.8: además manda toda la lista "Mis Oportunidades" al CRM, que engancha por nombre las ventas viejas (sin Oportunidad
+// guardada) y les sigue la etapa: así la planilla se actualiza también con las ventas de antes.
 // v0.7: si el lead no vino de Salesforce (PrepagaYa, referido…), lo carga solo como candidato B2C con los datos del CRM
 // (nombre y DNI de la foto del DNI, mail, teléfono, provincia) y sigue igual. Antes de guardar te muestra lo cargado.
 // v0.6: trabaja solo en la pestaña marcada "Ventas" (abajo a la izquierda elegís el rol de cada pestaña) y al terminar
@@ -456,16 +458,20 @@
   let ultimaActividad = Date.now();
   ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach((ev) => addEventListener(ev, () => { ultimaActividad = Date.now(); }, { passive: true, capture: true }));
 
-  /** Lee la lista: { id15: etapa } (el id de 15 letras, para comparar con el de 18 sin problemas) */
-  function etapasDeLaLista() {
-    const res = {};
+  /** Lee la lista: [{ oportunidad, nombre, cuenta, etapa }] (v0.8) */
+  function filasDeLaLista() {
+    const filas = [];
     for (const tr of todos('tr[data-row-key-value^="006"]')) {
       const id = tr.getAttribute('data-row-key-value');
       const celdas = Array.from(tr.querySelectorAll('th, td')).map(texto);
-      const etapa = celdas.find((t) => ETAPAS[t] || t === 'Closed Lost');
-      if (id && etapa) res[id.slice(0, 15)] = etapa;
+      const vista = celdas.find((t) => ETAPAS[t] || t === 'Closed Lost');
+      const etapa = ETAPAS[vista];
+      if (!id || !etapa) continue; // "Closed Lost" o sin etapa: no se informa
+      const nombre = texto(tr.querySelector('a[href*="/lightning/r/006"], a[href*="/Opportunity/006"]')) || celdas.find((t) => t.endsWith('-')) || '';
+      const cuenta = texto(tr.querySelector('a[href*="/lightning/r/001"], a[href*="/Account/001"]')) || '';
+      filas.push({ oportunidad: id, nombre, cuenta, etapa });
     }
-    return res;
+    return filas;
   }
 
   let mirandoEtapas = false;
@@ -479,19 +485,15 @@
     try {
       const r = await pedir('GET', CRM_OPORTUNIDADES);
       if (r.status !== 200) { log(`No pude traer las ventas a mirar: ${r.error || r.status}`); return; }
-      if (!(r.ventas ?? []).length) return;
+      if (!(r.ventas ?? []).length && !r.sin_oportunidad) return; // nada que mirar
       if (!(tomo = await tomarLock())) return;
       navegar('/lightning/o/Opportunity/list?filterName=MyOpportunities');
-      await esperarA(() => Object.keys(etapasDeLaLista()).length > 0, 'la lista Mis Oportunidades', 40000);
+      await esperarA(() => filasDeLaLista().length > 0, 'la lista Mis Oportunidades', 40000);
       await esperar(2500); // que terminen de cargar las filas
-      const etapas = etapasDeLaLista();
-      for (const v of r.ventas) {
-        const vista = etapas[String(v.oportunidad).slice(0, 15)];
-        const etapa = ETAPAS[vista];
-        if (!etapa || etapa === v.etapa) continue; // no está en la lista, es "Closed Lost" o no cambió
-        const res = await pedir('POST', CRM_OPORTUNIDADES, { contacto_id: v.contacto_id, etapa });
-        log(`Oportunidad ${v.oportunidad}: ${etapa}${res.hizo && res.hizo !== 'nada' ? ` → CRM: ${res.hizo}` : ''}`);
-      }
+      const filas = filasDeLaLista();
+      const res = await pedir('POST', CRM_OPORTUNIDADES, { filas });
+      if (res.status === 200) log(`Lista de Oportunidades (${filas.length}): ${res.actualizadas ?? 0} actualizadas, ${res.enganchadas ?? 0} ventas viejas enganchadas`);
+      else log(`El CRM no aceptó la lista: ${res.error || res.status}`);
     } catch (e) {
       log(`No pude mirar las etapas: ${e.message}`);
     } finally {

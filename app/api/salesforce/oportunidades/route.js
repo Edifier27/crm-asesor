@@ -2,8 +2,10 @@
 // clave personal del asesor (Mi perfil).
 //   GET  → { ventas: [{ contacto_id, oportunidad, etapa, revisada_at }] }  las que todavía no están impactadas
 //   POST { contacto_id, etapa } → el CRM actúa: "En Proceso de Cobro" manda el link de pago; "Cerrada" la impacta
+//   POST { filas: [{ oportunidad, nombre, cuenta, etapa }] } → la lista entera (v0.8): actualiza las seguidas y engancha
+//        las ventas viejas por nombre (procesarListaOportunidades)
 import { createAdminClient } from '@/lib/supabase/admin';
-import { cuentaDeClave, etapaDeOportunidad, ventasParaSeguir } from '@/lib/salesforce';
+import { cuantasSinOportunidad, cuentaDeClave, etapaDeOportunidad, procesarListaOportunidades, ventasParaSeguir } from '@/lib/salesforce';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,7 +17,8 @@ export async function GET(request) {
   const supabase = createAdminClient();
   const cuenta = await cuentaDeClave(supabase, request.headers.get('x-api-key'));
   if (!cuenta) return json(SIN_CLAVE, 401);
-  return json({ ventas: await ventasParaSeguir(supabase, cuenta) });
+  const [ventas, sinOportunidad] = await Promise.all([ventasParaSeguir(supabase, cuenta), cuantasSinOportunidad(supabase, cuenta)]);
+  return json({ ventas, sin_oportunidad: sinOportunidad });
 }
 
 export async function POST(request) {
@@ -24,6 +27,7 @@ export async function POST(request) {
   if (!cuenta) return json(SIN_CLAVE, 401);
   let datos;
   try { datos = await request.json(); } catch { return json({ error: 'Cuerpo inválido' }, 400); }
+  if (Array.isArray(datos?.filas)) return json(await procesarListaOportunidades(supabase, cuenta, datos.filas));
   if (!/^[0-9a-f-]{36}$/i.test(datos?.contacto_id ?? '')) return json({ error: 'contacto_id inválido' }, 400);
   const r = await etapaDeOportunidad(supabase, cuenta, { contactoId: datos.contacto_id, etapa: String(datos.etapa ?? '') });
   return r.error ? json(r, 422) : json(r);
