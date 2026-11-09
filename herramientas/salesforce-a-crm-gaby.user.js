@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Salesforce → AsesorCRM (Gabriela Lazarte) — Automático CRMGABY
 // @namespace    sf-crm-gabriela
-// @version      3.7
-// @description  Automático con reintentos ante cortes de red, pausas variables, anti-duplicado, chequeo de pestaña activa, auto-refresco de la lista SEMÁFORO compartido con el script de pedidos (no se pisan) y el id del candidato para el CRM (v3.7). Envía el lead al CRM de Gabriela (antes Kommo)
+// @version      3.8
+// @description  Automático con reintentos ante cortes de red, pausas variables, anti-duplicado, chequeo de pestaña activa, auto-refresco de la lista SEMÁFORO compartido con el script de pedidos (no se pisan) y el id del candidato para el CRM (v3.7). v3.8: trabaja solo en la pestaña marcada "Transición". Envía el lead al CRM de Gabriela (antes Kommo)
 // @match        https://swissmedical.lightning.force.com/*
 // @noframes
 // @connect      asesorcrm.com.ar
@@ -40,6 +40,28 @@
   // ═════════════════════════════════════════════════════════════
   //  A partir de acá NO hace falta tocar nada
   // ═════════════════════════════════════════════════════════════
+
+  // ── Rol de la pestaña (v0.6 / v3.8, Darío 9-nov-2026): una pestaña "Transición" (OmniCanal en línea, acepta los
+  // leads) y otra "Ventas" (pedidos de link, cotización y etapas). Cada script trabaja solo en la suya. El rol queda en
+  // la pestaña (sessionStorage) hasta que la cerrás. Los dos scripts dibujan el mismo selector: el primero que llega.
+  const ROL_KEY = 'smg_rol_pestana';
+  const rolDeLaPestana = () => { try { return sessionStorage.getItem(ROL_KEY); } catch (e) { return null; } };
+  function dibujarSelectorDeRol() {
+    let caja = document.getElementById('smg-rol-pestana');
+    if (!caja) {
+      caja = document.createElement('div');
+      caja.id = 'smg-rol-pestana';
+      Object.assign(caja.style, { position: 'fixed', bottom: '24px', left: '24px', zIndex: 999999, padding: '8px 12px', borderRadius: '10px',
+        background: '#1D2B28', color: '#fff', font: '12px/1.4 sans-serif', boxShadow: '0 2px 8px rgba(0,0,0,.3)' });
+      document.body.appendChild(caja);
+    }
+    const rol = rolDeLaPestana();
+    const boton = (r, t) => `<button data-rol="${r}" style="margin-left:6px;border:0;border-radius:6px;padding:3px 8px;cursor:pointer;background:${rol === r ? '#E8002D' : '#fff'};color:${rol === r ? '#fff' : '#1D2B28'}">${t}</button>`;
+    caja.innerHTML = `${rol ? 'Esta pestaña:' : '<b>¿Para qué es esta pestaña?</b>'}${boton('transicion', 'Transición')}${boton('ventas', 'Ventas')}`;
+    caja.querySelectorAll('[data-rol]').forEach((b) => (b.onclick = () => { try { sessionStorage.setItem(ROL_KEY, b.dataset.rol); } catch (e) {} dibujarSelectorDeRol(); }));
+  }
+  setTimeout(dibujarSelectorDeRol, 3000);
+  setInterval(() => { if (!document.getElementById('smg-rol-pestana')) dibujarSelectorDeRol(); }, 10000);
 
   function retardoAleatorio() {
     return Math.floor(Math.random() * (RETARDO_MAX_MS - RETARDO_MIN_MS + 1)) + RETARDO_MIN_MS;
@@ -307,6 +329,7 @@
 
   // NUEVO: clickea el botón "Actualizar" (refreshButton) de la lista de Candidatos.
   function refrescarLista() {
+    if (rolDeLaPestana() !== 'transicion') return;
     // NUEVO v3.5: no refresca si el cotizador está trabajando
     if (procesando || !lockLibrePara(YO)) {
       log('🔄 Refresco salteado: hay un proceso en curso');
@@ -411,6 +434,13 @@
 
   async function procesarSiguienteLead() {
     if (procesando) return;
+    // v3.8: solo en la pestaña de Transición (la de Ventas hace los pedidos de link)
+    if (rolDeLaPestana() !== 'transicion') {
+      indicador.textContent = rolDeLaPestana() === 'ventas' ? 'Transición OFF (pestaña de Ventas)' : 'Transición en pausa: elegí el rol de la pestaña ↙';
+      indicador.style.background = rolDeLaPestana() === 'ventas' ? '#777' : '#e67300';
+      return;
+    }
+    if (indicador.textContent.startsWith('Transición')) { indicador.textContent = 'Auto ON — esperando leads…'; indicador.style.background = '#0a0'; }
     const btnAceptar = buscarUnoVisibleEnTodoElDOM('button[title="Aceptar"]');
     if (!btnAceptar) {
       // NUEVO v3.5: si había pedido prioridad y el lead ya no está (lo aceptaron a mano

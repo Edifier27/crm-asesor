@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Salesforce ← AsesorCRM — Pedidos de link de alta (automático)
 // @namespace    sf-crm-pedidos
-// @version      0.5
+// @version      0.6
 // @description  Toma los pedidos de "link de alta" del CRM y los hace solo en Salesforce: candidato → Listo para convertir → Convertir → (cotizás vos) → sincronizar → Generar link → devuelve el link al CRM. v0.4: además mira la etapa de las Oportunidades de las ventas (falta de cobro / impactada) y se la avisa al CRM. Comparte el SEMÁFORO con el script de transición (los leads de OmniCanal tienen prioridad).
 // @match        https://swissmedical.lightning.force.com/*
 // @noframes
@@ -20,6 +20,8 @@
 //  5. Cada 20 minutos, si está libre y no tocaste la compu en 5 minutos, abre la lista "Mis Oportunidades", lee la
 //     etapa de las ventas y vuelve a donde estabas: "En Proceso de Cobro" → el CRM le manda el link de pago al
 //     cliente; "Cerrada"/"Closed Won" → impactada.
+// v0.6: trabaja solo en la pestaña marcada "Ventas" (abajo a la izquierda elegís el rol de cada pestaña) y al terminar
+// cierra las pestañas de la consola que abrió. Ya no comparte el semáforo con la transición: van en pestañas distintas.
 // Navega con la navegación interna de Lightning ($A, sin recargar: probado por Claude in Chrome el 9-nov-2026), así
 // no se corta OmniCanal. Si no la encuentra, recarga como antes.
 // PASO_A_PASO = true: antes de cada clic te pregunta "¿sigo?". Dejalo así en las primeras pruebas.
@@ -38,12 +40,12 @@
   const CRM_OPORTUNIDADES = 'https://asesorcrm.com.ar/api/salesforce/oportunidades';
   const MIRAR_ETAPAS_CADA_MS = 20 * 60 * 1000;
   const MIRAR_ETAPAS = true;
-  const QUIETO_MS = 5 * 60 * 1000; // solo mira las etapas si no tocaste la compu en este tiempo
+  const QUIETO_MS = 2 * 60 * 1000; // solo mira las etapas si no tocaste la compu en este tiempo
   const CADA_MS = 60 * 1000;
   const INTENTOS_POR_PASO = 3;
 
-  // Semáforo compartido con el script de transición (mismas claves)
-  const LOCK_KEY = 'smg_flow_lock';
+  // Semáforo solo entre pestañas de Ventas (por si abrís dos): la transición va en su propia pestaña y no espera
+  const LOCK_KEY = 'smg_ventas_lock';
   const PRIO_KEY = 'smg_flow_prioridad';
   const YO = 'cotizador';
   const LOCK_TTL_MS = 6 * 60 * 1000;
@@ -108,7 +110,8 @@
   const leer = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
   const duenio = () => { const l = leer(LOCK_KEY); return l && Date.now() - l.t < LOCK_TTL_MS ? l.quien : null; };
   const libreParaMi = () => { const d = duenio(); return !d || d === YO; };
-  const prioridadDeOtro = () => { const p = leer(PRIO_KEY); return !!(p && p.quien !== YO && Date.now() - p.t < PRIO_TTL_MS); };
+  // La pestaña de Ventas no tiene OmniCanal: los leads entran por la de Transición, que no hace falta esperar
+  const prioridadDeOtro = () => false;
   async function tomarLock() {
     if (!libreParaMi()) return false;
     const token = Math.random().toString(36).slice(2);
@@ -124,6 +127,38 @@
   const estado = () => leer(ESTADO_KEY);
   const guardar = (e) => localStorage.setItem(ESTADO_KEY, JSON.stringify({ ...e, t: Date.now() }));
   const limpiar = () => localStorage.removeItem(ESTADO_KEY);
+
+  // ── Rol de la pestaña (v0.6 / v3.8, Darío 9-nov-2026): una pestaña "Transición" (OmniCanal en línea, acepta los
+  // leads) y otra "Ventas" (pedidos de link, cotización y etapas). Cada script trabaja solo en la suya. El rol queda en
+  // la pestaña (sessionStorage) hasta que la cerrás. Los dos scripts dibujan el mismo selector: el primero que llega.
+  const ROL_KEY = 'smg_rol_pestana';
+  const rolDeLaPestana = () => { try { return sessionStorage.getItem(ROL_KEY); } catch (e) { return null; } };
+  function dibujarSelectorDeRol() {
+    let caja = document.getElementById('smg-rol-pestana');
+    if (!caja) {
+      caja = document.createElement('div');
+      caja.id = 'smg-rol-pestana';
+      Object.assign(caja.style, { position: 'fixed', bottom: '24px', left: '24px', zIndex: 999999, padding: '8px 12px', borderRadius: '10px',
+        background: '#1D2B28', color: '#fff', font: '12px/1.4 sans-serif', boxShadow: '0 2px 8px rgba(0,0,0,.3)' });
+      document.body.appendChild(caja);
+    }
+    const rol = rolDeLaPestana();
+    const boton = (r, t) => `<button data-rol="${r}" style="margin-left:6px;border:0;border-radius:6px;padding:3px 8px;cursor:pointer;background:${rol === r ? '#E8002D' : '#fff'};color:${rol === r ? '#fff' : '#1D2B28'}">${t}</button>`;
+    caja.innerHTML = `${rol ? 'Esta pestaña:' : '<b>¿Para qué es esta pestaña?</b>'}${boton('transicion', 'Transición')}${boton('ventas', 'Ventas')}`;
+    caja.querySelectorAll('[data-rol]').forEach((b) => (b.onclick = () => { try { sessionStorage.setItem(ROL_KEY, b.dataset.rol); } catch (e) {} dibujarSelectorDeRol(); }));
+  }
+  setTimeout(dibujarSelectorDeRol, 3000);
+  setInterval(() => { if (!document.getElementById('smg-rol-pestana')) dibujarSelectorDeRol(); }, 10000);
+
+  // ── Pestañas de la consola: al terminar se cierran las que abrió el pedido ──
+  const pestanasAbiertas = () => todos('button[title^="Cerrar "]').map((b) => b.getAttribute('title')).filter((t) => t && t.includes(' | '));
+  async function cerrarPestanasNuevas(antes) {
+    if (!Array.isArray(antes)) return;
+    for (const b of todos('button[title^="Cerrar "]')) {
+      const t = b.getAttribute('title') || '';
+      if (t.includes(' | ') && !antes.includes(t)) { b.click(); log(`Pestaña cerrada: ${t}`); await esperar(800); }
+    }
+  }
 
   // ── Panel ──
   const panel = document.createElement('div');
@@ -288,6 +323,7 @@
     if (res.status !== 200) throw new Error(`El CRM no aceptó el link: ${res.error || res.status}`);
     log(`✓ Link de ${e.accion.datos?.nombre} enviado al CRM`);
     limpiar();
+    await cerrarPestanasNuevas(e.pestanasAntes);
     mostrar(`✓ Listo: el link de <b>${esc(e.accion.datos?.nombre)}</b> volvió al CRM.`);
     setTimeout(() => (panel.style.display = 'none'), 8000);
     return 'terminado';
@@ -296,6 +332,7 @@
   async function fallar(motivo) {
     const e = estado();
     limpiar(); soltarLock();
+    await cerrarPestanasNuevas(e?.pestanasAntes);
     if (e?.accion) await pedir('PATCH', `${CRM}/${e.accion.id}`, { estado: 'error', error: String(motivo).slice(0, 280) });
     mostrar(`✗ ${esc(motivo)}<br>Quedó avisado en el chat del CRM para hacerlo a mano.`);
   }
@@ -304,7 +341,7 @@
 
   let corriendo = false;
   async function correr() {
-    if (corriendo) return;
+    if (corriendo || rolDeLaPestana() !== 'ventas') return;
     const e = estado();
     if (!e) return;
     if (prioridadDeOtro() || !(await tomarLock())) { log('⏸ La transición está trabajando: espero'); return; }
@@ -329,6 +366,7 @@
   }
 
   async function revisarCola() {
+    if (rolDeLaPestana() !== 'ventas') { panel.style.display = 'none'; return; }
     if (CRM_CLAVE.startsWith('PEGAR')) { log('Falta la clave: pegala en CRM_CLAVE'); return; }
     if (estado()) return correr();
     const r = await pedir('GET', CRM);
@@ -339,7 +377,7 @@
     const empezar = async () => {
       const t = await pedir('PATCH', `${CRM}/${accion.id}`, { estado: 'en_curso' });
       if (t.status !== 200) { log(t.error || 'No pude tomar el pedido'); return; }
-      guardar({ accion, paso: 'abrir_lead' });
+      guardar({ accion, paso: 'abrir_lead', pestanasAntes: pestanasAbiertas() });
       correr();
     };
     if (AUTOMATICO) return empezar();
@@ -367,10 +405,11 @@
 
   let mirandoEtapas = false;
   async function mirarEtapas() {
-    if (!MIRAR_ETAPAS || mirandoEtapas || CRM_CLAVE.startsWith('PEGAR') || estado() || prioridadDeOtro() || !libreParaMi()) return;
+    if (rolDeLaPestana() !== 'ventas' || !MIRAR_ETAPAS || mirandoEtapas || CRM_CLAVE.startsWith('PEGAR') || estado() || prioridadDeOtro() || !libreParaMi()) return;
     if (Date.now() - ultimaActividad < QUIETO_MS) return; // estás usando Salesforce: se mira después
     mirandoEtapas = true;
     const volverA = location.pathname + location.search;
+    const antes = pestanasAbiertas();
     let tomo = false;
     try {
       const r = await pedir('GET', CRM_OPORTUNIDADES);
@@ -391,7 +430,7 @@
     } catch (e) {
       log(`No pude mirar las etapas: ${e.message}`);
     } finally {
-      if (tomo) { navegar(volverA); soltarLock(); }
+      if (tomo) { await cerrarPestanasNuevas(antes); navegar(volverA); soltarLock(); }
       mirandoEtapas = false;
     }
   }
