@@ -122,7 +122,7 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
           </div>
           <label className="venta-ov">
             <input type="checkbox" checked={borrador.onboarding} onChange={(e) => setBorrador({ ...borrador, onboarding: e.target.checked })} />
-            Hecha por OV larga (onboarding)
+            Hecha por onboarding
           </label>
           <p className="pp-explicacion">
             {borrador.tipo === 'directo'

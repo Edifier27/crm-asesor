@@ -140,7 +140,7 @@ export default function PlanillaVentas({ mes, conMes = false, opcionesMes = [], 
             <option value="">Sin origen</option>{opciones.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
           <button type="button" className={`boton-ov${f.onboarding ? ' activo' : ''}`} aria-pressed={Boolean(f.onboarding)}
-            title={f.onboarding ? 'Hecha por OV larga (onboarding). Tocá para sacarlo' : 'Marcar como hecha por OV larga (onboarding)'}
+            title={f.onboarding ? 'Hecha por onboarding. Tocá para sacarlo' : 'Marcar como hecha por onboarding'}
             onClick={() => guardar(f, 'onboarding', !f.onboarding)}>ONBOARDING</button>
         </span>
       );
@@ -184,7 +184,7 @@ export default function PlanillaVentas({ mes, conMes = false, opcionesMes = [], 
       <section className="tarjeta">
         <div className="planilla-acciones">
           <button type="button" className="boton-primario" onClick={() => agregar(false)}>+ Cargar venta</button>
-          {conMes && <button type="button" className="boton-secundario boton-venta-ov" onClick={() => agregar(true)}>+ Venta por OV larga</button>}
+          {conMes && <button type="button" className="boton-secundario boton-venta-ov" onClick={() => agregar(true)}>+ Venta por onboarding</button>}
           <button type="button" className="boton-secundario" onClick={exportar} disabled={!visibles.length}>Descargar para Excel</button>
           <label className="planilla-bajas"><input type="checkbox" checked={verBajas} onChange={(e) => setVerBajas(e.target.checked)} /> Ver bajas</label>
           {aviso && <span className="pp-aviso">{aviso}</span>}
@@ -225,7 +225,7 @@ export default function PlanillaVentas({ mes, conMes = false, opcionesMes = [], 
         )}
         <p className="selector-detalle">
           {conMes ? 'Cada venta va en su mes de producción: se completa solo con el mes de la venta y lo cambiás en la primera columna (ej.: una venta del 4/11 que cierra octubre).' : 'Va cada venta en el mes en que se hizo.'} Las del CRM entran solas y su estado sigue a la etapa del lead (Ganado = impactada,
-          Falta de cobro = falta de cobro). Lo que corregís acá queda guardado y no se pisa.{conMes ? ' Las ventas hechas por OV larga (botón ONBOARDING) se ven en lila.' : ''} La carga BU se calcula con la cotización
+          Falta de cobro = falta de cobro). Lo que corregís acá queda guardado y no se pisa.{conMes ? ' Las ventas hechas por onboarding (botón ONBOARDING) se ven en lila.' : ''} La carga BU se calcula con la cotización
           del lead; si no tiene, cargala a mano.
         </p>
       </section>
