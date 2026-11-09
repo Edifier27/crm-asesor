@@ -958,3 +958,51 @@ a.riel-usuario { text-decoration: none; color: inherit; }
 .planilla-fila-acciones { display: flex; gap: 10px; align-items: center; white-space: nowrap; }
 .planilla .boton-ir-chat { font-size: 12px; padding: 5px 10px; white-space: nowrap; text-decoration: none; }
 .planilla .sin-chat { font-size: 12px; color: var(--texto-suave); }
+/* Planilla a todo el ancho y columnas con lugar para su contenido (Darío, 9-nov-2026: se cortaban "Desregulado" y los nombres) */
+.pagina.pagina-planilla > * { max-width: none; }
+.planilla .col-mes .celda { min-width: 150px; }
+.planilla .col-fecha_venta .celda, .planilla .col-vigencia .celda { min-width: 140px; }
+.planilla .col-nombre .celda { min-width: 220px; }
+.planilla .col-dni .celda { min-width: 110px; }
+.planilla .col-precarga .celda { min-width: 120px; }
+.planilla .col-plan .celda { min-width: 90px; }
+.planilla .col-carga_bu .celda { min-width: 110px; }
+.planilla .col-tipo .celda { min-width: 130px; }
+.planilla .col-estado .celda { min-width: 140px; }
+.planilla .col-notas .celda { min-width: 200px; }
+/* Celular: cada venta es una tarjeta con sus datos en dos columnas */
+@media (max-width: 760px) {
+  .tabla.planilla, .tabla.planilla tbody, .tabla.planilla tr, .tabla.planilla td { display: block; width: 100%; }
+  .tabla.planilla thead { display: none; }
+  .tabla.planilla tr { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--linea-suave); border-radius: 12px; background: transparent; }
+  .tabla.planilla td { border: 0; padding: 2px 0; min-width: 0; text-align: left; }
+  .tabla.planilla td::before { content: attr(data-label); display: block; font-size: 11px; font-weight: 600; color: var(--texto-suave); }
+  .tabla.planilla .col-nombre, .tabla.planilla .col-notas, .tabla.planilla .planilla-fila-acciones { grid-column: 1 / -1; }
+  .tabla.planilla .celda { min-width: 0 !important; border-color: var(--linea-suave); }
+  .tabla.planilla .planilla-fila-acciones::before { display: none; }
+  .planilla-ventas .tabla-scroll, .pagina-planilla .tabla-scroll { overflow-x: visible; }
+}
+/* Origen del dato (globito de color) y ventas hechas por onboarding (OV, lila pastel) */
+.planilla .origen-celda { display: inline-flex; align-items: center; gap: 6px; }
+.planilla .pildora-origen { min-width: 150px; border-radius: 999px; font-weight: 700; font-size: 12px; padding: 4px 10px; border: 1px solid var(--linea-suave); }
+.planilla .boton-ov { font: 700 11px/1 inherit; padding: 5px 7px; border-radius: 999px; border: 1px dashed #B9A6E8; background: transparent; color: #7C5CC4; cursor: pointer; }
+.planilla .boton-ov.activo { border-style: solid; background: #7C5CC4; color: #fff; }
+.planilla tr.fila-ov td { background: #F3EEFC; }
+.boton-venta-ov { border-color: #B9A6E8; color: #6D4FB8; background: #F3EEFC; }
+@media (max-width: 760px) { .tabla.planilla tr.fila-ov { background: #F3EEFC; } .tabla.planilla tr.fila-ov td { background: transparent; } }
+:root[data-modo="oscuro"] .planilla tr.fila-ov td, :root[data-modo="oscuro"] .tabla.planilla tr.fila-ov { background: #2B2340; }
+:root[data-modo="oscuro"] .boton-venta-ov { background: #2B2340; color: #C9B6F5; }
+.venta-ov { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #6D4FB8; background: #F3EEFC; border: 1px solid #DCCFF5; border-radius: 999px; padding: 6px 12px; width: fit-content; }
+:root[data-modo="oscuro"] .venta-ov { background: #2B2340; color: #C9B6F5; border-color: #4A3B6E; }
+/* Tarjetas de la planilla que filtran, vigencia y "Recordar pago" (falta de cobro) */
+.planilla-cifras { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.tarjeta-filtro { font: inherit; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 2px; color: inherit; }
+.tarjeta-filtro:hover { border-color: var(--acento); }
+.tarjeta-filtro.activa { border-color: var(--acento); box-shadow: inset 0 0 0 1px var(--acento); background: var(--acento-suave, #E8F4F1); }
+.tarjeta-filtro small { font-size: 12px; color: var(--texto-suave); }
+.chip-vigencia { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 3px 8px; white-space: nowrap; }
+.chip-vigencia.inmediata { background: #FDECEA; color: #B42318; }
+.chip-vigencia.futura { background: #E3EBFD; color: #1D4ED8; }
+.chip-vigencia.sin { background: var(--linea-suave); color: var(--texto-suave); }
+.planilla .boton-recordar { font-size: 12px; padding: 5px 10px; white-space: nowrap; }
+.planilla-fila-acciones { flex-wrap: wrap; }

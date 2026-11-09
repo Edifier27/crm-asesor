@@ -34,8 +34,11 @@ export default async function PaginaPlanilla({ searchParams }) {
   const pedido = (await searchParams)?.mes;
   const mes = /^\d{4}-\d{2}$/.test(pedido ?? '') ? pedido : mesDeHoy();
   const supabase = await createClient();
-  const { data: filas, error } = await supabase.from('ventas').select('*')
-    .gte('fecha_venta', `${mes}-01`).lt('fecha_venta', `${siguiente(mes)}-01`).order('fecha_venta').order('creado_at');
+  // Las pestañas filtran por el mes de producción (migración 0076); sin la columna, por la fecha de venta
+  const delMes = (campo) => supabase.from('ventas').select('*').gte(campo, `${mes}-01`).lt(campo, `${siguiente(mes)}-01`).order('fecha_venta').order('creado_at');
+  let { data: filas, error } = await delMes('mes');
+  const conMes = !error;
+  if (error) ({ data: filas, error } = await delMes('fecha_venta'));
   if (error) {
     return (
       <div className="pagina">
@@ -46,8 +49,12 @@ export default async function PaginaPlanilla({ searchParams }) {
   }
 
   // Meses con ventas (para las pestañas) + el actual
-  const { data: fechas } = await supabase.from('ventas').select('fecha_venta').order('fecha_venta', { ascending: false }).limit(2000);
-  const meses = [...new Set([mesDeHoy(), mes, ...(fechas ?? []).map((f) => String(f.fecha_venta).slice(0, 7))])].sort().reverse().slice(0, 12);
+  const campoMes = conMes ? 'mes' : 'fecha_venta';
+  const { data: fechas } = await supabase.from('ventas').select(campoMes).order(campoMes, { ascending: false }).limit(2000);
+  const meses = [...new Set([mesDeHoy(), mes, ...(fechas ?? []).map((f) => String(f[campoMes]).slice(0, 7))])].sort().reverse().slice(0, 12);
+  // Para elegir el mes de producción de cada venta: del mes siguiente al actual hacia atrás, un año
+  const opcionesMes = [siguiente(mesDeHoy())];
+  for (let i = 0; i < 12; i++) { const [a, m] = opcionesMes.at(-1).split('-').map(Number); opcionesMes.push(m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`); }
 
   // Carga BU que falta (ventas del CRM recién llegadas) y el chat de cada venta
   const conContacto = (filas ?? []).filter((f) => f.contacto_id);
@@ -67,17 +74,18 @@ export default async function PaginaPlanilla({ searchParams }) {
   }
 
   return (
-    <div className="pagina planilla-ventas">
+    <div className="pagina pagina-planilla">
       <div className="tablero-cabecera">
         <h1>Planilla de ventas</h1>
         <Link href="/ventas" className="boton-secundario">Tablero semanal</Link>
       </div>
-      <nav className="pp-atajos" aria-label="Mes">
+      <nav className="pp-atajos" aria-label="Mes de producción">
         {meses.map((m) => (
           <Link key={m} href={`/ventas/planilla?mes=${m}`} className={`chip-filtro${m === mes ? ' activo' : ''}`}>{nombreMes(`${m}-01`)}</Link>
         ))}
       </nav>
-      <PlanillaVentas key={mes} mes={mes} inicial={(filas ?? []).map((f) => ({ ...f, chat: chatDe[f.contacto_id] ?? null }))} />
+      <PlanillaVentas key={mes} mes={mes} conMes={conMes} opcionesMes={opcionesMes.map((m) => ({ valor: m, rotulo: nombreMes(`${m}-01`) }))}
+        inicial={(filas ?? []).map((f) => ({ ...f, chat: chatDe[f.contacto_id] ?? null }))} />
     </div>
   );
 }

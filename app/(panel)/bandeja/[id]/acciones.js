@@ -243,7 +243,8 @@ async function contextoVenta(conversacionId) {
 }
 
 // Venta hecha: desregulado → Ganado; directo → Falta de cobro con el link de pago programado a las 48 h
-export async function registrarVenta(conversacionId, { tipo, plan, monto, dni, precarga }) {
+// onboarding: la venta se hizo en el otro sistema (OV); en la planilla de ventas se ve en otro color
+export async function registrarVenta(conversacionId, { tipo, plan, monto, dni, precarga, onboarding }) {
   const ctx = await contextoVenta(conversacionId);
   if (ctx.error) return ctx;
   const { conv, etapa, admin } = ctx;
@@ -251,7 +252,7 @@ export async function registrarVenta(conversacionId, { tipo, plan, monto, dni, p
   const link = tipo === 'directo' ? linkBienvenida(dni, precarga) : null;
 
   const venta = {
-    tipo, plan: plan || null, monto: Number(monto) || null, fecha: new Date().toISOString(), origen: fuenteDelLead(conv.contacto),
+    tipo, plan: plan || null, monto: Number(monto) || null, fecha: new Date().toISOString(), origen: fuenteDelLead(conv.contacto), ...(onboarding ? { onboarding: true } : {}),
     ...(tipo === 'directo' && link ? { dni: String(dni).replace(/\D/g, ''), precarga: String(precarga).replace(/\D/g, ''), link_pago: link } : {})
   };
   const etapaId = etapa(tipo === 'directo' ? 'Falta de cobro' : 'Ganado');
