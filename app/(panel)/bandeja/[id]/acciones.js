@@ -10,7 +10,7 @@ import { despacharAudio } from '@/lib/whatsapp/envio-audio';
 import { enviarReaccion, marcarLeidoMeta } from '@/lib/whatsapp/meta';
 import { responderComoAsesor } from '@/lib/ia/asesor';
 import { BUCKET_DOCUMENTOS, CARTILLAS_ARCHIVOS, PLANES_PDF } from '@/lib/documentos';
-import { linkBienvenida, mensajeCobro } from '@/lib/venta';
+import { linkAsociarme, linkBienvenida, mensajeAltaOnline, mensajeCobro } from '@/lib/venta';
 import { enHorasHabiles } from '@/lib/horario';
 import { COLUMNAS_ESPERA_A_MANO, ETAPA_CONTACTAR_60, ventana } from '@/lib/formato';
 import { fechaAcordadaAt, fechaCorta } from '@/lib/fecha-acordada';
@@ -267,17 +267,24 @@ export async function registrarVenta(conversacionId, { tipo, plan, monto, dni, p
 }
 
 // "Enviar link" ahora (sin esperar las 48 h). Después siguen los recordatorios.
-export async function enviarLinkPago(conversacionId, { dni, precarga } = {}) {
+// linkAlta: el "Link de autogestión" que devuelve Salesforce (lib/salesforce.js); se manda tal cual, con el texto de alta online
+export async function enviarLinkPago(conversacionId, { dni, precarga, linkAlta } = {}) {
   const ctx = await contextoVenta(conversacionId);
   if (ctx.error) return ctx;
   const { conv, admin, user } = ctx;
-  const link = linkBienvenida(dni ?? conv.contacto.venta?.dni, precarga ?? conv.contacto.venta?.precarga);
+  const autogestion = linkAsociarme(linkAlta);
+  const link = autogestion ?? linkBienvenida(dni ?? conv.contacto.venta?.dni, precarga ?? conv.contacto.venta?.precarga);
   if (!link) return { error: 'Revisá el DNI y el N° de precarga.' };
-  conv.contacto.venta = { ...conv.contacto.venta, dni: String(dni ?? conv.contacto.venta?.dni).replace(/\D/g, ''), precarga: String(precarga ?? conv.contacto.venta?.precarga).replace(/\D/g, ''), link_pago: link };
+  const soloDigitos = (v) => (v === undefined || v === null ? undefined : String(v).replace(/\D/g, '') || undefined);
+  conv.contacto.venta = {
+    ...conv.contacto.venta, link_pago: link,
+    ...(soloDigitos(dni ?? conv.contacto.venta?.dni) ? { dni: soloDigitos(dni ?? conv.contacto.venta?.dni) } : {}),
+    ...(soloDigitos(precarga ?? conv.contacto.venta?.precarga) ? { precarga: soloDigitos(precarga ?? conv.contacto.venta?.precarga) } : {})
+  };
   const nombre = conv.contacto.nombre?.trim().split(/\s+/)[0] ?? null;
   try {
     if (ventana(conv.ventana_expira_at).abierta) {
-      await enviarMensaje({ conversacionId, tipo: 'texto', texto: mensajeCobro(nombre, link, 1), autor: 'asesor', perfilId: user.id });
+      await enviarMensaje({ conversacionId, tipo: 'texto', texto: autogestion ? mensajeAltaOnline(nombre, link) : mensajeCobro(nombre, link, 1), autor: 'asesor', perfilId: user.id });
     } else {
       // La plantilla del link de pago es la de la cuenta de WhatsApp del chat (cada asesor elige la suya)
       const config = await configDe(admin, conv.cuenta, 'plantillas_uso');
