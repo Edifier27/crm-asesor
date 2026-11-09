@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Salesforce ← AsesorCRM — Pedidos de link de alta (automático)
 // @namespace    sf-crm-pedidos
-// @version      0.6
+// @version      0.7
 // @description  Toma los pedidos de "link de alta" del CRM y los hace solo en Salesforce: candidato → Listo para convertir → Convertir → (cotizás vos) → sincronizar → Generar link → devuelve el link al CRM. v0.4: además mira la etapa de las Oportunidades de las ventas (falta de cobro / impactada) y se la avisa al CRM. Comparte el SEMÁFORO con el script de transición (los leads de OmniCanal tienen prioridad).
 // @match        https://swissmedical.lightning.force.com/*
 // @noframes
@@ -20,6 +20,8 @@
 //  5. Cada 20 minutos, si está libre y no tocaste la compu en 5 minutos, abre la lista "Mis Oportunidades", lee la
 //     etapa de las ventas y vuelve a donde estabas: "En Proceso de Cobro" → el CRM le manda el link de pago al
 //     cliente; "Cerrada"/"Closed Won" → impactada.
+// v0.7: si el lead no vino de Salesforce (PrepagaYa, referido…), lo carga solo como candidato B2C con los datos del CRM
+// (nombre y DNI de la foto del DNI, mail, teléfono, provincia) y sigue igual. Antes de guardar te muestra lo cargado.
 // v0.6: trabaja solo en la pestaña marcada "Ventas" (abajo a la izquierda elegís el rol de cada pestaña) y al terminar
 // cierra las pestañas de la consola que abrió. Ya no comparte el semáforo con la transición: van en pestañas distintas.
 // Navega con la navegación interna de Lightning ($A, sin recargar: probado por Claude in Chrome el 9-nov-2026), así
@@ -174,7 +176,7 @@
 
   function mostrar(html) { panel.style.display = 'block'; panel.innerHTML = `<b style="color:#0B6E5F">Pedidos del CRM</b><div style="margin-top:6px">${html}</div>`; }
   function datosHtml(d) {
-    return `<b>${esc(d.nombre ?? 'Sin nombre')}</b> · DNI ${esc(d.dni)}<br>
+    return `<b>${esc(d.nombre ?? 'Sin nombre')}</b> · DNI ${esc(d.dni)}${d.email ? ` · ${esc(d.email)}` : ''}<br>
       Plan <b>${esc(d.plan)}</b> · ${esc(d.tipo_venta)} (condición: ${d.tipo_venta === 'desregulado' ? 'SWISS MEDICAL' : 'Directo'})<br>
       Zona del cotizador: <b>${esc(ZONA_SF[d.zona] ?? d.zona ?? '?')}</b>${d.provincia ? ` · ${esc(d.provincia)}` : ''}${d.localidad ? ` (${esc(d.localidad)})` : ''}<br>
       ${esc(edades(d))}${d.sueldos?.length ? ` · sueldo bruto ${esc(d.sueldos.join(' + '))}` : ''}${d.campania ? `<br>Campaña en el CRM: ${esc(d.campania)}` : ''}`;
@@ -211,9 +213,13 @@
   async function pasoAbrirLead(e) {
     const id = e.accion.datos?.salesforce_id;
     if (!id) {
-      // Sin candidato en Salesforce (vino de la web, un referido…): lo cargás vos y seguimos
-      guardar({ ...e, paso: 'esperar_lead' });
-      return pasoEsperarLead(estado());
+      // Sin candidato en Salesforce (vino de la web, un referido…): v0.7 lo carga solo; si faltan datos, lo cargás vos
+      const d = e.accion.datos ?? {};
+      const faltan = [!d.apellido && 'apellido', !d.dni && 'DNI', !d.email && 'mail', !d.codigo_area && 'característica', !d.telefono_numero && 'teléfono', !d.provincia_sf && 'provincia'].filter(Boolean);
+      if (faltan.length) { log(`Para cargarlo solo faltan: ${faltan.join(', ')}`); guardar({ ...e, paso: 'esperar_lead' }); return pasoEsperarLead(estado()); }
+      guardar({ ...e, paso: 'cargar_nuevo' });
+      ir('/lightning/o/Lead/new?recordTypeId=012al0000055TxlAAE');
+      return 'navegando';
     }
     guardar({ ...e, paso: 'preparar_lead' });
     if (!location.pathname.includes(`/Lead/${id}`)) { ir(`/lightning/r/Lead/${id}/view`); return 'navegando'; }
@@ -234,6 +240,65 @@
     };
     panel.querySelector('#crm-cancelar').onclick = () => fallar('El asesor no pudo cargar el candidato');
     return 'esperando_asesor';
+  }
+
+  // ── Alta del candidato B2C (v0.7; campos del mapa sf-selectores.json, "nuevo_candidato_b2c") ──
+  function escribir(campo, valor) {
+    const input = campo.querySelector('input, textarea') || todos('input, textarea', campo.shadowRoot || campo)[0];
+    if (!input) throw new Error('No encuentro dónde escribir');
+    const Proto = (unsafeWindow.HTMLInputElement && input instanceof unsafeWindow.HTMLTextAreaElement) ? unsafeWindow.HTMLTextAreaElement : (unsafeWindow.HTMLInputElement || HTMLInputElement);
+    const setter = Object.getOwnPropertyDescriptor(Proto.prototype, 'value').set;
+    input.focus();
+    setter.call(input, String(valor));
+    input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    input.blur();
+  }
+  async function elegir(combo, opcion) {
+    const abrir = combo.querySelector('button, [role="combobox"]') || todos('button, [role="combobox"]', combo.shadowRoot || combo)[0];
+    if (!abrir) throw new Error(`No puedo abrir la lista para "${opcion}"`);
+    abrir.click();
+    await esperar(700);
+    const item = await esperarA(() => todos('lightning-base-combobox-item, [role="option"]').find((o) => visible(o) && texto(o).replace(/\s+/g, ' ').trim() === opcion), `la opción "${opcion}"`, 8000);
+    item.click();
+    await esperar(700);
+  }
+  const lista = (api) => uno(`records-record-picklist[field-name="${api}"] lightning-combobox`) || uno(`lightning-combobox[name="${api}"]`);
+  const campoInput = (name) => uno(`lightning-input[name="${name}"]`);
+
+  async function pasoCargarNuevo(e) {
+    if (!location.pathname.includes('/Lead/new')) { ir('/lightning/o/Lead/new?recordTypeId=012al0000055TxlAAE'); return 'navegando'; }
+    const d = e.accion.datos;
+    if (!(await confirmar(`Cargar a ${d.nombres ?? ''} ${d.apellido} (DNI ${d.dni}) como candidato B2C`))) throw Object.assign(new Error('Pausado por vos'), { pausa: true });
+    renovarLock();
+    await esperarConReintento(() => campoInput('lastName'), 'el formulario del candidato', 30000);
+    if (d.nombres) escribir(campoInput('firstName'), d.nombres);
+    escribir(campoInput('lastName'), d.apellido);
+    await elegir(await esperarConReintento(() => lista('SMG_Product_To_Offer__c'), 'Producto a Ofrecer'), 'Prepaga');
+    if (d.edad_titular && campoInput('SMG_Age__c')) escribir(campoInput('SMG_Age__c'), d.edad_titular);
+    await elegir(await esperarConReintento(() => lista('SMG_Document_Type__c'), 'Tipo de Documento'), 'DU');
+    escribir(campoInput('SMG_Document_Number__c'), d.dni);
+    const relacion = lista('SMG_Employment_Relationship__c');
+    if (relacion && d.relacion_laboral) await elegir(relacion, d.relacion_laboral);
+    if (d.relacion_laboral === 'Relación de Dependencia' && d.sueldos?.[0]) {
+      const sueldo = await esperarA(() => campoInput('Sueldo_Bruto__c'), 'Sueldo Bruto', 8000).catch(() => null);
+      if (sueldo) escribir(sueldo, Math.round(d.sueldos[0]));
+    }
+    const cobertura = await esperarA(() => lista('SMG_Active_Health_Insurance__c'), 'Cobertura Actual', 10000).catch(() => null);
+    if (cobertura) await elegir(cobertura, 'Sin Cobertura');
+    await elegir(await esperarConReintento(() => lista('SMG_State__c'), 'Provincia'), d.provincia_sf);
+    escribir(campoInput('Email'), d.email);
+    escribir(campoInput('SMG_Area_Code__c'), d.codigo_area);
+    escribir(campoInput('Phone'), d.telefono_numero); // sin la característica: Salesforce le antepone 549 + área
+    await clic(await esperarConReintento(() => uno('button[name="SaveEdit"]'), 'Guardar'), `Guardar el candidato (revisá los datos cargados: ${d.apellido}, DNI ${d.dni}, ${d.email}, ${d.codigo_area} ${d.telefono_numero}, ${d.provincia_sf})`);
+    // Guardado: la dirección pasa a /Lead/00Q…; si Salesforce marca un error (ej. duplicado), se ve en la pantalla
+    const id = await esperarA(() => (location.href.match(/\/(00Q[A-Za-z0-9]{12}(?:[A-Za-z0-9]{3})?)/) ?? [])[1], 'el candidato guardado', 40000)
+      .catch(() => { throw new Error('Salesforce no guardó el candidato (fijate el mensaje en pantalla: puede ser un duplicado)'); });
+    log(`Candidato creado: ${id}`);
+    const est = estado();
+    est.accion.datos = { ...est.accion.datos, salesforce_id: id };
+    guardar({ ...est, paso: 'preparar_lead' });
+    return pasoPrepararLead(estado());
   }
 
   async function pasoPrepararLead(e) {
@@ -337,7 +402,7 @@
     mostrar(`✗ ${esc(motivo)}<br>Quedó avisado en el chat del CRM para hacerlo a mano.`);
   }
 
-  const PASOS = { abrir_lead: pasoAbrirLead, esperar_lead: pasoEsperarLead, preparar_lead: pasoPrepararLead, convertir: pasoConvertir, cotizar: pasoCotizar, sincronizar: pasoSincronizar, generar_link: pasoGenerarLink };
+  const PASOS = { abrir_lead: pasoAbrirLead, cargar_nuevo: pasoCargarNuevo, esperar_lead: pasoEsperarLead, preparar_lead: pasoPrepararLead, convertir: pasoConvertir, cotizar: pasoCotizar, sincronizar: pasoSincronizar, generar_link: pasoGenerarLink };
 
   let corriendo = false;
   async function correr() {
