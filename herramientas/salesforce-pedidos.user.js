@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         Salesforce ← AsesorCRM — Pedidos de link de alta (automático)
 // @namespace    sf-crm-pedidos
-// @version      0.4
+// @version      0.5
 // @description  Toma los pedidos de "link de alta" del CRM y los hace solo en Salesforce: candidato → Listo para convertir → Convertir → (cotizás vos) → sincronizar → Generar link → devuelve el link al CRM. v0.4: además mira la etapa de las Oportunidades de las ventas (falta de cobro / impactada) y se la avisa al CRM. Comparte el SEMÁFORO con el script de transición (los leads de OmniCanal tienen prioridad).
 // @match        https://swissmedical.lightning.force.com/*
 // @noframes
 // @connect      asesorcrm.com.ar
 // @grant        GM_xmlhttpRequest
+// @grant        unsafeWindow
 // ==/UserScript==
 
 // Cómo funciona (Darío, 9-nov-2026; mapa de pantallas en sf-selectores.json):
@@ -16,8 +17,11 @@
 //  3. La cotización la hacés vos (v0.3): el script abre el Cotizador y te muestra los datos; cuando tocás
 //     "Ya coticé, seguí", sincroniza, genera el link y se lo devuelve al CRM, que se lo manda al cliente.
 //  4. Si hay un lead de OmniCanal esperando, frena en el próximo paso seguro y deja trabajar a la transición.
-//  5. Cada 20 minutos, si está libre, mira la etapa de las Oportunidades de las ventas en una pestaña invisible (sin
-//     mover la tuya): "En Proceso de Cobro" → el CRM le manda el link de pago al cliente; "Cerrada" → impactada.
+//  5. Cada 20 minutos, si está libre y no tocaste la compu en 5 minutos, abre la lista "Mis Oportunidades", lee la
+//     etapa de las ventas y vuelve a donde estabas: "En Proceso de Cobro" → el CRM le manda el link de pago al
+//     cliente; "Cerrada"/"Closed Won" → impactada.
+// Navega con la navegación interna de Lightning ($A, sin recargar: probado por Claude in Chrome el 9-nov-2026), así
+// no se corta OmniCanal. Si no la encuentra, recarga como antes.
 // PASO_A_PASO = true: antes de cada clic te pregunta "¿sigo?". Dejalo así en las primeras pruebas.
 
 (function () {
@@ -33,9 +37,8 @@
   const CRM = 'https://asesorcrm.com.ar/api/salesforce/acciones';
   const CRM_OPORTUNIDADES = 'https://asesorcrm.com.ar/api/salesforce/oportunidades';
   const MIRAR_ETAPAS_CADA_MS = 20 * 60 * 1000;
-  // APAGADO (9-nov-2026): Salesforce no se deja cargar en un iframe y recarga la página entera (corta OmniCanal).
-  // Se prende cuando esté probada la forma de abrir la Oportunidad sin recargar.
-  const MIRAR_ETAPAS = false;
+  const MIRAR_ETAPAS = true;
+  const QUIETO_MS = 5 * 60 * 1000; // solo mira las etapas si no tocaste la compu en este tiempo
   const CADA_MS = 60 * 1000;
   const INTENTOS_POR_PASO = 3;
 
@@ -155,7 +158,20 @@
     el.click();
     log(`✓ ${paso}`);
   }
-  const ir = (url) => { if (!location.pathname.startsWith(url)) location.assign(url); };
+  // Navegación interna de Lightning (sin recargar la página ni cortar OmniCanal); si no está, recarga
+  function navegar(url) {
+    try {
+      const ev = unsafeWindow.$A && unsafeWindow.$A.get('e.force:navigateToURL');
+      if (ev) { ev.setParams({ url }).fire(); return true; }
+    } catch (e) {}
+    location.assign(url);
+    return false;
+  }
+  // Para los pasos: navega y vuelve a correr el pedido cuando la página nueva cargó
+  const ir = (url) => {
+    if (location.pathname.startsWith(url)) return;
+    if (navegar(url)) setTimeout(() => correr(), 5000);
+  };
 
   async function pasoAbrirLead(e) {
     const id = e.accion.datos?.salesforce_id;
@@ -232,7 +248,7 @@
     mostrar(`${datosHtml(e.accion.datos)}<br><br><b>Cotizá vos</b>: zona, integrantes, descuento, plan → Ir a Cotizar → <b>Cotizar</b> → Salir. Después tocá:<br>
       <button id="crm-ya-cotice" style="margin-top:6px;background:#0B6E5F;color:#fff;border:0;border-radius:6px;padding:4px 10px">Ya coticé, seguí</button>
       <button id="crm-cancelar" style="margin-top:6px">No se pudo</button>`);
-    panel.querySelector('#crm-ya-cotice').onclick = () => { guardar({ ...estado(), paso: 'sincronizar' }); location.assign(`/lightning/r/Opportunity/${e.oportunidad}/view`); };
+    panel.querySelector('#crm-ya-cotice').onclick = () => { guardar({ ...estado(), paso: 'sincronizar' }); correr(); };
     panel.querySelector('#crm-cancelar').onclick = () => fallar('El asesor no pudo cotizar');
     return 'esperando_asesor';
   }
@@ -247,7 +263,9 @@
     await clic(await esperarConReintento(() => botonConTexto(/continuar/i), 'confirmación de la sincronización'), 'Confirmar ("¿Desea continuar?")');
     await esperar(5000);
     guardar({ ...e, paso: 'generar_link' });
-    location.assign(`/lightning/r/Opportunity/${e.oportunidad}/view`);
+    // Vuelve a la Oportunidad (la cotización se abrió en otra pestaña de la consola)
+    navegar(`/lightning/r/Opportunity/${e.oportunidad}/view`);
+    setTimeout(() => correr(), 6000);
     return 'navegando';
   }
 
@@ -329,40 +347,51 @@
     panel.querySelector('#crm-empezar').onclick = empezar;
   }
 
-  // ── Etapa de las Oportunidades (v0.4) ──
-  const ETAPA_DE_TAB = { aCotizarPathTab: 'A cotizar', propuestaEnviadaPathTab: 'Propuesta Enviada', amPathTab: 'AM', enProcesoDeAltaPathTab: 'En Proceso de Alta', enProcesoDeCobroPathTab: 'En Proceso de Cobro', closedPathTab: 'Cerrada' };
-  function etapaEnPestanaInvisible(oportunidad) {
-    return new Promise((resolver) => {
-      const f = document.createElement('iframe');
-      f.style.cssText = 'position:fixed;left:-9999px;top:0;width:1200px;height:900px;visibility:hidden';
-      f.src = `/lightning/r/Opportunity/${oportunidad}/view`;
-      document.body.appendChild(f);
-      const t0 = Date.now();
-      const mirar = () => {
-        let tab = null;
-        try { const li = todos('li[data-target-selection-name$="PathTab"].slds-is-current', f.contentDocument)[0]; tab = li?.getAttribute('data-target-selection-name'); } catch (e) {}
-        if (tab || Date.now() - t0 > 45000) { f.remove(); return resolver(tab ? ETAPA_DE_TAB[tab] ?? null : null); }
-        setTimeout(mirar, 1500);
-      };
-      setTimeout(mirar, 5000);
-    });
+  // ── Etapa de las Oportunidades (v0.5: lista "Mis Oportunidades") ──
+  const ETAPAS = { 'A cotizar': 'A cotizar', 'Propuesta Enviada': 'Propuesta Enviada', AM: 'AM', 'En Proceso de Alta': 'En Proceso de Alta',
+    'En Proceso de Cobro': 'En Proceso de Cobro', Cerrada: 'Cerrada', 'Closed Won': 'Cerrada' }; // "Closed Lost" no se informa
+  let ultimaActividad = Date.now();
+  ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach((ev) => addEventListener(ev, () => { ultimaActividad = Date.now(); }, { passive: true, capture: true }));
+
+  /** Lee la lista: { id15: etapa } (el id de 15 letras, para comparar con el de 18 sin problemas) */
+  function etapasDeLaLista() {
+    const res = {};
+    for (const tr of todos('tr[data-row-key-value^="006"]')) {
+      const id = tr.getAttribute('data-row-key-value');
+      const celdas = Array.from(tr.querySelectorAll('th, td')).map(texto);
+      const etapa = celdas.find((t) => ETAPAS[t] || t === 'Closed Lost');
+      if (id && etapa) res[id.slice(0, 15)] = etapa;
+    }
+    return res;
   }
+
   let mirandoEtapas = false;
   async function mirarEtapas() {
     if (!MIRAR_ETAPAS || mirandoEtapas || CRM_CLAVE.startsWith('PEGAR') || estado() || prioridadDeOtro() || !libreParaMi()) return;
+    if (Date.now() - ultimaActividad < QUIETO_MS) return; // estás usando Salesforce: se mira después
     mirandoEtapas = true;
+    const volverA = location.pathname + location.search;
+    let tomo = false;
     try {
       const r = await pedir('GET', CRM_OPORTUNIDADES);
       if (r.status !== 200) { log(`No pude traer las ventas a mirar: ${r.error || r.status}`); return; }
-      for (const v of r.ventas ?? []) {
-        if (estado() || prioridadDeOtro()) break; // hay un pedido o un lead de OmniCanal: se sigue después
-        const etapa = await etapaEnPestanaInvisible(v.oportunidad);
-        if (!etapa) { log(`No pude leer la etapa de ${v.oportunidad}`); continue; }
+      if (!(r.ventas ?? []).length) return;
+      if (!(tomo = await tomarLock())) return;
+      navegar('/lightning/o/Opportunity/list?filterName=MyOpportunities');
+      await esperarA(() => Object.keys(etapasDeLaLista()).length > 0, 'la lista Mis Oportunidades', 40000);
+      await esperar(2500); // que terminen de cargar las filas
+      const etapas = etapasDeLaLista();
+      for (const v of r.ventas) {
+        const vista = etapas[String(v.oportunidad).slice(0, 15)];
+        const etapa = ETAPAS[vista];
+        if (!etapa || etapa === v.etapa) continue; // no está en la lista, es "Closed Lost" o no cambió
         const res = await pedir('POST', CRM_OPORTUNIDADES, { contacto_id: v.contacto_id, etapa });
         log(`Oportunidad ${v.oportunidad}: ${etapa}${res.hizo && res.hizo !== 'nada' ? ` → CRM: ${res.hizo}` : ''}`);
-        await esperar(3000);
       }
+    } catch (e) {
+      log(`No pude mirar las etapas: ${e.message}`);
     } finally {
+      if (tomo) { navegar(volverA); soltarLock(); }
       mirandoEtapas = false;
     }
   }
