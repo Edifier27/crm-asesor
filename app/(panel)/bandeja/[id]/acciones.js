@@ -28,6 +28,7 @@ import { mensajeSanatorios, sanatoriosPara } from '@/lib/cartilla-swiss';
 import { esGba } from '@/lib/provincias';
 import { fuenteDelLead } from '@/lib/fuentes';
 import { ETIQUETA_IA_COMPLETA } from '@/lib/ia/ia-completa';
+import { ventaSugerida } from '@/lib/venta-automatica';
 import { datosDelPedido, tipoDePedido } from '@/lib/salesforce';
 
 // Solo se pueden ver/enviar los PDF del catálogo (planes y cartillas)
@@ -244,6 +245,20 @@ async function contextoVenta(conversacionId) {
 
 // Venta hecha: desregulado → Ganado; directo → Falta de cobro con el link de pago programado a las 48 h
 // onboarding: la venta se hizo en el otro sistema (OV); en la planilla de ventas se ve en otro color
+// El formulario de venta se autocompleta: la IA lee la charla y propone plan, cuota y tipo (Darío, 9-nov-2026)
+export async function sugerirVenta(conversacionId) {
+  const supabase = await createClient();
+  const user = await usuarioActual(supabase);
+  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  const { data: propia } = await supabase.from('conversaciones').select('id').eq('id', conversacionId).maybeSingle();
+  if (!propia) return { error: 'Conversación inexistente.' };
+  try {
+    return { sugerencia: await ventaSugerida(createAdminClient(), conversacionId) };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 // Venta por onboarding (OB, Darío 9-nov-2026): la venta o la inclusión se hizo en el otro sistema; con el botón "Venta
 // por OB" la fila de la planilla sale completa (DNI, N° de precarga y, si es inclusión, titular, incluido y valor).
 export async function registrarVenta(conversacionId, { tipo, plan, monto, dni, precarga, onboarding, inclusion }) {

@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { pesos } from '@/lib/cotizador';
 import { fechaCorta } from '@/lib/formato';
 import { diasDesde, linkBienvenida, tipoDeModalidad } from '@/lib/venta';
-import { cerrarCobro, enviarLinkPago, registrarVenta } from './acciones';
+import { cerrarCobro, enviarLinkPago, registrarVenta, sugerirVenta } from './acciones';
 
 /**
  * Venta y cobro del lead.
@@ -31,6 +31,22 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
     esInclusion: false, titular: '', incluido: contacto.nombre ?? '', valorInclusion: ''
   });
   const link = linkBienvenida(borrador.dni, borrador.precarga);
+  // Al abrir el formulario, la IA lee la charla y completa plan, cuota y tipo (si no los tocaste vos)
+  const [tocado, setTocado] = useState(false);
+  const [leyendo, setLeyendo] = useState(false);
+  async function abrir(onboarding) {
+    setBorrador((b) => ({ ...b, onboarding }));
+    setAbierto(true);
+    if (tocado) return;
+    setLeyendo(true);
+    const r = await sugerirVenta(conversacionId).catch(() => null);
+    setLeyendo(false);
+    const s = r?.sugerencia;
+    if (!s) return;
+    setBorrador((b) => (tocado ? b : { ...b, ...(s.plan ? { plan: s.plan } : {}), ...(s.monto ? { monto: Math.round(s.monto) } : {}), ...(s.tipo ? { tipo: s.tipo } : {}) }));
+    setAviso(s.plan ? `La IA completó el plan y la cuota según la charla (${s.plan}). Revisalos.` : '');
+  }
+  const cambiar = (campos) => { setTocado(true); setBorrador({ ...borrador, ...campos }); };
 
   const correr = (fn, ok) => iniciar(async () => {
     setAviso('');
@@ -106,25 +122,30 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
     <div className="bloque venta">
       {!abierto ? (
         <div className="acciones">
-          <button type="button" className="boton-primario boton-venta" onClick={() => { setBorrador({ ...borrador, onboarding: false }); setAbierto(true); }}>Venta hecha</button>
+          <button type="button" className="boton-primario boton-venta" onClick={() => abrir(false)}>Venta hecha</button>
           <button type="button" className="boton-secundario boton-venta-ov" title="Venta o inclusión hecha por onboarding: va directo a la planilla"
-            onClick={() => { setBorrador({ ...borrador, onboarding: true }); setAbierto(true); }}>Venta por OB</button>
+            onClick={() => abrir(true)}>Venta por OB</button>
         </div>
       ) : (
         <div className="venta-form">
-          <span className="bloque-titulo">{borrador.onboarding ? 'Venta por onboarding (OB)' : 'Registrar venta'}</span>
+          <span className="bloque-titulo">{borrador.onboarding ? 'Venta por onboarding (OB)' : 'Registrar venta'}{leyendo ? ' · la IA está leyendo la charla…' : ''}</span>
           <div className="pp-atajos" role="radiogroup" aria-label="Tipo de venta">
             {[['directo', 'Directo', 'Particular, monotributo, Nordelta: falta que pague'], ['desregulado', 'Desregulado', 'Deriva aportes: ya queda impactado']].map(([v, r, t]) => (
               <button key={v} type="button" role="radio" aria-checked={borrador.tipo === v} title={t}
-                className={`chip-filtro${borrador.tipo === v ? ' activo' : ''}`} onClick={() => setBorrador({ ...borrador, tipo: v })}>{r}</button>
+                className={`chip-filtro${borrador.tipo === v ? ' activo' : ''}`} onClick={() => cambiar({ tipo: v })}>{r}</button>
             ))}
           </div>
           <div className="campos-dobles">
-            <label className="campo"><span>Plan</span><input value={borrador.plan} onChange={(e) => setBorrador({ ...borrador, plan: e.target.value })} /></label>
+            <label className="campo"><span>Plan</span><input value={borrador.plan} list={`planes-cotizados-${conversacionId}`} onChange={(e) => cambiar({ plan: e.target.value })} />
+              {/* Los planes que se le cotizaron: con el plan exacto, la planilla calcula sola la carga BU */}
+              <datalist id={`planes-cotizados-${conversacionId}`}>
+                {[...new Set((contacto.cotizacion?.enviadas ?? []).filter((e) => e.tipo === 'cotizacion').flatMap((e) => (e.planes ?? []).map((p) => p.plan)).filter(Boolean))]
+                  .map((p) => <option key={p} value={p} />)}
+              </datalist></label>
             <label className="campo"><span>Cuota</span>
               <span className="campo-pesos"><span>$</span>
                 <input inputMode="numeric" value={borrador.monto ? Number(borrador.monto).toLocaleString('es-AR') : ''}
-                  onChange={(e) => setBorrador({ ...borrador, monto: e.target.value.replace(/\D/g, '') })} /></span>
+                  onChange={(e) => cambiar({ monto: e.target.value.replace(/\D/g, '') })} /></span>
             </label>
           </div>
           <label className="venta-ov">

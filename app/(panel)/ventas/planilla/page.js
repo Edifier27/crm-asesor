@@ -13,6 +13,8 @@ const siguiente = (mes) => { const [a, m] = mes.split('-').map(Number); return m
 
 // Carga BU de una venta del CRM, con la cotización del lead (la misma cuenta que la ficha): se calcula una vez, con la
 // lista vigente cuando aparece en la planilla, y queda guardada (se puede corregir a mano)
+const normalizarPlan = (p) => String(p ?? '').toUpperCase().replace(/[\s.\-_]/g, '');
+
 function cargaDeLaVenta(lista, contacto, fila) {
   const rel = contacto?.relevamiento ?? {};
   const cot = contacto?.cotizacion ?? {};
@@ -22,7 +24,8 @@ function cargaDeLaVenta(lista, contacto, fila) {
   const miembros = miembrosDesdeRelevamiento(rel.integrantes);
   if (!lista || !zona || !miembros.length || !fila.plan) return null;
   const r = cotizar(lista, { miembros, zona, modalidad, campania: campaniaPara(ultima?.campania ?? cot.campania ?? 'familiar', modalidad), sueldos: (cot.sueldos ?? []).map(Number) })
-    .find((x) => x.plan === fila.plan);
+    // "smg 02", "Smg02" o "SMG-02" son el SMG02 (el plan puede venir escrito a mano)
+    .find((x) => normalizarPlan(x.plan) === normalizarPlan(fila.plan));
   return r ? cargaBU(r.conDescuento, modalidad, zona) : null;
 }
 
