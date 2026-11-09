@@ -9,6 +9,8 @@ import { cerrarCobro, enviarLinkPago, registrarVenta } from './acciones';
 /**
  * Venta y cobro del lead.
  * · "Venta hecha": desregulado → Ganado; directo → Falta de cobro (pide DNI y N° de precarga para el link de pago).
+ * · "Venta por OB" (Darío, 9-nov-2026): hecha por onboarding; pide DNI, N° de precarga y, si es una inclusión, titular,
+ *   incluido y valor. Va directo a la planilla de ventas, sin cargarla a mano.
  * · En Falta de cobro: Enviar link ahora, Pagó ✓ o No pagó.
  */
 export default function Venta({ conversacionId, contacto, etapas, onCambio, dniLeido }) {
@@ -25,7 +27,8 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
     tipo: tipoDeModalidad(ultima?.modalidad ?? contacto.cotizacion?.modalidad),
     plan: contacto.plan_cotizado ?? ultima?.planes?.[0]?.plan ?? '',
     monto: contacto.valor ?? ultima?.planes?.[0]?.final ?? '',
-    dni: venta?.dni ?? dniLeido ?? '', precarga: venta?.precarga ?? '', onboarding: false
+    dni: venta?.dni ?? dniLeido ?? '', precarga: venta?.precarga ?? '', onboarding: false,
+    esInclusion: false, titular: '', incluido: contacto.nombre ?? '', valorInclusion: ''
   });
   const link = linkBienvenida(borrador.dni, borrador.precarga);
 
@@ -102,10 +105,14 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
   return (
     <div className="bloque venta">
       {!abierto ? (
-        <button type="button" className="boton-primario boton-venta" onClick={() => setAbierto(true)}>Venta hecha</button>
+        <div className="acciones">
+          <button type="button" className="boton-primario boton-venta" onClick={() => { setBorrador({ ...borrador, onboarding: false }); setAbierto(true); }}>Venta hecha</button>
+          <button type="button" className="boton-secundario boton-venta-ov" title="Venta o inclusión hecha por onboarding: va directo a la planilla"
+            onClick={() => { setBorrador({ ...borrador, onboarding: true }); setAbierto(true); }}>Venta por OB</button>
+        </div>
       ) : (
         <div className="venta-form">
-          <span className="bloque-titulo">Registrar venta</span>
+          <span className="bloque-titulo">{borrador.onboarding ? 'Venta por onboarding (OB)' : 'Registrar venta'}</span>
           <div className="pp-atajos" role="radiogroup" aria-label="Tipo de venta">
             {[['directo', 'Directo', 'Particular, monotributo, Nordelta: falta que pague'], ['desregulado', 'Desregulado', 'Deriva aportes: ya queda impactado']].map(([v, r, t]) => (
               <button key={v} type="button" role="radio" aria-checked={borrador.tipo === v} title={t}
@@ -124,6 +131,27 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
             <input type="checkbox" checked={borrador.onboarding} onChange={(e) => setBorrador({ ...borrador, onboarding: e.target.checked })} />
             Hecha por onboarding
           </label>
+          {borrador.onboarding && (
+            <>
+              {camposCobro}
+              <label className="venta-ov">
+                <input type="checkbox" checked={borrador.esInclusion} onChange={(e) => setBorrador({ ...borrador, esInclusion: e.target.checked })} />
+                Es una inclusión (se suma al plan de un afiliado)
+              </label>
+              {borrador.esInclusion && (
+                <div className="campos-dobles">
+                  <label className="campo"><span>Titular (nombre y apellido)</span>
+                    <input value={borrador.titular} onChange={(e) => setBorrador({ ...borrador, titular: e.target.value })} /></label>
+                  <label className="campo"><span>Incluido (nombre y apellido)</span>
+                    <input value={borrador.incluido} onChange={(e) => setBorrador({ ...borrador, incluido: e.target.value })} /></label>
+                  <label className="campo"><span>Valor de la inclusión</span>
+                    <span className="campo-pesos"><span>$</span>
+                      <input inputMode="numeric" value={borrador.valorInclusion ? Number(borrador.valorInclusion).toLocaleString('es-AR') : ''}
+                        onChange={(e) => setBorrador({ ...borrador, valorInclusion: e.target.value.replace(/\D/g, '') })} /></span></label>
+                </div>
+              )}
+            </>
+          )}
           <p className="pp-explicacion">
             {borrador.tipo === 'directo'
               ? 'Pasa a "Falta de cobro" y ya te queda en Mis chats para mandarle el link de pago (cargás DNI y N° de precarga). Después, cada 48 h hábiles sin pago te vuelve a aparecer para recordárselo. No sale nada automático.'
@@ -131,7 +159,10 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
           </p>
           <div className="acciones">
             <button type="button" className="boton-primario" disabled={ocupado}
-              onClick={() => correr(() => registrarVenta(conversacionId, borrador), borrador.tipo === 'directo' ? 'Venta registrada: pasa a Falta de cobro' : '¡Venta ganada!')}>
+              onClick={() => correr(() => registrarVenta(conversacionId, {
+                ...borrador,
+                inclusion: borrador.onboarding && borrador.esInclusion ? { titular: borrador.titular, incluido: borrador.incluido, valor: borrador.valorInclusion } : null
+              }), `${borrador.onboarding ? 'Venta por OB: ya está en la planilla. ' : ''}${borrador.tipo === 'directo' ? 'Pasa a Falta de cobro' : '¡Venta ganada!'}`)}>
               Confirmar venta
             </button>
             <button type="button" className="boton-secundario" onClick={() => setAbierto(false)}>Cancelar</button>
