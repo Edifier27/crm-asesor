@@ -1,38 +1,92 @@
 // ==UserScript==
-// @name         Salesforce ← AsesorCRM — Pedidos de link de alta
+// @name         Salesforce ← AsesorCRM — Pedidos de link de alta (automático)
 // @namespace    sf-crm-pedidos
-// @version      0.2
-// @description  Trae los pedidos de "link de alta" que hacés desde la ficha del CRM y le devuelve el Link de autogestión de la Oportunidad. Versión 0.2: semiautomática (te muestra el pedido, te abre el lead y toma el link de la pantalla); los pasos dentro de Salesforce se automatizan en la próxima versión.
+// @version      0.3
+// @description  Toma los pedidos de "link de alta" del CRM y los hace solo en Salesforce: candidato → Listo para convertir → Convertir → (cotizás vos) → sincronizar → Generar link → devuelve el link al CRM. Comparte el SEMÁFORO con el script de transición (los leads de OmniCanal tienen prioridad).
 // @match        https://swissmedical.lightning.force.com/*
+// @noframes
 // @connect      asesorcrm.com.ar
 // @grant        GM_xmlhttpRequest
 // ==/UserScript==
+
+// Cómo funciona (Darío, 9-nov-2026; mapa de pantallas en sf-selectores.json):
+//  1. Cada minuto le pregunta al CRM si hay pedidos (los crea el CRM solo cuando la IA cierra la salud OK, o el asesor
+//     con el botón de la ficha).
+//  2. Toma el más viejo y hace los pasos. Guarda en qué paso va: si Salesforce recarga la página, sigue desde ahí.
+//  3. La cotización la hacés vos (v0.3): el script abre el Cotizador y te muestra los datos; cuando tocás
+//     "Ya coticé, seguí", sincroniza, genera el link y se lo devuelve al CRM, que se lo manda al cliente.
+//  4. Si hay un lead de OmniCanal esperando, frena en el próximo paso seguro y deja trabajar a la transición.
+// PASO_A_PASO = true: antes de cada clic te pregunta "¿sigo?". Dejalo así en las primeras pruebas.
 
 (function () {
   'use strict';
 
   // ═════════════════════════════════════════════════════════════
-  //  CONFIGURACIÓN — una sola cosa: tu clave personal
-  //  (en el CRM: Mi perfil → Script de Salesforce → Generar clave)
+  //  CONFIGURACIÓN
   // ═════════════════════════════════════════════════════════════
-  const CRM_CLAVE = 'PEGAR_ACA_TU_CLAVE_PERSONAL';
+  const CRM_CLAVE = 'PEGAR_ACA_TU_CLAVE_PERSONAL'; // CRM → Mi perfil → Script de Salesforce → Generar clave
+  const PASO_A_PASO = true;   // en las primeras pruebas, que pregunte antes de cada clic
+  const AUTOMATICO = true;    // false: solo muestra los pedidos y vos tocás "Empezar"
 
   const CRM = 'https://asesorcrm.com.ar/api/salesforce/acciones';
-  const CADA_MS = 2 * 60 * 1000; // cada cuánto pregunta si hay pedidos (2 min)
+  const CADA_MS = 60 * 1000;
+  const INTENTOS_POR_PASO = 3;
+
+  // Semáforo compartido con el script de transición (mismas claves)
+  const LOCK_KEY = 'smg_flow_lock';
+  const PRIO_KEY = 'smg_flow_prioridad';
+  const YO = 'cotizador';
+  const LOCK_TTL_MS = 6 * 60 * 1000;
+  const PRIO_TTL_MS = 3 * 60 * 1000;
+  const ESTADO_KEY = 'crm_pedido_en_curso';
 
   // ═════════════════════════════════════════════════════════════
   //  A partir de acá NO hace falta tocar nada
   // ═════════════════════════════════════════════════════════════
 
   const log = (msg) => console.log(`[CRM→SF ${new Date().toLocaleTimeString('es-AR')}] ${msg}`);
+  const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+  const pausa = () => esperar(1500 + Math.floor(Math.random() * 2500));
 
+  // ── Búsqueda dentro del shadow DOM de Lightning ──
+  function todos(selector, raiz = document) {
+    let res = [];
+    try { res = Array.from(raiz.querySelectorAll(selector)); } catch (e) {}
+    for (const el of raiz.querySelectorAll('*')) if (el.shadowRoot) res = res.concat(todos(selector, el.shadowRoot));
+    return res;
+  }
+  const visible = (el) => !!el && el.offsetParent !== null;
+  const uno = (selector, raiz) => todos(selector, raiz).find(visible) || null;
+  const texto = (el) => (el?.innerText || el?.textContent || '').trim();
+  const botonConTexto = (re, clase) => todos('button').find((b) => visible(b) && re.test(texto(b)) && (!clase || (b.className || '').includes(clase))) || null;
+  const habilitado = (b) => b && !b.disabled && b.getAttribute('aria-disabled') !== 'true';
+
+  function esperarA(fn, desc, ms = 20000) {
+    return new Promise((ok, mal) => {
+      const t0 = Date.now();
+      const intentar = () => {
+        let r = null;
+        try { r = fn(); } catch (e) {}
+        if (r) return ok(r);
+        if (Date.now() - t0 > ms) return mal(new Error(`No apareció: ${desc}`));
+        setTimeout(intentar, 400);
+      };
+      intentar();
+    });
+  }
+  async function esperarConReintento(fn, desc, ms = 20000) {
+    for (let i = 1; i <= INTENTOS_POR_PASO; i++) {
+      try { return await esperarA(fn, desc, ms); } catch (e) { if (i === INTENTOS_POR_PASO) throw e; log(`⚠️ ${e.message} (intento ${i}) — reintento`); await esperar(4000); }
+    }
+  }
+
+  // ── CRM ──
   function pedir(metodo, url, cuerpo) {
     return new Promise((resolver) => {
       GM_xmlhttpRequest({
-        method: metodo, url,
+        method: metodo, url, timeout: 20000,
         headers: { 'x-api-key': CRM_CLAVE, 'Content-Type': 'application/json' },
         data: cuerpo ? JSON.stringify(cuerpo) : undefined,
-        timeout: 20000,
         onload: (r) => { let j = {}; try { j = JSON.parse(r.responseText); } catch (e) {} resolver({ status: r.status, ...j }); },
         onerror: () => resolver({ status: 0, error: 'Sin conexión con el CRM' }),
         ontimeout: () => resolver({ status: 0, error: 'El CRM no respondió' })
@@ -40,113 +94,235 @@
     });
   }
 
-  // El id del candidato que está abierto (/lightning/r/Lead/00Q…/view)
-  function idDelCandidato() {
-    const m = location.href.match(/\/(00Q[A-Za-z0-9]{12}(?:[A-Za-z0-9]{3})?)(?=[/?#]|$)/);
-    return m ? m[1] : null;
+  // ── Semáforo ──
+  const leer = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+  const duenio = () => { const l = leer(LOCK_KEY); return l && Date.now() - l.t < LOCK_TTL_MS ? l.quien : null; };
+  const libreParaMi = () => { const d = duenio(); return !d || d === YO; };
+  const prioridadDeOtro = () => { const p = leer(PRIO_KEY); return !!(p && p.quien !== YO && Date.now() - p.t < PRIO_TTL_MS); };
+  async function tomarLock() {
+    if (!libreParaMi()) return false;
+    const token = Math.random().toString(36).slice(2);
+    localStorage.setItem(LOCK_KEY, JSON.stringify({ quien: YO, token, t: Date.now() }));
+    await esperar(300);
+    const l = leer(LOCK_KEY);
+    return !!(l && l.token === token);
   }
+  const renovarLock = () => { const l = leer(LOCK_KEY); if (l && l.quien === YO) { l.t = Date.now(); localStorage.setItem(LOCK_KEY, JSON.stringify(l)); } };
+  const soltarLock = () => { const l = leer(LOCK_KEY); if (l && l.quien === YO) localStorage.removeItem(LOCK_KEY); };
 
-  // ── Panel en pantalla ──
+  // ── Estado del pedido en curso (sobrevive a las recargas) ──
+  const estado = () => leer(ESTADO_KEY);
+  const guardar = (e) => localStorage.setItem(ESTADO_KEY, JSON.stringify({ ...e, t: Date.now() }));
+  const limpiar = () => localStorage.removeItem(ESTADO_KEY);
+
+  // ── Panel ──
   const panel = document.createElement('div');
   Object.assign(panel.style, {
-    position: 'fixed', bottom: '150px', right: '24px', zIndex: 999999, width: '320px', maxHeight: '60vh', overflow: 'auto',
+    position: 'fixed', bottom: '150px', right: '24px', zIndex: 999999, width: '330px', maxHeight: '60vh', overflow: 'auto',
     background: '#fff', border: '2px solid #0B6E5F', borderRadius: '12px', boxShadow: '0 4px 16px rgba(0,0,0,.25)',
     font: '13px/1.4 sans-serif', color: '#1D2B28', padding: '10px 12px', display: 'none'
   });
   document.body.appendChild(panel);
-
-  const texto = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const edades = (d) => (d.integrantes ?? []).map((i) => `${i.parentesco ?? 'integrante'} ${i.edad ?? '?'}`).join(', ') || 'sin edades';
+  const ZONA_SF = { AMBA: 'AMBA', CORDOBA: 'Cordoba', PATAGONIA: 'Patagonia y Salta', TDF: 'Tierra del Fuego', INTERIOR: 'Buenos Aires y Santa Fe', RESTO: 'Resto del interior del Pais' };
 
-  function dibujar(acciones) {
-    if (!acciones.length) { panel.style.display = 'none'; return; }
-    panel.style.display = 'block';
-    panel.innerHTML = `<b style="color:#0B6E5F">Pedidos del CRM (${acciones.length})</b>` + acciones.map((a) => {
-      const d = a.datos ?? {};
-      return `<div data-id="${a.id}" style="border-top:1px solid #E2DDD4;margin-top:8px;padding-top:8px">
-        <b>${texto(d.nombre ?? 'Sin nombre')}</b> · ${a.tipo === 'cargar_nuevo' ? 'cargar como lead nuevo' : 'ya está en Salesforce'}<br>
-        Tel ${texto(d.telefono_local ?? d.telefono)} · DNI ${texto(d.dni)}<br>
-        Plan <b>${texto(d.plan)}</b> · ${texto(d.tipo_venta)} · ${texto(d.zona)}${d.localidad ? ` (${texto(d.localidad)})` : ''}<br>
-        ${texto(edades(d))}${d.sueldos?.length ? ` · sueldo ${texto(d.sueldos.join(' + '))}` : ''}<br>
-        <button data-accion="abrir" style="margin-top:6px">${d.salesforce_id ? 'Abrir el lead' : 'Copiar teléfono para buscarlo'}</button>
-        <div style="margin-top:6px">Link de autogestión: <input data-campo="link" placeholder="https://asociarme…" style="width:100%"></div>
-        <button data-accion="leer" style="margin-top:4px">Tomar el link de esta pantalla</button>
-        <div style="margin-top:6px">N° de trámite (opcional): <input data-campo="tramite" inputmode="numeric" style="width:110px"></div>
-        <button data-accion="listo" style="margin-top:6px;background:#0B6E5F;color:#fff;border:0;border-radius:6px;padding:4px 10px">Listo: mandar al CRM</button>
-        <button data-accion="error" style="margin-top:6px">No se pudo</button>
-      </div>`;
-    }).join('');
-    panel.querySelectorAll('[data-id]').forEach((caja) => {
-      const accion = acciones.find((a) => a.id === caja.dataset.id);
-      caja.querySelector('[data-accion="abrir"]').onclick = () => abrir(accion);
-      caja.querySelector('[data-accion="leer"]').onclick = () => {
-        const link = linkEnPantalla();
-        if (link) caja.querySelector('[data-campo="link"]').value = link;
-        else alert('No veo un link de autogestión en esta pantalla: abrí la Oportunidad y tocá "Generar Link Autogestión".');
-      };
-      caja.querySelector('[data-accion="listo"]').onclick = () => terminar(accion, caja.querySelector('[data-campo="link"]').value, caja.querySelector('[data-campo="tramite"]').value);
-      caja.querySelector('[data-accion="error"]').onclick = () => fallar(accion);
-    });
+  function mostrar(html) { panel.style.display = 'block'; panel.innerHTML = `<b style="color:#0B6E5F">Pedidos del CRM</b><div style="margin-top:6px">${html}</div>`; }
+  function datosHtml(d) {
+    return `<b>${esc(d.nombre ?? 'Sin nombre')}</b> · DNI ${esc(d.dni)}<br>
+      Plan <b>${esc(d.plan)}</b> · ${esc(d.tipo_venta)} (condición: ${d.tipo_venta === 'desregulado' ? 'SWISS MEDICAL' : 'Directo'})<br>
+      Zona del cotizador: <b>${esc(ZONA_SF[d.zona] ?? d.zona ?? '?')}</b>${d.provincia ? ` · ${esc(d.provincia)}` : ''}${d.localidad ? ` (${esc(d.localidad)})` : ''}<br>
+      ${esc(edades(d))}${d.sueldos?.length ? ` · sueldo bruto ${esc(d.sueldos.join(' + '))}` : ''}${d.campania ? `<br>Campaña en el CRM: ${esc(d.campania)}` : ''}`;
   }
 
-  async function tomar(accion) {
-    if (accion.estado === 'en_curso') return true;
-    const r = await pedir('PATCH', `${CRM}/${accion.id}`, { estado: 'en_curso' });
-    if (r.status === 200) { accion.estado = 'en_curso'; return true; }
-    alert(r.error || 'No se pudo tomar el pedido');
-    return false;
+  // ── Pasos ──
+  async function confirmar(paso) {
+    if (!PASO_A_PASO) return true;
+    return confirm(`Pedido del CRM — siguiente paso:\n\n${paso}\n\n¿Sigo?`);
+  }
+  async function clic(el, paso) {
+    if (!(await confirmar(paso))) throw Object.assign(new Error('Pausado por vos'), { pausa: true });
+    renovarLock();
+    el.scrollIntoView({ block: 'center' });
+    await pausa();
+    el.click();
+    log(`✓ ${paso}`);
+  }
+  const ir = (url) => { if (!location.pathname.startsWith(url)) location.assign(url); };
+
+  async function pasoAbrirLead(e) {
+    const id = e.accion.datos?.salesforce_id;
+    if (!id) {
+      // Sin candidato en Salesforce (vino de la web, un referido…): lo cargás vos y seguimos
+      guardar({ ...e, paso: 'esperar_lead' });
+      return pasoEsperarLead(estado());
+    }
+    guardar({ ...e, paso: 'preparar_lead' });
+    if (!location.pathname.includes(`/Lead/${id}`)) { ir(`/lightning/r/Lead/${id}/view`); return 'navegando'; }
+    return pasoPrepararLead(estado());
   }
 
-  async function abrir(accion) {
-    if (!(await tomar(accion))) return;
-    const d = accion.datos ?? {};
-    if (d.salesforce_id) { location.assign(`/lightning/r/Lead/${d.salesforce_id}/view`); return; }
-    try { await navigator.clipboard.writeText(d.telefono_local ?? d.telefono ?? ''); } catch (e) {}
-    alert(accion.tipo === 'cargar_nuevo'
-      ? 'Este lead no vino de Salesforce: cargalo como candidato nuevo con los datos del cuadro (te copié el teléfono).'
-      : 'Te copié el teléfono: pegalo en el buscador de Salesforce para encontrar el lead.');
-  }
-
-  // El "Link de autogestión" de la Oportunidad (campo con ese nombre, o el cartel de "Generar Link Autogestión")
-  function linkEnPantalla() {
-    const buscar = (raiz) => {
-      for (const a of raiz.querySelectorAll('a[href*="asociarme."]')) if (/^https:\/\/asociarme\.(swissmedical|clubswiss)\.com\.ar\//i.test(a.href)) return a.href;
-      for (const el of raiz.querySelectorAll('*')) if (el.shadowRoot) { const l = buscar(el.shadowRoot); if (l) return l; }
-      return null;
+  function pasoEsperarLead(e) {
+    mostrar(`${datosHtml(e.accion.datos)}<br><br>Este lead no está en Salesforce: <b>cargalo como candidato B2C</b> con estos datos, abrí su ficha y tocá:<br>
+      <button id="crm-seguir-lead" style="margin-top:6px;background:#0B6E5F;color:#fff;border:0;border-radius:6px;padding:4px 10px">Seguir desde este candidato</button>
+      <button id="crm-cancelar" style="margin-top:6px">No se pudo</button>`);
+    panel.querySelector('#crm-seguir-lead').onclick = () => {
+      const m = location.href.match(/\/(00Q[A-Za-z0-9]{12}(?:[A-Za-z0-9]{3})?)/);
+      if (!m) { alert('Abrí la ficha del candidato (la dirección tiene que tener /Lead/00Q…).'); return; }
+      const est = estado();
+      est.accion.datos = { ...est.accion.datos, salesforce_id: m[1] };
+      guardar({ ...est, paso: 'preparar_lead' });
+      correr();
     };
-    return buscar(document);
+    panel.querySelector('#crm-cancelar').onclick = () => fallar('El asesor no pudo cargar el candidato');
+    return 'esperando_asesor';
   }
 
-  async function terminar(accion, link, tramite) {
-    const url = String(link ?? '').trim();
-    if (!/^https:\/\/asociarme\.(swissmedical|clubswiss)\.com\.ar\//i.test(url)) { alert('Pegá el Link de autogestión (empieza con https://asociarme…).'); return; }
-    if (!(await tomar(accion))) return;
-    const r = await pedir('PATCH', `${CRM}/${accion.id}`, { estado: 'listo', link: url, precarga: String(tramite ?? '').replace(/\D/g, '') || null, salesforce_id: idDelCandidato() });
-    if (r.status === 200) { log(`✓ Link de ${accion.datos?.nombre} enviado al CRM`); revisar(); }
-    else alert(r.error || `Error ${r.status}`);
+  async function pasoPrepararLead(e) {
+    await esperarConReintento(() => uno('button[name="Convert"]') || uno('button[title="Registrar una llamada"]') || uno('button[title="Modificar Listo para convertir"]'), 'la ficha del candidato', 30000);
+    if (!uno('button[name="Convert"]')) {
+      // "Listo para convertir" recién aparece en Esperando Respuesta: si no está, llamada + Esperando Respuesta
+      if (!uno('button[title="Modificar Listo para convertir"]')) {
+        const llamada = await esperarConReintento(() => uno('button[title="Registrar una llamada"]'), 'Registrar una llamada');
+        await clic(llamada, 'Registrar una llamada');
+        await clic(await esperarConReintento(() => uno('.cuf-publisherShareButton'), 'Guardar de la llamada'), 'Guardar la llamada');
+        await esperar(3000);
+        const esp = await esperarConReintento(() => { const b = uno('button[name="Lead.Esperando_Respuesta"]'); return habilitado(b) ? b : null; }, 'Esperando Respuesta');
+        await clic(esp, 'Pasar a "Esperando Respuesta"');
+        await clic(await esperarConReintento(() => botonConTexto(/^Siguiente$/, 'slds-button_brand'), 'Siguiente del modal'), 'Confirmar ("Siguiente")');
+        await esperar(3000);
+      }
+      if (prioridadDeOtro()) return 'prioridad';
+      await clic(await esperarConReintento(() => uno('button[title="Modificar Listo para convertir"]'), 'lápiz de Listo para convertir'), 'Editar "Listo para convertir"');
+      const campo = await esperarConReintento(() => uno('lightning-input[name="SMG_Ready_to_convert__c"]'), 'casilla Listo para convertir');
+      const casilla = campo.querySelector('input[type="checkbox"]') || todos('input[type="checkbox"]', campo.shadowRoot || campo)[0];
+      if (!casilla) throw new Error('No encuentro la casilla de "Listo para convertir"');
+      if (!casilla.checked) await clic(casilla, 'Tildar "Listo para convertir"');
+      await clic(await esperarConReintento(() => uno('button[name="SaveEdit"]'), 'Guardar'), 'Guardar');
+      await esperarConReintento(() => uno('button[name="Convert"]'), 'botón Convertir', 30000);
+    }
+    guardar({ ...e, paso: 'convertir' });
+    return pasoConvertir(estado());
   }
 
-  async function fallar(accion) {
-    const motivo = prompt('¿Qué pasó? (le llega al CRM para que lo hagas a mano)');
-    if (motivo === null) return;
-    const r = await pedir('PATCH', `${CRM}/${accion.id}`, { estado: 'error', error: motivo || 'sin detalle' });
-    if (r.status === 200) revisar(); else alert(r.error || `Error ${r.status}`);
+  async function pasoConvertir(e) {
+    if (prioridadDeOtro()) return 'prioridad';
+    await clic(await esperarConReintento(() => uno('button[name="Convert"]'), 'botón Convertir'), 'Convertir el candidato (abre la pantalla de conversión)');
+    await clic(await esperarConReintento(() => botonConTexto(/^Convertir$/, 'slds-button_brand'), 'Convertir de la pantalla de conversión', 30000), 'Confirmar la conversión (crea Cuenta y Oportunidad)');
+    const enlace = await esperarConReintento(() => uno('a.outputLookupLink[data-recordid^="006"]') || todos('a.outputLookupLink[data-recordid^="006"]')[0], 'la Oportunidad creada', 40000);
+    const oportunidad = enlace.getAttribute('data-recordid');
+    log(`Oportunidad ${oportunidad}`);
+    guardar({ ...e, paso: 'cotizar', oportunidad });
+    ir(`/lightning/r/Opportunity/${oportunidad}/view`);
+    return 'navegando';
   }
 
-  let ultimo = '';
-  async function revisar() {
+  async function pasoCotizar(e) {
+    if (!location.pathname.includes(`/Opportunity/${e.oportunidad}`)) { ir(`/lightning/r/Opportunity/${e.oportunidad}/view`); return 'navegando'; }
+    const boton = await esperarConReintento(() => uno('button[name="Opportunity.Cotizador"]'), 'botón Cotizador', 30000);
+    if (!e.cotizadorAbierto) { await clic(boton, 'Abrir el Cotizador'); guardar({ ...e, cotizadorAbierto: true }); }
+    // v0.3: la cotización la hace el asesor (zona, integrantes, descuento, plan → Ir a Cotizar → Cotizar → Salir)
+    mostrar(`${datosHtml(e.accion.datos)}<br><br><b>Cotizá vos</b>: zona, integrantes, descuento, plan → Ir a Cotizar → <b>Cotizar</b> → Salir. Después tocá:<br>
+      <button id="crm-ya-cotice" style="margin-top:6px;background:#0B6E5F;color:#fff;border:0;border-radius:6px;padding:4px 10px">Ya coticé, seguí</button>
+      <button id="crm-cancelar" style="margin-top:6px">No se pudo</button>`);
+    panel.querySelector('#crm-ya-cotice').onclick = () => { guardar({ ...estado(), paso: 'sincronizar' }); location.assign(`/lightning/r/Opportunity/${e.oportunidad}/view`); };
+    panel.querySelector('#crm-cancelar').onclick = () => fallar('El asesor no pudo cotizar');
+    return 'esperando_asesor';
+  }
+
+  async function pasoSincronizar(e) {
+    if (!location.pathname.includes(`/Opportunity/${e.oportunidad}`)) { ir(`/lightning/r/Opportunity/${e.oportunidad}/view`); return 'navegando'; }
+    if (prioridadDeOtro()) return 'prioridad';
+    await clic(await esperarConReintento(() => uno('li[data-target-selection-name="flexipage_tab4Tab"] a[role=tab]'), 'pestaña Cotización', 30000), 'Abrir la pestaña Cotización');
+    const cotizacion = await esperarConReintento(() => todos('a').find((a) => visible(a) && (/\/Quote\/0Q0/.test(a.href) || /^0001\d{4,}/.test(texto(a)))), 'la cotización en la pestaña');
+    await clic(cotizacion, `Abrir la cotización ${texto(cotizacion)}`);
+    await clic(await esperarConReintento(() => uno('button[name="SyncQuote"]'), 'Iniciar sincronización', 30000), 'Iniciar sincronización');
+    await clic(await esperarConReintento(() => botonConTexto(/continuar/i), 'confirmación de la sincronización'), 'Confirmar ("¿Desea continuar?")');
+    await esperar(5000);
+    guardar({ ...e, paso: 'generar_link' });
+    location.assign(`/lightning/r/Opportunity/${e.oportunidad}/view`);
+    return 'navegando';
+  }
+
+  async function pasoGenerarLink(e) {
+    if (!location.pathname.includes(`/Opportunity/${e.oportunidad}`)) { ir(`/lightning/r/Opportunity/${e.oportunidad}/view`); return 'navegando'; }
+    await clic(await esperarConReintento(() => uno('button[name="Opportunity.SMG_QA_GenerateSelfServiceLink"]'), 'Generar Link Autogestión', 30000), 'Generar Link Autogestión');
+    const r = await esperarConReintento(() => {
+      const a = todos('a[href*="asociarme"]').find((x) => /^https:\/\/asociarme\.(swissmedical|clubswiss)\.com\.ar\//i.test(x.href));
+      if (a) return { link: a.href };
+      const err = todos('flowruntime-display-text-lwc lightning-formatted-rich-text p').map(texto).find((t) => t.length > 10);
+      return err ? { error: err } : null;
+    }, 'el link (o el error) de Generar Link', 40000);
+    if (r.error) throw new Error(`Salesforce: ${r.error}`);
+    const fin = botonConTexto(/^Finalizar$/);
+    if (fin) { await pausa(); fin.click(); }
+    await esperar(2000);
+    const tramite = texto(uno('[data-target-selection-name="sfdc:RecordField.Opportunity.SMG_Opportunity_TransactionNumber__c"] .test-id__field-value')).replace(/\D/g, '')
+      || (r.link.match(/\/(\d{6,})\/?$/) ?? [])[1] || null;
+    const res = await pedir('PATCH', `${CRM}/${e.accion.id}`, { estado: 'listo', link: r.link, precarga: tramite, salesforce_id: e.accion.datos?.salesforce_id ?? null });
+    if (res.status !== 200) throw new Error(`El CRM no aceptó el link: ${res.error || res.status}`);
+    log(`✓ Link de ${e.accion.datos?.nombre} enviado al CRM`);
+    limpiar();
+    mostrar(`✓ Listo: el link de <b>${esc(e.accion.datos?.nombre)}</b> volvió al CRM.`);
+    setTimeout(() => (panel.style.display = 'none'), 8000);
+    return 'terminado';
+  }
+
+  async function fallar(motivo) {
+    const e = estado();
+    limpiar(); soltarLock();
+    if (e?.accion) await pedir('PATCH', `${CRM}/${e.accion.id}`, { estado: 'error', error: String(motivo).slice(0, 280) });
+    mostrar(`✗ ${esc(motivo)}<br>Quedó avisado en el chat del CRM para hacerlo a mano.`);
+  }
+
+  const PASOS = { abrir_lead: pasoAbrirLead, esperar_lead: pasoEsperarLead, preparar_lead: pasoPrepararLead, convertir: pasoConvertir, cotizar: pasoCotizar, sincronizar: pasoSincronizar, generar_link: pasoGenerarLink };
+
+  let corriendo = false;
+  async function correr() {
+    if (corriendo) return;
+    const e = estado();
+    if (!e) return;
+    if (prioridadDeOtro() || !(await tomarLock())) { log('⏸ La transición está trabajando: espero'); return; }
+    corriendo = true;
+    try {
+      const r = await PASOS[e.paso](e);
+      if (r === 'prioridad') log('⏸ Lead de OmniCanal esperando: freno y sigo después');
+      if (r === 'esperando_asesor' || r === 'prioridad' || r === 'terminado') soltarLock();
+    } catch (err) {
+      if (err.pausa) {
+        soltarLock();
+        mostrar(`${datosHtml(e.accion.datos)}<br><br>⏸ Pausado en "${esc(e.paso)}". <button id="crm-reanudar">Reanudar</button> <button id="crm-cancelar">No se pudo</button>`);
+        panel.querySelector('#crm-reanudar').onclick = () => correr();
+        panel.querySelector('#crm-cancelar').onclick = () => fallar('Cancelado por el asesor');
+      } else {
+        log(`✗ ${err.message}`);
+        await fallar(`${err.message} (paso: ${e.paso})`);
+      }
+    } finally {
+      corriendo = false;
+    }
+  }
+
+  async function revisarCola() {
     if (CRM_CLAVE.startsWith('PEGAR')) { log('Falta la clave: pegala en CRM_CLAVE'); return; }
+    if (estado()) return correr();
     const r = await pedir('GET', CRM);
     if (r.status === 401) { log('Clave incorrecta: generá una nueva en Mi perfil del CRM'); return; }
     if (r.status !== 200) { log(`No pude consultar el CRM: ${r.error || r.status}`); return; }
-    const acciones = r.acciones ?? [];
-    // Solo se redibuja si cambió (no borra lo que estás escribiendo)
-    const firma = acciones.map((a) => `${a.id}:${a.estado}`).join(',');
-    if (firma !== ultimo) { ultimo = firma; dibujar(acciones); }
+    const accion = (r.acciones ?? []).find((a) => a.estado === 'pendiente');
+    if (!accion) return;
+    const empezar = async () => {
+      const t = await pedir('PATCH', `${CRM}/${accion.id}`, { estado: 'en_curso' });
+      if (t.status !== 200) { log(t.error || 'No pude tomar el pedido'); return; }
+      guardar({ accion, paso: 'abrir_lead' });
+      correr();
+    };
+    if (AUTOMATICO) return empezar();
+    mostrar(`${datosHtml(accion.datos ?? {})}<br><button id="crm-empezar" style="margin-top:6px;background:#0B6E5F;color:#fff;border:0;border-radius:6px;padding:4px 10px">Empezar</button>`);
+    panel.querySelector('#crm-empezar').onclick = empezar;
   }
 
-  // Sin trabar la página (mismo criterio que el script de los leads: no interferir con OmniCanal)
   const conTiempoLibre = (fn) => (typeof requestIdleCallback === 'function' ? requestIdleCallback(fn, { timeout: 2000 }) : setTimeout(fn, 0));
-  setTimeout(() => conTiempoLibre(revisar), 5000);
-  setInterval(() => conTiempoLibre(revisar), CADA_MS);
+  setTimeout(() => conTiempoLibre(revisarCola), 6000);   // al cargar: si había un pedido a medias, sigue
+  setInterval(() => conTiempoLibre(revisarCola), CADA_MS);
 })();
