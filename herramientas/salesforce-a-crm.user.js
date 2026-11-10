@@ -1,9 +1,10 @@
 // ==UserScript==
 // @name         Salesforce → AsesorCRM (Darío) — Automático CRM
 // @namespace    sf-crm-dario
-// @version      3.6
-// @description  Automático con reintentos ante cortes de red, pausas variables, anti-duplicado, chequeo de pestaña activa, auto-refresco de la lista. Envía el lead al CRM de Darío (antes Kommo)
+// @version      3.8
+// @description  Automático con reintentos ante cortes de red, pausas variables, anti-duplicado, chequeo de pestaña activa, auto-refresco de la lista SEMÁFORO compartido con el script de pedidos (no se pisan) y el id del candidato para el CRM (v3.7). v3.8: trabaja solo en la pestaña marcada "Transición". Envía el lead al CRM de Darío (antes Kommo)
 // @match        https://swissmedical.lightning.force.com/*
+// @noframes
 // @connect      asesorcrm.com.ar
 // @grant        GM_xmlhttpRequest
 // ==/UserScript==
@@ -17,6 +18,7 @@
 
   const CRM_URL   = 'https://asesorcrm.com.ar/api/leads';
   const CRM_CLAVE = 'PEGAR_ACA_LA_LEADS_API_KEY'; // ← la misma LEADS_API_KEY de los otros scripts. No la compartas.
+  // Sin asesor de destino: el lead va al CRM del número principal (el de Darío)
 
   const INTERVALO_REVISION_MS = 2000;
   const RETARDO_MIN_MS = 20000;
@@ -27,9 +29,39 @@
   // NUEVO: cada cuánto se aprieta el botón "Actualizar" de la lista (1:30hs aprox.)
   const REFRESCAR_INTERVALO_MS = 90 * 60 * 1000;
 
+  // NUEVO v3.5: semáforo compartido con el script cotizador.
+  // Los dos scripts leen/escriben estas claves en el localStorage de Salesforce.
+  const LOCK_KEY = 'smg_flow_lock';          // quién está usando la pantalla ahora
+  const PRIO_KEY = 'smg_flow_prioridad';     // "hay un lead de OmniCanal esperando, frená"
+  const YO = 'transicion';
+  const LOCK_TTL_MS = 6 * 60 * 1000;         // si un script se cuelga, el lock vence solo
+  const PRIO_TTL_MS = 3 * 60 * 1000;
+
   // ═════════════════════════════════════════════════════════════
   //  A partir de acá NO hace falta tocar nada
   // ═════════════════════════════════════════════════════════════
+
+  // ── Rol de la pestaña (v0.6 / v3.8, Darío 9-nov-2026): una pestaña "Transición" (OmniCanal en línea, acepta los
+  // leads) y otra "Ventas" (pedidos de link, cotización y etapas). Cada script trabaja solo en la suya. El rol queda en
+  // la pestaña (sessionStorage) hasta que la cerrás. Los dos scripts dibujan el mismo selector: el primero que llega.
+  const ROL_KEY = 'smg_rol_pestana';
+  const rolDeLaPestana = () => { try { return sessionStorage.getItem(ROL_KEY); } catch (e) { return null; } };
+  function dibujarSelectorDeRol() {
+    let caja = document.getElementById('smg-rol-pestana');
+    if (!caja) {
+      caja = document.createElement('div');
+      caja.id = 'smg-rol-pestana';
+      Object.assign(caja.style, { position: 'fixed', bottom: '24px', left: '24px', zIndex: 999999, padding: '8px 12px', borderRadius: '10px',
+        background: '#1D2B28', color: '#fff', font: '12px/1.4 sans-serif', boxShadow: '0 2px 8px rgba(0,0,0,.3)' });
+      document.body.appendChild(caja);
+    }
+    const rol = rolDeLaPestana();
+    const boton = (r, t) => `<button data-rol="${r}" style="margin-left:6px;border:0;border-radius:6px;padding:3px 8px;cursor:pointer;background:${rol === r ? '#E8002D' : '#fff'};color:${rol === r ? '#fff' : '#1D2B28'}">${t}</button>`;
+    caja.innerHTML = `${rol ? 'Esta pestaña:' : '<b>¿Para qué es esta pestaña?</b>'}${boton('transicion', 'Transición')}${boton('ventas', 'Ventas')}`;
+    caja.querySelectorAll('[data-rol]').forEach((b) => (b.onclick = () => { try { sessionStorage.setItem(ROL_KEY, b.dataset.rol); } catch (e) {} dibujarSelectorDeRol(); }));
+  }
+  setTimeout(dibujarSelectorDeRol, 3000);
+  setInterval(() => { if (!document.getElementById('smg-rol-pestana')) dibujarSelectorDeRol(); }, 10000);
 
   function retardoAleatorio() {
     return Math.floor(Math.random() * (RETARDO_MAX_MS - RETARDO_MIN_MS + 1)) + RETARDO_MIN_MS;
@@ -202,13 +234,14 @@
     } catch (e) {}
   }
 
-  // ÚNICO CAMBIO de lógica: el lead va al CRM de Darío (el del número principal) en vez de a Kommo (el saludo automático lo manda el CRM)
-  // El id del candidato que está abierto: aparece en la dirección de la pestaña (/lightning/r/Lead/00Q…/view)
+  // v3.7: el id del candidato que está abierto (/lightning/r/Lead/00Q…/view), para que el CRM lo encuentre directo
+  // al pedir el link de alta (el script de pedidos lo abre sin buscarlo)
   function idDelCandidato() {
     const m = location.href.match(/\/(00Q[A-Za-z0-9]{12}(?:[A-Za-z0-9]{3})?)(?=[\/?#]|$)/);
     return m ? m[1] : null;
   }
 
+  // ÚNICO CAMBIO de lógica: el lead va al CRM de Darío (el del número principal) en vez de a Kommo (el saludo automático lo manda el CRM)
   function enviarAlCrm(d) {
     const lead = {
       origen: 'swiss_medical',
@@ -216,7 +249,6 @@
       nombre: primerNombre(d.nombre),
       telefono: d.telefono,
       email: d.email,
-      // v3.6: el id del candidato en Salesforce (00Q…), para que el CRM lo encuentre directo al pedir el link de alta
       salesforce_id: idDelCandidato(),
     };
 
@@ -295,6 +327,12 @@
 
   // NUEVO: clickea el botón "Actualizar" (refreshButton) de la lista de Candidatos.
   function refrescarLista() {
+    if (rolDeLaPestana() !== 'transicion') return;
+    // NUEVO v3.5: no refresca si el cotizador está trabajando
+    if (procesando || !lockLibrePara(YO)) {
+      log('🔄 Refresco salteado: hay un proceso en curso');
+      return;
+    }
     const boton = buscarUnoVisibleEnTodoElDOM('button[name="refreshButton"]');
     if (boton) {
       boton.click();
@@ -315,7 +353,62 @@
     }
   }
 
+  // ═════════════════════════════════════════════════════════════
+  //  SEMÁFORO compartido (v3.5)
+  // ═════════════════════════════════════════════════════════════
+
+  function leerJSON(clave) {
+    try { return JSON.parse(localStorage.getItem(clave) || 'null'); } catch (e) { return null; }
+  }
+
+  // Devuelve quién tiene el lock, o null si está libre/vencido.
+  function duenioLock() {
+    const l = leerJSON(LOCK_KEY);
+    if (!l || Date.now() - l.t > LOCK_TTL_MS) return null;
+    return l.quien;
+  }
+
+  function lockLibrePara(quien) {
+    const d = duenioLock();
+    return !d || d === quien;
+  }
+
+  // Toma el lock y confirma que no lo pisó otra pestaña en el mismo instante.
+  async function tomarLock(quien) {
+    if (!lockLibrePara(quien)) return false;
+    const token = Math.random().toString(36).slice(2);
+    localStorage.setItem(LOCK_KEY, JSON.stringify({ quien, token, t: Date.now() }));
+    await esperar(300);
+    const l = leerJSON(LOCK_KEY);
+    return !!(l && l.token === token);
+  }
+
+  function renovarLock(quien) {
+    const l = leerJSON(LOCK_KEY);
+    if (l && l.quien === quien) {
+      l.t = Date.now();
+      localStorage.setItem(LOCK_KEY, JSON.stringify(l));
+    }
+  }
+
+  function soltarLock(quien) {
+    const l = leerJSON(LOCK_KEY);
+    if (l && l.quien === quien) localStorage.removeItem(LOCK_KEY);
+  }
+
+  function pedirPrioridad() {
+    const p = leerJSON(PRIO_KEY);
+    if (!p || Date.now() - p.t > PRIO_TTL_MS) {
+      localStorage.setItem(PRIO_KEY, JSON.stringify({ quien: YO, t: Date.now() }));
+    }
+  }
+
+  function soltarPrioridad() {
+    localStorage.removeItem(PRIO_KEY);
+  }
+
   let procesando = false;
+  let avisoEsperaMostrado = false;
   let indicador;
 
   function crearIndicador() {
@@ -331,6 +424,7 @@
   }
 
   function marcarPaso(texto) {
+    renovarLock(YO);
     indicador.textContent = texto;
     log(texto);
     avisar(texto, '#0074d9');
@@ -338,10 +432,44 @@
 
   async function procesarSiguienteLead() {
     if (procesando) return;
+    // v3.8: solo en la pestaña de Transición (la de Ventas hace los pedidos de link)
+    if (rolDeLaPestana() !== 'transicion') {
+      indicador.textContent = rolDeLaPestana() === 'ventas' ? 'Transición OFF (pestaña de Ventas)' : 'Transición en pausa: elegí el rol de la pestaña ↙';
+      indicador.style.background = rolDeLaPestana() === 'ventas' ? '#777' : '#e67300';
+      return;
+    }
+    if (indicador.textContent.startsWith('Transición')) { indicador.textContent = 'Auto ON — esperando leads…'; indicador.style.background = '#0a0'; }
     const btnAceptar = buscarUnoVisibleEnTodoElDOM('button[title="Aceptar"]');
-    if (!btnAceptar) return;
+    if (!btnAceptar) {
+      // NUEVO v3.5: si había pedido prioridad y el lead ya no está (lo aceptaron a mano
+      // o venció), libero al cotizador para que no quede pausado de más.
+      const p = leerJSON(PRIO_KEY);
+      if (p && p.quien === YO) {
+        soltarPrioridad();
+        avisoEsperaMostrado = false;
+        indicador.textContent = 'Auto ON — esperando leads…';
+        indicador.style.background = '#0a0';
+      }
+      return;
+    }
 
+    // NUEVO v3.5: si el cotizador está usando la pantalla, le pido que frene
+    // en el próximo paso seguro y espero (el lead de OmniCanal tiene prioridad).
     procesando = true;
+    if (!(await tomarLock(YO))) {
+      pedirPrioridad();
+      if (!avisoEsperaMostrado) {
+        log(`⏸ Hay un lead para aceptar pero "${duenioLock()}" está trabajando — le pedí prioridad, espero que suelte.`);
+        indicador.textContent = 'Lead esperando — pausando al cotizador…';
+        indicador.style.background = '#e67300';
+        avisoEsperaMostrado = true;
+      }
+      procesando = false;
+      return;
+    }
+    avisoEsperaMostrado = false;
+    soltarPrioridad();
+
     indicador.style.background = '#0074d9';
     log('=== INICIO procesamiento de lead ===');
 
@@ -419,6 +547,7 @@
       console.error('SF→CRM automático — detalle del error:', err);
       avisar(`Error en la automatización tras varios intentos: ${err.message} — revisá este lead a mano`, '#c00');
     } finally {
+      soltarLock(YO);
       procesando = false;
       indicador.textContent = 'Auto ON — esperando leads…';
       indicador.style.background = '#0a0';

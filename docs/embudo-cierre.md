@@ -62,8 +62,8 @@ estado (impactada / falta de cobro), fecha de venta. Se puede cargar a mano tamb
    "¿pudiste abonar?"; si sigue sin pagar, al asesor.
 4. Desregulado: cuando avisa que terminó el primer link ("listo", "ya lo completé"), le manda el segundo.
 
-Por ahora solo en la cuenta de Gabriela (`CUENTAS_CIERRE_AUTOMATICO` en `lib/cobro.js`). Para sumar la de Darío,
-agregar su mail a esa lista.
+Desde el 10-nov-2026, en las dos cuentas (Gabriela y Darío): `TODAS_LAS_CUENTAS` en `lib/cobro.js`. Cada asesor tiene
+sus scripts en su propio Salesforce y Outlook, con su clave personal (Mi perfil → Script de Salesforce).
 
 ## Falta definir / pedirle a Darío
 - [x] Link genérico de desregulación: `https://asociarme.swissmedical.com.ar/planes/reingreso` (`LINK_DESREGULACION` en `lib/venta.js`).
