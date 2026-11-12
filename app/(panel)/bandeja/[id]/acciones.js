@@ -3,7 +3,7 @@
 import crypto from 'node:crypto';
 import { after } from 'next/server';
 import { createClient, usuarioActual } from '@/lib/supabase/server';
-import { CHAT_CERRADO, TAREA_LINK_PAGO } from '@/lib/consultas';
+import { CHAT_CERRADO, SELECT_MENSAJE, TAREA_LINK_PAGO } from '@/lib/consultas';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { enviarMensaje, remitenteDeLaCuenta, SELECT_CONV_ENVIO } from '@/lib/whatsapp/enviar';
 import { despacharAudio } from '@/lib/whatsapp/envio-audio';
@@ -95,14 +95,22 @@ export async function simularEntrante(conversacionId, texto) {
 
 // El asesor envía un mensaje desde la bandeja. Primero se valida con su sesión (RLS)
 // que pueda ver la conversación; el envío en sí usa la service role.
-export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId, plantillaId, documento, grabacion, archivo, respondeA, formularioId }) {
+// idCliente (12-nov-2026): id que el chat le pone al mensaje antes de mandarlo. Si el pedido llega dos veces (se cortó la
+// señal del celular y el chat reintentó), el mensaje ya está guardado: se devuelve ese y no se le manda de nuevo al cliente.
+const ES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId, plantillaId, documento, grabacion, archivo, respondeA, formularioId, idCliente }) {
   const supabase = await createClient();
   const user = await usuarioActual(supabase);
   if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  const idMensaje = ES_UUID.test(idCliente ?? '') ? idCliente : null;
 
   // Con la sesión del asesor (solo ve sus chats): de paso trae lo que necesita el envío, así no se vuelve a leer
   const { data: conv } = await supabase.from('conversaciones').select(SELECT_CONV_ENVIO).eq('id', conversacionId).maybeSingle();
   if (!conv) return { error: 'No tenés acceso a esta conversación.' };
+  if (idMensaje) {
+    const { data: ya } = await supabase.from('mensajes').select(SELECT_MENSAJE).eq('id', idMensaje).eq('conversacion_id', conversacionId).maybeSingle();
+    if (ya) return respuestaRepetida(ya);
+  }
   if (tipo === 'archivo') {
     const valido = archivo?.path?.startsWith(`${conv.contacto_id}/enviados/`) && /^[0-9a-f-]{36}\.[a-z0-9]{2,5}$/.test(archivo.path.split('/').pop());
     if (!valido) return { error: 'Archivo inválido.' };
@@ -138,10 +146,12 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
   try {
     const r = await enviarMensaje({
       conversacionId, tipo: tipo === 'grabacion' ? 'audio' : tipo, texto, audioId, plantillaId, documento, grabacion, archivo, respondeA,
-      autor: 'asesor', perfilId: user.id, conv,
+      autor: 'asesor', perfilId: user.id, conv, idMensaje,
       // Audios: los manda el servidor (con reintentos) aunque se cierre el chat o la pestaña
       despachoAudio: subirA ? 'despues' : 'segundoPlano'
     });
+    // Llegó dos veces a la vez: el otro pedido es el que lo manda y hace lo que sigue
+    if (r.repetido) return respuestaRepetida(r.mensaje);
     // Se le mandó un formulario de auditoría médica: el lead pasa a esa columna del Embudo
     const etapaId = pideAuditoria ? await pasarAAuditoriaMedica(createAdminClient(), conv.contacto_id) : null;
     // Lo que sigue se hace después de responder, para que el envío se sienta instantáneo:
@@ -156,6 +166,12 @@ export async function enviarDesdeBandeja(conversacionId, { tipo, texto, audioId,
   } catch (e) {
     return { error: e.message };
   }
+}
+
+// El mensaje ya guardado de un pedido repetido. Una grabación que todavía espera su archivo vuelve con dónde subirlo
+function respuestaRepetida(mensaje) {
+  const faltaSubir = mensaje.tipo === 'audio' && mensaje.estado === 'pendiente' && /^grabaciones\//.test(mensaje.media_path ?? '');
+  return { ok: true, id: mensaje.id, mensaje, repetido: true, ...(faltaSubir ? { subirA: mensaje.media_path } : {}) };
 }
 
 // Audio guardado como pendiente (grabación ya subida) o que quedó 'fallido' (botón Reintentar de la burbuja): lo manda el

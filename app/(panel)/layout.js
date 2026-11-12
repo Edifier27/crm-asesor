@@ -19,6 +19,7 @@ import './whatsapp.css';
 import './whatsapp-2025.css';
 import './oscuro.css';
 import ModoOscuro from './componentes/ModoOscuro';
+import AlVolver from './componentes/AlVolver';
 import { SCRIPT_MODO } from '@/lib/modo';
 
 // Una sola lectura del perfil por pedido: la comparten el título de la pestaña y el layout
@@ -85,6 +86,7 @@ export default async function PanelLayout({ children }) {
       <Avisos />
       <ReproductorGlobal />
       <GuardarApp />
+      <AlVolver />
       <VersionNueva actual={process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev'} usuarioId={user.id ?? null} />
     </div>
   );

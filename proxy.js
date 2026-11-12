@@ -43,6 +43,7 @@ export async function proxy(request) {
 }
 
 export const config = {
-  // Fuera del proxy: webhooks/API, robots y archivos estáticos
-  matcher: ['/((?!api/(?!archivo)|robots.txt|manifest.webmanifest|sw.js|opus/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)']
+  // Fuera del proxy: webhooks/API, robots y archivos estáticos. Adentro, como las pantallas: /api/archivo y /api/chat
+  // (los envíos del chat: usan la sesión del asesor)
+  matcher: ['/((?!api/(?!archivo|chat)|robots.txt|manifest.webmanifest|sw.js|opus/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)']
 };

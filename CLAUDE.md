@@ -191,6 +191,23 @@ Nunca commitear secretos.
 - ORIGEN E INCLUSIONES (migración 0077, 9-nov-2026): en la planilla el origen se elige entre SGC, Salesforce, PrepagaYa,
   Referido, Afinidad e Inclusión (las viejas con otro origen lo conservan). Inclusión abre titular, persona a incluir y
   valor (`ventas.titular/incluido/valor_inclusion`); sin la 0077 no se ofrece Inclusión.
+- CONVERSACIÓN FLUIDA COMO WHATSAPP (12-nov-2026, "en el celular se cuelga la barra de conversación"). Tres causas:
+  (1) cada movimiento del dedo guardaba un estado-objeto y redibujaba TODOS los mensajes (medido: 539 ms por cuadro →
+  17 ms). Ahora `Burbuja` es `memo` y `Conversacion` le pasa objetos fijos (`fijas`, avatares con useMemo); lo que se mide
+  al desplazar va en referencias y la fecha flotante se escribe directo en pantalla (`medirDesplazamiento`); los
+  `Intl.DateTimeFormat` de lib/formato.js se crean una sola vez. (2) Los envíos iban como acciones de Next, que salen DE A
+  UNA: un pedido colgado (señal del celular, aviso de lectura) trababa todos los de atrás hasta salir del chat. Ahora
+  enviar, mandar un audio subido y avisar lectura/escribiendo van por `/api/chat` (lib/chat-pedidos.js: tope de tiempo y
+  reintento; si la ruta falla, sale por la acción de siempre), en orden (`enOrden`) y con `idCliente`: el navegador le pone
+  el id al mensaje y un pedido repetido NO sale dos veces (`enviarDesdeBandeja` → `enviarMensaje({ idMensaje })`). Lo que
+  no salió por falta de conexión se reintenta solo al volver la red. (3) El panel de grabación podía quedar clavado si el
+  grabador no entregaba el audio: `Grabador` vuelve solo a los 6 s (`grabacion_trabada` en diagnóstico) y no arranca dos
+  veces ni por un doble toque después de enviar. Además: el chat queda anclado abajo (teclado, fotos que cargan:
+  ResizeObserver; `pegado`), lo que llega mientras se lee más arriba no mueve la pantalla y suma un número al botón de
+  bajar, el teclado no se cierra al enviar (`sinRobarFoco`), la flecha de volver VUELVE a la lista si se vino de ahí
+  (`VolverAChats` + lib/ruta-anterior.js), tocar foto o nombre abre la ficha, `AlVolver` le pide un latido a la conexión
+  en vivo al volver a la app, y `AltoVisible` se vuelve a medir al volver, girar o cambiar de cuadro de texto.
+  Probar sin servidor: `/vista-previa?chat&largo=400` (solo el chat, como en el celular; `window.__llegaMensaje('hola')`).
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.
@@ -203,6 +220,11 @@ El 2026-10-08 el CRM quedó "colgado" (no se podía abrir un chat ni cambiar de 
   `npm run build` (sin eso no se publica) y a mano con `npm run revisar`.
 - Estado que sale de MEDIR la pantalla (anchos, scroll, si algo desborda): guardar lo último medido en un `useRef` y
   no llamar al `set…` si no cambió; usar valores sueltos (verdadero/falso, números), no objetos nuevos.
+- En el chat, nada de lo que pasa al desplazar puede redibujar la lista de mensajes: medir en un `requestAnimationFrame`,
+  guardar en referencias y llamar al `set…` solo si cambió algo que se ve. A `Burbuja` (memo) pasarle siempre los mismos
+  objetos (no armar `{…}` ni funciones nuevas en cada dibujo).
+- Lo que el asesor espera que salga YA (enviar un mensaje) no va como acción de servidor: Next las manda de a una y una
+  colgada frena a todas. Va por `/api/chat` con tope de tiempo (lib/chat-pedidos.js). Las acciones quedan para lo demás.
 - `app/Vigia.js` (en el layout raíz) es la red de seguridad: si se toca un enlace interno y a los 8 s la pantalla sigue
   en el mismo lugar, carga la página de destino entera; y manda a los registros los cuelgues y los errores de JavaScript.
   No usar `<a>`/`<Link>` con `preventDefault` para otra cosa que navegar (para eso, `<button>`).

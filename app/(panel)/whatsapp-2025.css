@@ -554,3 +554,24 @@
 .cartel-no-supo { display: block; margin-top: 3px; padding: 3px 8px; border-radius: 6px; background: #FFF1D6; color: #8A4B00; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cartel-no-supo-pregunta { font-weight: 400; }
 .lista.achicada .cartel-no-supo { display: none; }
+
+/* ═════════ Conversación fluida como WhatsApp (12-nov-2026) ═════════ */
+/* Todo lo del chat va en esta caja: el chat mide cuándo crece (una foto que carga, un mensaje nuevo) para seguir abajo */
+.mensajes-contenido { display: flex; flex-direction: column; flex: 0 0 auto; min-width: 0; }
+/* El desplazamiento del chat no arrastra la pantalla entera ni dispara el "tirar para actualizar" del celular */
+.conversacion .mensajes { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+/* Mensajes que llegaron mientras leías más arriba: el número va sobre el botón de bajar */
+.bajar-al-final .bajar-contador {
+  position: absolute; top: -7px; right: -3px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  background: var(--wa-verde, #1DAA61); color: #fff; font-size: 12px; font-weight: 600; line-height: 20px; text-align: center;
+  animation: wa-boton 160ms var(--curva-entra) both;
+}
+/* La foto y el nombre de la cabecera abren la ficha (como la info del contacto en WhatsApp) */
+.avatar-ficha { border: 0; padding: 0; font-family: inherit; cursor: pointer; }
+.conv-nombre-ficha {
+  display: block; max-width: 100%; border: 0; background: none; padding: 0; margin: 0; font-family: inherit; color: inherit;
+  text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Enviar ↔ micrófono: el botón que entra crece desde el centro, como en WhatsApp (antes cambiaba de golpe) */
+.redactor .boton-enviar { animation: wa-boton 140ms var(--curva-entra) both; }
+@media (prefers-reduced-motion: reduce) { .redactor .boton-enviar, .bajar-al-final .bajar-contador { animation: none; } }

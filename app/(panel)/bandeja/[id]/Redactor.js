@@ -10,6 +10,11 @@ import Grabador from './Grabador';
 
 // Celular o tablet (pantalla táctil sin mouse)
 const esTactil = () => typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches;
+// Tocar un botón de la barra no le saca el cursor al cuadro de escribir: en el celular el teclado queda abierto al
+// enviar, como en WhatsApp (antes se cerraba con cada mensaje y había que volver a tocar el cuadro)
+const sinRobarFoco = (e) => e.preventDefault();
+// Después de enviar, el botón de enviar pasa a ser el micrófono: un segundo toque sin querer no arranca una grabación
+const PAUSA_MICROFONO_MS = 700;
 
 /**
  * Como en WhatsApp: lo que se manda aparece al instante en el chat y sale por detrás (onEnviar lo maneja la conversación).
@@ -39,6 +44,8 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, formula
   const [error, setError] = useState('');
   const [corrigiendoAhora, iniciar] = useTransition();
   const campo = useRef(null);
+  const ultimoEnvio = useRef(0);
+  const microfonoLibre = () => Date.now() - ultimoEnvio.current > PAUSA_MICROFONO_MS;
 
   useEffect(() => { if (respondiendo || corrigiendo) campo.current?.focus(); }, [respondiendo, corrigiendo]);
 
@@ -88,6 +95,9 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, formula
     const t = texto.trim();
     if (!t) return;
     setError('');
+    ultimoEnvio.current = Date.now();
+    // Si estaba escribiendo (teclado abierto), sigue escribiendo
+    const escribia = document.activeElement === campo.current;
     if (corrigiendo) {
       // Corregir un mensaje propio: sale directo (es una corrección, no hay deshacer)
       const id = corrigiendo.id;
@@ -106,7 +116,7 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, formula
     onLimpiar?.();
     // Como WhatsApp: al enviar se cierran los emojis (y el resto de los paneles)
     setPanel(null);
-    if (!esTactil()) campo.current?.focus();
+    if (!esTactil() || escribia) campo.current?.focus();
   }
 
   // Dictado: lo que se habló vuelve como texto al cuadro, para revisarlo y mandarlo (no sale ningún audio)
@@ -303,11 +313,12 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, formula
         </label>
         {/* Como en WhatsApp: con texto, enviar; sin texto, grabar audio */}
         {grabando !== 'dictado' && (texto.trim() || corrigiendo ? (
-          <button type="button" className="boton-enviar" disabled={!ventanaAbierta || corrigiendoAhora || !texto.trim()} onClick={enviarTexto} aria-label="Enviar">
+          <button type="button" className="boton-enviar" disabled={!ventanaAbierta || corrigiendoAhora || !texto.trim()} onClick={enviarTexto} aria-label="Enviar"
+            onPointerDown={sinRobarFoco} onMouseDown={sinRobarFoco}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4l17.45-7.48a1 1 0 0 0 0-1.84L3.4 3.6a.99.99 0 0 0-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .71.73 1.2 1.39.91z" /></svg>
           </button>
         ) : (
-          <Grabador deshabilitado={!ventanaAbierta || dictando} onError={setError} onEstado={(g) => setGrabando(g ? 'audio' : null)}
+          <Grabador deshabilitado={!ventanaAbierta || dictando} onError={setError} onEstado={(g) => setGrabando(g ? 'audio' : null)} puedeEmpezar={microfonoLibre}
             onListo={(audio) => {
               onEnviar({ tipo: 'grabacion', respondeA: respondiendo?.id ?? null },
                 { tipo: 'audio', urlLocal: URL.createObjectURL(audio.blob), texto: null }, { audio });
@@ -316,7 +327,7 @@ export default function Redactor({ conversacion, ventanaAbierta, audios, formula
         ))}
         {/* Dictado (micrófono con la T): se habla y queda escrito en el cuadro; no manda audio */}
         {grabando !== 'audio' && (
-          <Grabador dictado ocupado={dictando} deshabilitado={!ventanaAbierta || corrigiendoAhora} onError={setError}
+          <Grabador dictado ocupado={dictando} deshabilitado={!ventanaAbierta || corrigiendoAhora} onError={setError} puedeEmpezar={microfonoLibre}
             onEstado={(g) => setGrabando(g ? 'dictado' : null)} onListo={dictar} />
         )}
       </div>
