@@ -2,7 +2,7 @@
 
 // Burbuja de mensaje, igual que WhatsApp: colita en el primero del grupo, hora y tildes adentro abajo a la derecha,
 // flechita con menú al pasar el mouse y carita para reaccionar. La usan la bandeja y el panel en vivo del embudo.
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { abrirHaciaArriba } from './haciaArriba';
 import { createClient } from '@/lib/supabase/client';
 import { urlFirmada } from '@/lib/url-firmada';
@@ -114,7 +114,7 @@ const firmarAudio = (path, nuevo) => urlFirmada('audios', path, { nuevo });
  * @param {Function} [p.onIrA]  tocar la cita lleva al mensaje original
  * @param {string} [p.nombreCliente]  para la cita ("Juan" en vez de "Cliente")
  */
-export default function Burbuja({ m, citado, acciones, equipo, cola = true, avatar, onIrA, nombreCliente, fijado = false }) {
+function Burbuja({ m, citado, acciones, equipo, cola = true, avatar, onIrA, nombreCliente, fijado = false }) {
   const [escuchadoLocal, setEscuchadoLocal] = useState(false);
   const [menu, setMenu] = useState(null); // null | 'opciones' | 'reacciones'
   const [copiado, setCopiado] = useState(false);
@@ -367,3 +367,7 @@ export default function Burbuja({ m, citado, acciones, equipo, cola = true, avat
     </div>
   );
 }
+
+// Solo se vuelve a dibujar si cambió algo suyo (el mensaje, su cita, si es el primero del grupo…). El chat le pasa
+// siempre los mismos objetos de acciones y avatar (Conversacion.js), así desplazarse o escribir no redibuja las burbujas.
+export default memo(Burbuja);

@@ -11,6 +11,12 @@ const BARRAS = 42;
 // desde el 21-oct-2026 se grababa a 24 kbps y desde el 3-nov-2026 a 32 kbps (unos 4 KB/s). Si pesa menos de 1 KB por segundo, el
 // micrófono no mandó sonido.
 const BYTES_MINIMOS_POR_SEGUNDO = 1000;
+// Al tocar enviar, el audio tiene que quedar listo enseguida. Si a los 6 s el grabador no lo entregó (el micrófono se lo
+// llevó una llamada, el celular suspendió el audio…), la barra de escribir vuelve sola: antes quedaba el panel de
+// grabación clavado y había que salir del chat (12-nov-2026).
+const ESPERA_AL_TERMINAR_MS = 6000;
+// Un solo arranque a la vez (dos toques seguidos abrían dos grabaciones); si el permiso o la carga no contestan, se libera
+const ESPERA_AL_EMPEZAR_MS = 8000;
 
 const reloj = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
@@ -21,8 +27,9 @@ const reloj = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
  * onListo({ blob, extension, mime, duracion }) recibe el audio grabado (lo sube y envía la conversación).
  * onEstado(grabando) avisa al redactor para que esconda el resto de la barra.
  * dictado: mismo panel, pero lo grabado no se manda: el redactor lo pasa a texto (botón con la "T"). ocupado: pasándolo a texto.
+ * puedeEmpezar(): si devuelve false, el toque no arranca la grabación (recién se envió un mensaje).
  */
-export default function Grabador({ deshabilitado, onListo, onError, onEstado, dictado = false, ocupado = false }) {
+export default function Grabador({ deshabilitado, onListo, onError, onEstado, dictado = false, ocupado = false, puedeEmpezar }) {
   const [estado, setEstado] = useState('quieto'); // quieto | grabando | pausado
   const [segundos, setSegundos] = useState(0);
   const [niveles, setNiveles] = useState([]);
@@ -36,6 +43,8 @@ export default function Grabador({ deshabilitado, onListo, onError, onEstado, di
   // Pantalla siempre prendida mientras se graba (Darío, 16-oct-2026: en el celular se bloqueaba a mitad de un audio)
   const pantalla = useRef(null);    // WakeLockSentinel
   const grabandoRef = useRef(false);
+  const arrancando = useRef(0);     // cuándo se pidió empezar (0 = libre)
+  const vigia = useRef(null);       // espera a que el grabador entregue el audio
 
   async function mantenerPantalla() {
     try { if (!pantalla.current && navigator.wakeLock) pantalla.current = await navigator.wakeLock.request('screen'); } catch { /* sin permiso: sigue igual */ }
@@ -59,7 +68,7 @@ export default function Grabador({ deshabilitado, onListo, onError, onEstado, di
   };
   const transcurrido = () => acumulado.current + (tramo.current ? Date.now() - tramo.current : 0);
 
-  useEffect(() => () => { clearInterval(temporizador.current); apagarMedidor(); try { motor.current?.rec?.stop(); } catch {} }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { clearInterval(temporizador.current); clearTimeout(vigia.current); apagarMedidor(); try { motor.current?.rec?.stop(); } catch {} }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Onda en vivo: nivel de la voz cada 100 ms. Usa el MISMO micrófono que la grabación (3-nov-2026: antes abría un
   // segundo acceso al micrófono con su propio AudioContext; en el celular dos capturas a la vez con cancelación de eco
@@ -136,6 +145,13 @@ export default function Grabador({ deshabilitado, onListo, onError, onEstado, di
   }
 
   async function empezar() {
+    if (puedeEmpezar?.() === false) return;
+    if (arrancando.current && Date.now() - arrancando.current < ESPERA_AL_EMPEZAR_MS) return;
+    arrancando.current = Date.now();
+    try { await arrancar(); } finally { arrancando.current = 0; }
+  }
+
+  async function arrancar() {
     cancelado.current = false;
     // Como en WhatsApp: al empezar a grabar se corta cualquier audio que esté sonando
     window.dispatchEvent(new CustomEvent('nota-de-voz', { detail: 'grabando' }));
@@ -182,11 +198,23 @@ export default function Grabador({ deshabilitado, onListo, onError, onEstado, di
     tramo.current = 0;
     apagarMedidor();
     try { motor.current?.rec?.stop(); } catch {}
+    // Si el grabador no entrega el audio, la barra no queda colgada
+    clearTimeout(vigia.current);
+    vigia.current = setTimeout(() => {
+      if (!grabandoRef.current) return;
+      avisarDiagnostico('grabacion_trabada', {
+        motor: motor.current?.tipo ?? null, dictado, contexto: motor.current?.rec?.audioContext?.state ?? null, pantalla: document.visibilityState
+      });
+      cancelado.current = true;
+      cambiar('quieto');
+      onError('No se pudo terminar la grabación. Probá grabar de nuevo.');
+    }, ESPERA_AL_TERMINAR_MS);
   }
 
   // Al enviar, el audio aparece al instante en el chat; la subida y el envío siguen por detrás (con reintentos)
   function terminar(blob, extension, mime) {
     const duracion = Math.max(1, Math.round(acumulado.current / 1000));
+    clearTimeout(vigia.current);
     cambiar('quieto');
     if (cancelado.current || !blob.size) return;
     // Audio vacío: del 9 al 16-oct salieron 7 notas de voz de 10 a 46 s que pesaban 128 a 305 bytes (sin sonido) y los
@@ -201,7 +229,9 @@ export default function Grabador({ deshabilitado, onListo, onError, onEstado, di
     onListo({ blob, extension, mime, duracion });
   }
 
-  const cancelar = () => { cancelado.current = true; detener(); cambiar('quieto'); };
+  // El toque que se ignora (recién se envió un mensaje) tampoco le saca el cursor al cuadro de escribir
+  const cuidarFoco = (e) => { if (puedeEmpezar?.() === false) e.preventDefault(); };
+  const cancelar = () => { cancelado.current = true; detener(); clearTimeout(vigia.current); cambiar('quieto'); };
 
   if (estado !== 'quieto') {
     const barras = [...Array(Math.max(0, BARRAS - niveles.length)).fill(0), ...niveles];
@@ -239,7 +269,7 @@ export default function Grabador({ deshabilitado, onListo, onError, onEstado, di
 
   if (dictado) {
     return (
-      <button type="button" className={`boton-enviar boton-dictar${ocupado ? ' ocupado' : ''}`} onClick={empezar} disabled={deshabilitado || ocupado}
+      <button type="button" className={`boton-enviar boton-dictar${ocupado ? ' ocupado' : ''}`} onClick={empezar} onPointerDown={cuidarFoco} onMouseDown={cuidarFoco} disabled={deshabilitado || ocupado}
         aria-label="Dictar: hablá y se escribe" title={ocupado ? 'Pasando tu voz a texto…' : 'Dictar: hablá y se escribe (no manda audio)'}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2z" /></svg>
         <span className="dictar-t" aria-hidden="true">T</span>
@@ -248,7 +278,7 @@ export default function Grabador({ deshabilitado, onListo, onError, onEstado, di
   }
 
   return (
-    <button type="button" className="boton-enviar" onClick={empezar} disabled={deshabilitado}
+    <button type="button" className="boton-enviar" onClick={empezar} onPointerDown={cuidarFoco} onMouseDown={cuidarFoco} disabled={deshabilitado}
       aria-label="Grabar audio" title="Grabar audio">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2z" /></svg>
     </button>

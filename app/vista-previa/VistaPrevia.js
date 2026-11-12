@@ -71,6 +71,12 @@ export default function VistaPrevia() {
   const [conChat, setConChat] = useState(true); // probar la barrita: window.__salirDelChat()
   useEffect(() => { window.__salirDelChat = () => setConChat(false); }, []);
   useEffect(() => { setAudio(tono()); setVisor(new URLSearchParams(location.search).has('visor')); }, []);
+  // /vista-previa?largo=400 → un chat con esa cantidad de mensajes (para medir que no se trabe al desplazar)
+  const [largo, setLargo] = useState(30);
+  useEffect(() => { setLargo(Number(new URLSearchParams(location.search).get('largo')) || 30); }, []);
+  // /vista-previa?chat → solo la conversación, como se ve en el celular (sin la lista ni la ficha)
+  const [soloChat, setSoloChat] = useState(false);
+  useEffect(() => { setSoloChat(new URLSearchParams(location.search).has('chat')); }, []);
   const [imc, setImc] = useState(false);
   useEffect(() => { setImc(new URLSearchParams(location.search).has('imc')); }, []);
   // /vista-previa?imc → la calculadora de IMC de Formularios
@@ -88,8 +94,9 @@ export default function VistaPrevia() {
     { id: 'a7', direccion: 'entrante', autor: 'contacto', tipo: 'audio', urlLocal: audio, transcripcion: 'Hola, te cuento que estoy en relación de dependencia y quiero derivar los aportes, somos tres en total.', creado_at: hace(30) },
     { id: 'a8', direccion: 'saliente', autor: 'asesor', tipo: 'texto', texto: 'Perfecto, ya te armo la cotización 🙌', estado: 'enviado', creado_at: hace(2) }
   ];
-  const largos = Array.from({ length: 30 }, (_, i) => ({ id: `l${i}`, direccion: i % 2 ? 'entrante' : 'saliente', autor: i % 2 ? 'contacto' : 'asesor', tipo: 'texto', texto: `Mensaje de prueba número ${i + 1} para que el chat sea largo`, estado: 'leido', creado_at: hace(60 - i) }));
+  const largos = Array.from({ length: largo }, (_, i) => ({ id: `l${i}`, direccion: i % 2 ? 'entrante' : 'saliente', autor: i % 2 ? 'contacto' : 'asesor', tipo: 'texto', texto: `Mensaje de prueba número ${i + 1} para que el chat sea largo`, estado: 'leido', creado_at: hace(60 + (largo - i) * 7) }));
   mensajes.push(...largos);
+  mensajes.sort((x, y) => new Date(x.creado_at) - new Date(y.creado_at)); // como llegan del servidor: del más viejo al más nuevo
   const conversacion = {
     id: '00000000-0000-0000-0000-000000000000', modo: 'humano', ventana_expira_at: new Date(Date.now() + 20 * 3_600_000).toISOString(),
     ia_pensando_desde: null, resumen_ia: null, contacto
@@ -107,16 +114,16 @@ export default function VistaPrevia() {
       {/* Probar la lupa del visor: /vista-previa?visor=1 */}
       {visor && <VisorArchivo url="/icono-512.png" nombre="Foto de prueba" tipo="imagen" onCerrar={() => setVisor(false)} />}
       <RielPlegable><div className="riel-marca">AC</div><RielLinks esAdmin /></RielPlegable>
-      <ListaChats inicial={lista} iaInicial={3} />
+      {!soloChat && <ListaChats inicial={lista} iaInicial={3} />}
       <ReproductorGlobal />
-      {conChat && <Conversacion conversacion={conversacion} mensajesIniciales={mensajes} onFicha={() => {}} audios={[]} plantillas={PLANTILLAS_EJEMPLO} modoPrueba={false}
+      {conChat && <Conversacion key={largo} conversacion={conversacion} mensajesIniciales={mensajes} onFicha={() => {}} audios={[]} plantillas={PLANTILLAS_EJEMPLO} modoPrueba={false}
         equipo={{ yo: 'yo', nombres: { yo: 'Darío' } }} respuestasIniciales={[]} sinConexion />}
-      <Ficha conversacion={{ ...conversacion, contacto: { ...contacto, etapa_id: 4, relevamiento: {}, documentos: [] } }} abierta lista={null} todasEtiquetas={[]} onCerrar={() => {}}
+      {!soloChat && <Ficha conversacion={{ ...conversacion, contacto: { ...contacto, etapa_id: 4, relevamiento: {}, documentos: [] } }} abierta lista={null} todasEtiquetas={[]} onCerrar={() => {}}
         formularios={[{ id: 'f1', nombre: 'Resumen de historia clínica', descripcion: 'Lo completa y firma el médico tratante', path: 'ejemplo-1.pdf', auditoria_medica: true },
           { id: 'f2', nombre: 'Certificado de buena salud', descripcion: 'Menores de 2 años: firmado y sellado por el pediatra', path: 'ejemplo-2.pdf', auditoria_medica: true },
           { id: 'f3', nombre: 'Declaración jurada', descripcion: null, path: 'ejemplo-3.pdf', auditoria_medica: false }]}
         etapas={[{ id: 1, nombre: 'Nuevo', orden: 1, color: '#999' }, { id: 4, nombre: 'Cotizado', orden: 4, color: '#7C3AED' }, { id: 5, nombre: 'Por cerrar', orden: 5, color: '#B45309' },
-          { id: 6, nombre: 'Auditoría médica', orden: 6, color: '#0E7490' }, { id: 7, nombre: 'Falta de cobro', orden: 7, color: '#C2410C' }, { id: 9, nombre: 'Ganado', orden: 9, color: '#15803D' }, { id: 8, nombre: 'Perdido', orden: 10, color: '#B91C1C' }]} />
+          { id: 6, nombre: 'Auditoría médica', orden: 6, color: '#0E7490' }, { id: 7, nombre: 'Falta de cobro', orden: 7, color: '#C2410C' }, { id: 9, nombre: 'Ganado', orden: 9, color: '#15803D' }, { id: 8, nombre: 'Perdido', orden: 10, color: '#B91C1C' }]} />}
     </div>
   );
 }

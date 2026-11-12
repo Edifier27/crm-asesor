@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import ImagenPegada from './ImagenPegada';
 import { SELECT_MENSAJE, MENSAJES_POR_TANDA } from '@/lib/consultas';
@@ -10,6 +9,7 @@ import Simulador from './Simulador';
 import Burbuja from '../../componentes/Burbuja';
 import { avisarLectura, despacharAudioPendiente, enviarDesdeBandeja, reaccionar, registrarDocumento, seguirConLaIA } from './acciones';
 import PanelChat from './PanelChat';
+import VolverAChats from '../../componentes/VolverAChats';
 import Reenviar from './Reenviar';
 import BarraSeleccion from './BarraSeleccion';
 import { guardarChatEnMemoria } from '@/lib/chat-memoria';
@@ -17,6 +17,8 @@ import { limpiarAtajo } from '../../asesor/RespuestasRapidas';
 import { useAhora } from '../../componentes/Reloj';
 import { colorAvatar, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo, ultimoDelCliente, ventana } from '@/lib/formato';
 import { CACHE_ARCHIVO } from '@/lib/cache-archivos';
+import { esperaDeEnvio, pedirAlChat } from '@/lib/chat-pedidos';
+import { avisarDiagnostico } from '@/lib/avisar-diagnostico';
 
 const ORIGENES = { swiss_medical: 'asignado por Swiss Medical', web: 'vía formulario', whatsapp: 'escribió por WhatsApp', manual: 'cargado a mano' };
 // La marca vence a los 2 minutos por si una ejecución se cortó sin limpiarla
@@ -53,6 +55,13 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
     const t = setTimeout(() => guardarChatEnMemoria(conversacion.id, conversacion.contacto, mensajes), 800);
     return () => clearTimeout(t);
   }, [mensajes, conversacion.id, conversacion.contacto, sinConexion]);
+
+  // Vista previa de diseño (/vista-previa, solo en desarrollo): window.__llegaMensaje('hola') hace llegar un mensaje del cliente
+  useEffect(() => {
+    if (!sinConexion) return;
+    window.__llegaMensaje = (texto) => setMensajes((prev) => [...prev, { id: crypto.randomUUID(), direccion: 'entrante', autor: 'contacto', tipo: 'texto', texto, creado_at: new Date().toISOString() }]);
+    return () => { delete window.__llegaMensaje; };
+  }, [sinConexion]);
 
   // Mensajes fijados arriba del chat (columna fijado_at, migración 0060). Si falta la migración, no aparece nada
   const [fijados, setFijados] = useState([]); // [{ id, fijado_at }], el último fijado primero
@@ -95,8 +104,10 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
       const path = `${contacto.id}/${destino === 'enviar' ? 'enviados/' : ''}${crypto.randomUUID()}.${ext}`;
       const { error } = await supabase.storage.from('documentos-clientes').upload(path, archivo, { contentType: archivo.type || undefined, cacheControl: CACHE_ARCHIVO });
       if (error) throw error;
+      // Con su id: si el primer pedido se corta, el segundo no lo manda dos veces
+      const pedido = { tipo: 'archivo', archivo: { path, nombre: archivo.name.slice(0, 200), mime: archivo.type }, idCliente: crypto.randomUUID() };
       const r = destino === 'enviar'
-        ? await enviarDesdeBandeja(conversacion.id, { tipo: 'archivo', archivo: { path, nombre: archivo.name.slice(0, 200), mime: archivo.type } })
+        ? await enOrden(() => mandar(pedido).catch(() => mandar(pedido)))
         : await registrarDocumento(contacto.id, { path, mime: archivo.type, nombre: archivo.name });
       if (r.error) throw new Error(r.error);
       setAvisoAccion(destino === 'enviar' ? 'Archivo enviado' : 'Guardado en la documentación del cliente');
@@ -107,9 +118,24 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
       setTimeout(() => setAvisoAccion(''), 4000);
     }
   }
-  const fondo = useRef(null);
   const zonaMensajes = useRef(null);
+  const contenidoMensajes = useRef(null);
+  // Desplazamiento como WhatsApp (12-nov-2026). Antes, cada movimiento del dedo guardaba un estado nuevo y redibujaba
+  // TODOS los mensajes (medido: medio segundo por cuadro en un celular): el chat se trababa y la barra de escribir no
+  // respondía. Ahora lo que se mide al desplazar queda en referencias y la fecha flotante se escribe directo en pantalla;
+  // el chat solo se redibuja cuando cambia algo que se ve (aparece el botón de bajar, llega un mensaje).
   const [lejos, setLejos] = useState(false);
+  const lejosMedido = useRef(false);
+  const pegado = useRef(true);        // está al final: lo que llega (o el teclado que se abre) lo deja al final
+  const yendoAlFondo = useRef(false); // bajando solo, con animación: no cuenta como "se fue para arriba"
+  const cuadroPedido = useRef(0);
+  const finDeBajada = useRef(null);
+  const abiertoA = useRef(Date.now()); // la fecha flotante no aparece sola al abrir el chat, solo al desplazarlo
+  const fechaFlotante = useRef(null);
+  const filasVivas = useRef(null);
+  // Mensajes del cliente que llegaron mientras se leía más arriba: número sobre el botón de bajar (no se salta solo)
+  const [nuevosAbajo, setNuevosAbajo] = useState(0);
+  const nuevosMedidos = useRef(0);
   // Los mensajes que ya estaban al abrir no se animan; los que llegan después entran subiendo suave
   const [idsIniciales] = useState(() => new Set(mensajesIniciales.map((m) => m.id)));
   const [panelChat, setPanelChat] = useState(null);   // null | 'buscar' | 'destacados' | 'archivos'
@@ -136,21 +162,40 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
     return m ? { id: m.id, cantidad: Math.min(n, entrantes.length) } : null;
   });
 
-  // Fecha flotante arriba mientras se desplaza el chat (se esconde sola al rato)
-  const [fechaFlotante, setFechaFlotante] = useState({ texto: '', visible: false });
+  // Al desplazar: como mucho una medida por cuadro de pantalla
   const ocultarFecha = useRef(null);
-  function alDesplazar(e) {
-    const z = e.currentTarget;
-    setLejos(z.scrollHeight - z.scrollTop - z.clientHeight > 300);
+  function alDesplazar() {
+    if (cuadroPedido.current) return;
+    cuadroPedido.current = requestAnimationFrame(() => { cuadroPedido.current = 0; medirDesplazamiento(); });
+  }
+  function medirDesplazamiento() {
+    const z = zonaMensajes.current;
+    if (!z) return;
+    const falta = z.scrollHeight - z.scrollTop - z.clientHeight;
+    if (yendoAlFondo.current) { if (falta < 4) yendoAlFondo.current = false; } else pegado.current = falta < 80;
+    const ahoraLejos = falta > 300;
+    if (ahoraLejos !== lejosMedido.current) { lejosMedido.current = ahoraLejos; setLejos(ahoraLejos); }
+    if (falta < 80 && nuevosMedidos.current) { nuevosMedidos.current = 0; setNuevosAbajo(0); }
     // Cerca de arriba: se traen los mensajes anteriores (sin esperar a que toque un botón)
     if (z.scrollTop < 150 && masViejos) cargarAnteriores();
+    // Fecha flotante (se esconde sola al rato): el primer mensaje a la vista, buscado de a mitades y escrito sin redibujar
+    const cartel = fechaFlotante.current;
+    if (!cartel) return;
+    const filas = (filasVivas.current ??= z.getElementsByClassName('mensaje-fila'));
     const tope = z.getBoundingClientRect().top + 8;
-    let texto = '';
-    for (const f of z.querySelectorAll('[data-dia]')) { if (f.getBoundingClientRect().bottom > tope) { texto = f.dataset.dia; break; } }
-    if (texto) setFechaFlotante({ texto, visible: z.scrollTop > 40 });
+    let desde = 0, hasta = filas.length - 1, primera = -1;
+    while (desde <= hasta) {
+      const medio = (desde + hasta) >> 1;
+      if (filas[medio].getBoundingClientRect().bottom > tope) { primera = medio; hasta = medio - 1; } else desde = medio + 1;
+    }
+    const texto = primera >= 0 ? filas[primera].dataset.dia : '';
+    if (!texto) return;
+    if (cartel.textContent !== texto) cartel.textContent = texto;
+    cartel.classList.toggle('visible', z.scrollTop > 40 && !yendoAlFondo.current && Date.now() - abiertoA.current > 800);
     clearTimeout(ocultarFecha.current);
-    ocultarFecha.current = setTimeout(() => setFechaFlotante((f) => ({ ...f, visible: false })), 1200);
+    ocultarFecha.current = setTimeout(() => cartel.classList.remove('visible'), 1200);
   }
+  useEffect(() => () => { cancelAnimationFrame(cuadroPedido.current); clearTimeout(ocultarFecha.current); }, []);
 
   // Trae la tanda anterior de mensajes y la suma arriba sin mover lo que se está leyendo
   async function cargarAnteriores() {
@@ -224,12 +269,18 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
 
   // Tilde azul para el cliente al leer, y "escribiendo…" mientras escribís (como mucho uno cada 20 s)
   const ultimoEscribiendo = useRef(0);
+  // Van por /api/chat (lib/chat-pedidos.js), no como acción: un aviso que tarda no frena los mensajes que se mandan después
+  const avisar = (escribiendo) => {
+    pedirAlChat('lectura', { conversacionId: conversacion.id, escribiendo }, { espera: 10_000 })
+      .then((r) => { if (r?.sinRuta) return avisarLectura(conversacion.id, { escribiendo }); })
+      .catch(() => {}); // es un aviso: si no sale, no pasa nada
+  };
   const avisarEscribiendo = () => {
     if (sinConexion || Date.now() - ultimoEscribiendo.current < 20_000) return;
     ultimoEscribiendo.current = Date.now();
-    avisarLectura(conversacion.id, { escribiendo: true });
+    avisar(true);
   };
-  const avisarLeido = () => { if (!sinConexion && document.visibilityState === 'visible') avisarLectura(conversacion.id); };
+  const avisarLeido = () => { if (!sinConexion && document.visibilityState === 'visible') avisar(false); };
 
   async function cambiarConversacion(campos, aviso) {
     setMenuCabecera(false);
@@ -264,11 +315,43 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
   const actualizarLocal = (id, cambios) => setLocales((l) => l.map((x) => (x.id === id ? { ...x, ...cambios } : x)));
   const quitarLocal = (id) => setLocales((l) => l.filter((x) => x.id !== id));
 
-  // Trae un mensaje puntual (por si el aviso en vivo se demora o se perdió)
+  // Trae un mensaje puntual como está ahora en la base (por si el aviso en vivo se demora o se perdió)
   async function traerMensaje(id) {
     if (!id) return;
     const { data } = await supabase.from('mensajes').select(SELECT_MENSAJE).eq('id', id).maybeSingle();
-    if (data) setMensajes((prev) => (prev.some((x) => x.id === id) ? prev : [...prev, data].sort(porFecha)));
+    if (data) setMensajes((prev) => (prev.some((x) => x.id === id)
+      ? prev.map((x) => (x.id === id ? (x.urlLocal ? { ...data, urlLocal: x.urlLocal } : data) : x))
+      : [...prev, data].sort(porFecha)));
+  }
+
+  // ───── Pedidos al servidor: de a uno, en orden y con tope de tiempo (12-nov-2026) ─────
+  // Lo que se escribe sale en el orden en que se escribió (un mensaje no se adelanta a otro). Cada intento tiene un tope:
+  // si la conexión quedó colgada se corta y se reintenta, y el servidor no lo manda dos veces (idCliente).
+  const colaEnvios = useRef(Promise.resolve());
+  const enOrden = (tarea) => {
+    const turno = colaEnvios.current.then(tarea, tarea);
+    colaEnvios.current = turno.catch(() => {});
+    return turno;
+  };
+  async function mandar(d) {
+    // Vista previa de diseño (sin servidor): el mensaje "sale" solo, para ver cómo queda
+    if (sinConexion) {
+      await new Promise((ok) => setTimeout(ok, 500));
+      return { ok: true, id: d.idCliente, mensaje: { id: d.idCliente, direccion: 'saliente', autor: 'asesor', tipo: d.tipo, texto: d.texto ?? null, estado: 'enviado', creado_at: new Date().toISOString(), responde_a: d.respondeA ?? null } };
+    }
+    const desde = Date.now();
+    try {
+      const r = await pedirAlChat('enviar', { conversacionId: conversacion.id, mensaje: d }, { espera: esperaDeEnvio(d.tipo) });
+      // /api/chat no está o falló (lib/chat-pedidos.js): por la acción de siempre, con el mismo id
+      return r.sinRuta ? await enviarDesdeBandeja(conversacion.id, d) : r;
+    } catch (e) {
+      avisarDiagnostico('envio_lento', { tipo: d.tipo, ms: Date.now() - desde, motivo: String(e?.name ?? e).slice(0, 40), en_linea: navigator.onLine });
+      throw e;
+    }
+  }
+  async function mandarAudioGuardado(mensajeId) {
+    const r = await pedirAlChat('audio', { mensajeId }, { espera: 20_000 });
+    return r.sinRuta ? despacharAudioPendiente(mensajeId) : r;
   }
 
   // Pone en el chat el mensaje guardado (con el audio local para escucharlo sin bajarlo) y saca la copia local
@@ -279,6 +362,8 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
         ? prev.map((x) => (x.id === real.id && local.urlLocal ? { ...x, urlLocal: local.urlLocal } : x))
         : [...prev, real].sort(porFecha)));
       quitarLocal(local.id);
+      // Volvió todavía "enviando" (lo está mandando otro pedido igual): se mira cómo quedó, por si el aviso en vivo no llega
+      if (mensaje.estado === 'pendiente' && mensaje.tipo !== 'audio') [4000, 12_000].forEach((ms) => setTimeout(() => traerMensaje(mensaje.id), ms));
       return;
     }
     traerMensaje(id).then(() => quitarLocal(local.id));
@@ -288,10 +373,12 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
   async function despacharGrabacion(local, datos, audio) {
     let d = datos;
     if (!d.mensajeId) {
-      const r = await enviarDesdeBandeja(conversacion.id, { ...d, tipo: 'grabacion', grabacion: { extension: audio.extension, duracion: audio.duracion } });
+      const r = await mandar({ ...d, tipo: 'grabacion', grabacion: { extension: audio.extension, duracion: audio.duracion } });
       if (r.error) return { error: r.error, definitivo: true };
       d = { ...d, mensajeId: r.id, subirA: r.subirA, mensaje: r.mensaje };
       actualizarLocal(local.id, { mensajeId: r.id });
+      // Pedido repetido de un audio que ya está subido y en camino: no hay nada más que hacer
+      if (r.repetido && !r.subirA) return { ok: true, d };
     }
     if (!d.subido) {
       const { error } = await supabase.storage.from('audios').upload(d.subirA, audio.blob, { contentType: audio.mime, cacheControl: CACHE_ARCHIVO });
@@ -299,13 +386,30 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
       if (error && !/exist|duplicate/i.test(error.message)) return { error: error.message, d };
       d = { ...d, subido: true };
     }
-    const r = await despacharAudioPendiente(d.mensajeId);
+    const r = await mandarAudioGuardado(d.mensajeId);
     if (r.error) return { error: r.error, d };
     return { ok: true, d };
   }
 
-  async function despachar(local, datos, audio) {
+  // Los audios grabados van por su cuenta (subir el archivo puede tardar); el resto sale en el orden en que se escribió
+  function despachar(local, datos, audio) {
     actualizarLocal(local.id, { estado: 'pendiente', error: null, reintentar: null, restan: null, deshacer: null });
+    return audio ? intentarEnvio(local, datos, audio) : enOrden(() => intentarEnvio(local, datos, null));
+  }
+  // Reintentar a mano algo que el servidor rechazó es un mensaje nuevo (otro id): el anterior quedó como "no se pudo enviar"
+  const reintentoNuevo = (local, d, audio) => async () => {
+    actualizarLocal(local.id, { estado: 'pendiente', error: null, reintentar: null });
+    // Por las dudas: si el anterior en realidad había salido, no se manda otro
+    if (!audio && d.idCliente && !sinConexion) {
+      const { data } = await supabase.from('mensajes').select(SELECT_MENSAJE).eq('id', d.idCliente).maybeSingle();
+      if (data && data.estado !== 'fallido') { confirmarLocal(local, data, data.id); return; }
+    }
+    const nuevo = { ...d, idCliente: crypto.randomUUID(), mensajeId: undefined, subirA: undefined, subido: undefined, mensaje: undefined };
+    actualizarLocal(local.id, { idCliente: nuevo.idCliente, mensajeId: null });
+    despachar(local, nuevo, audio);
+  };
+
+  async function intentarEnvio(local, datos, audio) {
     let d = datos;
     for (let intento = 1; intento <= 3; intento++) {
       try {
@@ -314,15 +418,16 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
           if (r.d) d = r.d;
           if (r.ok) { confirmarLocal(local, d.mensaje, d.mensajeId); return; }
           if (r.definitivo) {
-            actualizarLocal(local.id, { estado: 'fallido', error: r.error, reintentar: () => despachar(local, d, audio) });
+            actualizarLocal(local.id, { estado: 'fallido', error: r.error, reintentar: reintentoNuevo(local, d, audio) });
             return;
           }
           throw new Error(r.error);
         }
-        const r = await enviarDesdeBandeja(conversacion.id, d);
-        if (r.error) {
-          // Error de negocio (ej.: ventana cerrada): reintentar solo no lo arregla
-          actualizarLocal(local.id, { estado: 'fallido', error: r.error, reintentar: () => despachar(local, d, audio) });
+        const r = await mandar(d);
+        // Error de negocio (ej.: ventana cerrada) o WhatsApp lo rechazó: reintentar solo no lo arregla
+        const rechazo = r.error ?? (r.repetido && r.mensaje?.estado === 'fallido' ? (r.mensaje.error || 'No se pudo enviar.') : null);
+        if (rechazo) {
+          actualizarLocal(local.id, { estado: 'fallido', error: rechazo, reintentar: reintentoNuevo(local, d, audio) });
           return;
         }
         // El servidor devuelve el mensaje ya guardado: se pone en el chat al instante, sin volver a pedirlo.
@@ -331,7 +436,10 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
         return;
       } catch {
         if (intento === 3) {
-          actualizarLocal(local.id, { estado: 'fallido', error: 'Sin conexión: no se pudo enviar.', reintentar: () => despachar(local, d, audio) });
+          // Mismo id: si en realidad había llegado, el servidor no lo manda dos veces. Y apenas vuelve la conexión, sale solo
+          const reintentar = () => { alVolverLaRed.current.delete(local.id); despachar(local, d, audio); };
+          alVolverLaRed.current.set(local.id, reintentar);
+          actualizarLocal(local.id, { estado: 'fallido', error: 'Sin conexión: no se pudo enviar.', reintentar });
           return;
         }
         await new Promise((ok) => setTimeout(ok, 1000 * intento));
@@ -340,9 +448,12 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
   }
 
   // demora: segundos para "Deshacer" (texto). audio: grabación a subir antes de enviar.
-  function enviarOptimista(datos, vista, { demora = 0, onDeshacer, audio } = {}) {
+  function enviarOptimista(datosDados, vista, { demora = 0, onDeshacer, audio } = {}) {
+    // El id del mensaje se decide acá: si el pedido se repite, el servidor reconoce que es el mismo y no lo manda dos veces
+    const idCliente = crypto.randomUUID();
+    const datos = { ...datosDados, idCliente };
     const local = {
-      id: `local-${crypto.randomUUID()}`, local: true, direccion: 'saliente', autor: 'asesor',
+      id: `local-${idCliente}`, idCliente, local: true, direccion: 'saliente', autor: 'asesor',
       tipo: vista.tipo, texto: vista.texto ?? null, plantilla: vista.plantilla ?? null, urlLocal: vista.urlLocal ?? null,
       responde_a: datos.respondeA ?? null, creado_at: new Date().toISOString(), estado: 'pendiente'
     };
@@ -363,6 +474,14 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
       deshacer: () => { clearInterval(timer); quitarLocal(local.id); onDeshacer?.(datos.texto); }
     }]);
   }
+
+  // Lo que no salió por falta de conexión vuelve a intentarse solo cuando la conexión vuelve (como WhatsApp)
+  const alVolverLaRed = useRef(new Map());
+  useEffect(() => {
+    const reintentarTodo = () => { [...alVolverLaRed.current.values()].forEach((reintentar) => reintentar()); };
+    window.addEventListener('online', reintentarTodo);
+    return () => window.removeEventListener('online', reintentarTodo);
+  }, []);
 
   // Avisar antes de cerrar la pestaña si hay algo saliendo
   const saliendo = locales.some((x) => x.estado === 'pendiente' || x.estado === 'esperando');
@@ -433,26 +552,6 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversacion.id]);
 
-  // Bajar al último mensaje moviendo SOLO la lista (scrollIntoView movía toda la pantalla en el celu y escondía la barra de escribir)
-  const alFinal = (suave) => { const z = zonaMensajes.current; if (z) z.scrollTo({ top: z.scrollHeight, behavior: suave ? 'smooth' : 'auto' }); };
-  // Al abrir: si hay mensajes sin leer, arranca en la franja (como WhatsApp); si no, al final
-  const primerScroll = useRef(true);
-  useLayoutEffect(() => {
-    const z = zonaMensajes.current;
-    // Se sumaron mensajes anteriores arriba: queda a la vista lo mismo que se estaba leyendo
-    if (anclaViejos.current && z) {
-      const { alto, arriba } = anclaViejos.current;
-      anclaViejos.current = null;
-      z.scrollTop = z.scrollHeight - alto + arriba;
-      return;
-    }
-    const franja = primerScroll.current && primerNoLeido && z?.querySelector('.no-leidos-franja');
-    primerScroll.current = false;
-    if (franja) { z.scrollTop += franja.getBoundingClientRect().top - z.getBoundingClientRect().top - 70; return; }
-    alFinal(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mensajes.length, locales.length]);
-
   // "La IA no toca este chat" (Darío, 13-oct-2026): para los que trabaja él aunque la cuenta pase a automático. Al
   // bloquearlo lo toma el asesor y se cancela el seguimiento que tuviera la IA
   async function bloquearIA(si) {
@@ -488,6 +587,8 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
   const usados = new Set();
   const yaLlego = (l) => {
     if (l.mensajeId || l.estado === 'fallido' || l.estado === 'esperando') return false;
+    // Es exactamente este mensaje (lleva el id que se le puso al enviarlo)
+    if (l.idCliente && porId[l.idCliente]) { usados.add(l.idCliente); return true; }
     const real = mensajes.find((x) => !usados.has(x.id) && x.direccion === 'saliente' && x.autor === 'asesor'
       && x.tipo === l.tipo && (l.tipo === 'audio' || x.texto === l.texto)
       && Math.abs(new Date(x.creado_at) - new Date(l.creado_at)) < 120_000);
@@ -497,12 +598,96 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
   // Grabación ya guardada pero todavía subiéndose: se ve una sola vez (la copia local, con su audio)
   locales.forEach((l) => l.mensajeId && usados.add(l.mensajeId));
   const localesVisibles = locales.filter((l) => !yaLlego(l));
-  const ocultos = new Set(localesVisibles.map((l) => l.mensajeId).filter(Boolean));
+  // De lo que todavía se ve como copia local (subiéndose, o rechazado con "Reintentar") no se muestra también el guardado
+  const ocultos = new Set(localesVisibles.flatMap((l) => [l.mensajeId, l.estado === 'fallido' ? l.idCliente : null]).filter(Boolean));
   const lista = localesVisibles.length ? [...mensajes.filter((x) => !ocultos.has(x.id)), ...localesVisibles] : mensajes;
-  const avatarCliente = { iniciales: iniciales(contacto), estilo: colorAvatar(contacto.telefono), nombre: nombreVisible(contacto) };
+
+  // Bajar al último mensaje moviendo SOLO la lista (scrollIntoView movía toda la pantalla en el celu y escondía la barra de escribir).
+  // Con animación si queda cerca (un mensaje nuevo); de un salto si está lejos (no se recorre todo el chat)
+  const alFinal = (suave) => {
+    const z = zonaMensajes.current;
+    if (!z) return;
+    const falta = z.scrollHeight - z.scrollTop - z.clientHeight;
+    const animado = suave && falta > 0 && falta < z.clientHeight * 2;
+    pegado.current = true;
+    yendoAlFondo.current = animado;
+    z.scrollTo({ top: z.scrollHeight, behavior: animado ? 'smooth' : 'auto' });
+    // Por si mientras bajaba el chat creció (una foto, el aviso de un envío): al terminar queda bien abajo
+    clearTimeout(finDeBajada.current);
+    if (animado) finDeBajada.current = setTimeout(() => {
+      if (!yendoAlFondo.current) return;
+      yendoAlFondo.current = false;
+      if (pegado.current) z.scrollTop = z.scrollHeight;
+    }, 600);
+  };
+  // Al abrir: si hay mensajes sin leer, arranca en la franja (como WhatsApp); si no, al final.
+  // Después: lo que mandás vos baja siempre al final; lo que llega del cliente baja solo si ya estabas al final. Si
+  // estabas leyendo más arriba, la pantalla no se mueve y el botón de bajar muestra cuántos llegaron (como WhatsApp).
+  const primerScroll = useRef(true);
+  const vistoAlFinal = useRef({ id: null, largo: 0 });
+  useLayoutEffect(() => {
+    const z = zonaMensajes.current;
+    if (!z) return;
+    const ultimo = lista.at(-1) ?? null;
+    const antes = vistoAlFinal.current;
+    vistoAlFinal.current = { id: ultimo?.id ?? null, largo: lista.length };
+    // Se sumaron mensajes anteriores arriba: queda a la vista lo mismo que se estaba leyendo
+    if (anclaViejos.current) {
+      const { alto, arriba } = anclaViejos.current;
+      anclaViejos.current = null;
+      z.scrollTop = z.scrollHeight - alto + arriba;
+      return;
+    }
+    if (primerScroll.current) {
+      primerScroll.current = false;
+      const franja = primerNoLeido && z.querySelector('.no-leidos-franja');
+      if (franja) {
+        z.scrollTop += franja.getBoundingClientRect().top - z.getBoundingClientRect().top - 70;
+        pegado.current = z.scrollHeight - z.scrollTop - z.clientHeight < 80;
+        return;
+      }
+      alFinal(false);
+      return;
+    }
+    // Solo cuando se sumó algo al final (no al confirmarse un envío ni al cambiar un estado)
+    if (!ultimo || ultimo.id === antes.id || lista.length <= antes.largo) return;
+    const mio = ultimo.local || (ultimo.direccion === 'saliente' && ultimo.autor === 'asesor');
+    if (mio || pegado.current) alFinal(true);
+    else if (ultimo.direccion === 'entrante') { nuevosMedidos.current += Math.max(1, lista.length - antes.largo); setNuevosAbajo(nuevosMedidos.current); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lista.length, lista.at(-1)?.id]);
+
+  // El teclado que se abre o se cierra, la cita de "responder", una foto que termina de cargar: la zona de mensajes
+  // cambia de alto. Como en WhatsApp, el borde de abajo no se mueve: si estabas al final seguís viendo el último
+  // mensaje, y si estabas más arriba seguís viendo lo mismo (antes el teclado tapaba los últimos mensajes).
+  useEffect(() => {
+    const z = zonaMensajes.current;
+    if (!z || typeof ResizeObserver === 'undefined') return;
+    let alto = z.clientHeight;
+    const observador = new ResizeObserver(() => {
+      const cambio = alto - z.clientHeight;
+      alto = z.clientHeight;
+      // Bajando con animación: se le cambia el destino al nuevo final
+      if (pegado.current) { if (yendoAlFondo.current) z.scrollTo({ top: z.scrollHeight, behavior: 'smooth' }); else z.scrollTop = z.scrollHeight; }
+      else if (cambio) z.scrollTop += cambio;
+    });
+    observador.observe(z);
+    if (contenidoMensajes.current) observador.observe(contenidoMensajes.current);
+    return () => { observador.disconnect(); clearTimeout(finDeBajada.current); };
+  }, [conversacion.id]);
+  // Si tocás el chat mientras baja solo, mandás vos
+  const cortarBajada = () => { yendoAlFondo.current = false; };
+
+  // Lo que reciben las burbujas es siempre el mismo objeto mientras no cambie el dato: así una burbuja solo se vuelve
+  // a dibujar cuando cambia SU mensaje (memo en componentes/Burbuja.js) y no con cada cosa que pasa en el chat
   const miNombre = equipo?.nombres?.[equipo?.yo] ?? '';
   const primerNombreCliente = contacto.nombre?.trim().split(/\s+/)[0] || '';
-  const avatarPropio = { iniciales: miNombre.slice(0, 2).toUpperCase() || 'YO', estilo: { background: '#DFE5E7', color: '#54656F' }, nombre: `Vos → ${nombreVisible(contacto)}` };
+  const avatarCliente = useMemo(() => ({ iniciales: iniciales(contacto), estilo: colorAvatar(contacto.telefono), nombre: nombreVisible(contacto) }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [contacto.nombre, contacto.telefono]);
+  const avatarPropio = useMemo(() => ({ iniciales: miNombre.slice(0, 2).toUpperCase() || 'YO', estilo: { background: '#DFE5E7', color: '#54656F' }, nombre: `Vos → ${nombreVisible(contacto)}` }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [miNombre, contacto.nombre, contacto.telefono]);
   // Destacar y reenviar funcionan siempre; responder, reaccionar y corregir solo con la ventana de 24 h abierta
   const accionesSiempre = {
     onDestacar: async (m) => {
@@ -516,7 +701,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
     // Audio que quedó "no se pudo enviar": lo vuelve a mandar el servidor
     onReintentar: async (m) => {
       setMensajes((l) => l.map((x) => (x.id === m.id ? { ...x, estado: 'pendiente', error: null } : x)));
-      const r = await despacharAudioPendiente(m.id).catch(() => ({ error: 'Sin conexión: probá de nuevo.' }));
+      const r = await mandarAudioGuardado(m.id).catch(() => ({ error: 'Sin conexión: probá de nuevo.' }));
       if (r.error) { setMensajes((l) => l.map((x) => (x.id === m.id ? { ...x, estado: 'fallido', error: r.error } : x))); }
     },
     onSeleccionar: (m) => alternarSeleccion(m),
@@ -556,6 +741,18 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
       setAvisoAccion(r.error ?? '');
     }
   };
+  // Acciones fijas para las burbujas: son siempre las mismas funciones y llaman a las de este dibujo
+  const accionesVivas = useRef(acciones);
+  accionesVivas.current = acciones;
+  const irAVivo = useRef(irA);
+  irAVivo.current = irA;
+  const fijas = useMemo(() => {
+    const llamar = (nombre) => (...datos) => accionesVivas.current[nombre]?.(...datos);
+    const siempre = Object.fromEntries(['onDestacar', 'onReenviar', 'onReintentar', 'onSeleccionar', 'onFijar'].map((k) => [k, llamar(k)]));
+    const todas = { ...siempre, ...Object.fromEntries(['onResponder', 'onCorregir', 'onGuardarRapida', 'onReaccionar'].map((k) => [k, llamar(k)])) };
+    return { siempre, todas, irA: (id) => irAVivo.current(id) };
+  }, []);
+
   // Pegar una imagen (recorte de pantalla, Ctrl+V) en cualquier parte del chat: vista previa antes de mandar
   const [pegada, setPegada] = useState(null); // { archivo, url }
   useEffect(() => {
@@ -606,12 +803,11 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
         </div>
       )}
       <header className="conv-cabecera">
-        <Link href="/bandeja" className="boton-icono solo-movil" aria-label="Volver a chats">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
-        </Link>
-        <span className="avatar" style={colorAvatar(contacto.telefono)}>{iniciales(contacto)}</span>
+        <VolverAChats />
+        {/* Tocar la foto o el nombre abre la ficha, como la info del contacto en WhatsApp */}
+        <button type="button" className="avatar avatar-ficha" style={colorAvatar(contacto.telefono)} onClick={onFicha} aria-label="Ficha del cliente">{iniciales(contacto)}</button>
         <div className="conv-quien">
-          <span className="conv-nombre">{nombreVisible(contacto)}</span>
+          <button type="button" className="conv-nombre conv-nombre-ficha" onClick={onFicha} title="Ver la ficha">{nombreVisible(contacto)}</button>
           <span className="conv-detalle">{contacto.telefono
             ? <><a className="conv-telefono" href={`tel:+${contacto.telefono}`} title="Llamar">{telefonoLindo(contacto.telefono)}</a><CopiarTelefono telefono={contacto.telefono} /></>
             : <span className="conv-telefono-revisar" title="Corregilo en la ficha para poder escribirle">⚠️ Teléfono a revisar</span>}<span className="conv-origen"> · {ORIGENES[contacto.origen]}{contacto.origen_detalle ? ` (${contacto.origen_detalle})` : ''}</span></span>
@@ -653,7 +849,8 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
           )}
         </span>
       </header>
-      <span className={`fecha-flotante${fechaFlotante.visible ? ' visible' : ''}`} aria-hidden="true">{fechaFlotante.texto}</span>
+      {/* La escribe medirDesplazamiento directo en pantalla (texto y clase "visible"): acá va siempre igual */}
+      <span className="fecha-flotante" ref={fechaFlotante} aria-hidden="true" />
       {panelChat && <PanelChat modo={panelChat} mensajes={mensajes} onIrA={irA} onIrAFecha={irAFecha} onCerrar={() => setPanelChat(null)} nombreCliente={primerNombreCliente} />}
       {reenviando && <Reenviar mensajes={Array.isArray(reenviando) ? reenviando : [reenviando]} conversacionId={conversacion.id} onCerrar={() => setReenviando(null)}
         onListo={(t) => { setReenviando(null); setAvisoAccion(t); setTimeout(() => setAvisoAccion(''), 3000); }} />}
@@ -670,7 +867,8 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
           </button>
         );
       })()}
-      <div className="mensajes" ref={zonaMensajes} onScroll={alDesplazar}>
+      <div className="mensajes" ref={zonaMensajes} onScroll={alDesplazar} onPointerDown={cortarBajada} onWheel={cortarBajada}>
+        <div className="mensajes-contenido" ref={contenidoMensajes}>
         {masViejos && (
           <button type="button" className="cargar-anteriores" onClick={cargarAnteriores} disabled={trayendoViejos}>
             {trayendoViejos ? 'Cargando mensajes anteriores…' : 'Ver mensajes anteriores'}
@@ -679,7 +877,9 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
         {lista.map((m, i) => {
           const nuevoDia = i === 0 || !mismoDia(lista[i - 1].creado_at, m.creado_at);
           return (
-            <div key={m.id} data-id={m.id} data-dia={separadorDia(m.creado_at, ahora)}
+            // La copia local lleva de clave el id que va a tener el mensaje guardado: al confirmarse el envío es la misma
+            // burbuja que cambia el reloj por la tilde (antes se desmontaba y se volvía a dibujar)
+            <div key={m.idCliente ?? m.id} data-id={m.id} data-dia={separadorDia(m.creado_at, ahora)}
               data-seleccion={seleccion && !m.local && m.autor !== 'sistema' ? (seleccion.includes(m.id) ? 'si' : 'no') : undefined}
               onClickCapture={seleccion ? (e) => { e.preventDefault(); e.stopPropagation(); alternarSeleccion(m); } : undefined}
               className={`mensaje-fila${i > 0 && lista[i - 1].direccion === m.direccion && lista[i - 1].autor !== 'sistema' ? ' seguido' : ''}${idsIniciales.has(m.id) || (!m.local && m.direccion === 'saliente' && m.autor === 'asesor') ? '' : ' recien'}`}>
@@ -687,9 +887,9 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
               {primerNoLeido?.id === m.id && (
                 <div className="no-leidos-franja"><span>{primerNoLeido.cantidad === 1 ? '1 mensaje no leído' : `${primerNoLeido.cantidad} mensajes no leídos`}</span></div>
               )}
-              <Burbuja m={m} fijado={idsFijados.has(m.id)} citado={m.responde_a ? porId[m.responde_a] : null} acciones={m.local ? null : v.abierta ? acciones : accionesSiempre} equipo={equipo}
+              <Burbuja m={m} fijado={idsFijados.has(m.id)} citado={m.responde_a ? porId[m.responde_a] : null} acciones={m.local ? null : v.abierta ? fijas.todas : fijas.siempre} equipo={equipo}
                 cola={nuevoDia || lista[i - 1].direccion !== m.direccion || lista[i - 1].autor === 'sistema' || primerNoLeido?.id === m.id}
-                avatar={m.direccion === 'entrante' ? avatarCliente : avatarPropio} onIrA={irA} nombreCliente={primerNombreCliente} />
+                avatar={m.direccion === 'entrante' ? avatarCliente : avatarPropio} onIrA={fijas.irA} nombreCliente={primerNombreCliente} />
             </div>
           );
         })}
@@ -704,10 +904,12 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
             {!bloqueada && <button type="button" className="boton-secundario" onClick={() => cambiarModo('ia')}>Que siga la IA</button>}
           </div>
         )}
-        <div ref={fondo} />
+        </div>
       </div>
-      {lejos && (
-        <button type="button" className="bajar-al-final" aria-label="Ir al último mensaje" onClick={() => alFinal(true)}>
+      {(lejos || nuevosAbajo > 0) && (
+        <button type="button" className="bajar-al-final" aria-label={nuevosAbajo ? `Ir al último mensaje (${nuevosAbajo} sin leer)` : 'Ir al último mensaje'} onClick={() => alFinal(true)}
+          onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()}>
+          {nuevosAbajo > 0 && <span className="bajar-contador">{nuevosAbajo > 99 ? '99+' : nuevosAbajo}</span>}
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
         </button>
       )}

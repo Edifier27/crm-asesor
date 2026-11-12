@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import { anotarRuta } from '@/lib/ruta-anterior';
 
 const SECCIONES = [
   {
@@ -49,6 +51,8 @@ const EQUIPO = {
 
 export default function RielLinks({ esAdmin }) {
   const ruta = usePathname();
+  // Para la flecha de volver del chat: de qué pantalla se viene (lib/ruta-anterior.js)
+  useEffect(() => { anotarRuta(ruta); }, [ruta]);
   const lista = esAdmin ? [...SECCIONES, EQUIPO] : SECCIONES;
   // La sección más específica que coincide (en /ventas/planilla se marca la planilla, no el tablero)
   const actual = lista.filter((s) => ruta === s.href || ruta.startsWith(`${s.href}/`)).sort((a, b) => b.href.length - a.href.length)[0]?.href;

@@ -1,7 +1,7 @@
 'use client';
 
 import { ViewTransition, useEffect, useState } from 'react';
-import Link from 'next/link';
+import VolverAChats from '../../componentes/VolverAChats';
 import { useParams } from 'next/navigation';
 import { chatTocado } from '@/lib/chat-abriendo';
 import { chatEnMemoria } from '@/lib/chat-memoria';
@@ -24,9 +24,7 @@ export default function CargandoChat() {
     <ViewTransition enter="chat-entra" exit="chat-revela-sale" default="none">
       <main className="conversacion chat-cargando" aria-busy="true" aria-label="Abriendo el chat">
         <header className="conv-cabecera">
-          <Link href="/bandeja" className="boton-icono solo-movil" aria-label="Volver a chats">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
-          </Link>
+          <VolverAChats />
           {contacto
             ? <span className="avatar" style={colorAvatar(contacto.telefono)}>{iniciales(contacto)}</span>
             : <span className="avatar esqueleto" />}
