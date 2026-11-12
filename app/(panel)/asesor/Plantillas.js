@@ -284,7 +284,7 @@ export default function Plantillas({ inicial, usosIniciales, conexiones = [], mi
           {USOS_PLANTILLA.map((u) => (
             <label key={u.clave} className="campo"><span>{u.rotulo}{u.ayuda ? ` · ${u.ayuda}` : ''}</span>
               <select value={usos[u.clave] ?? ''} onChange={(ev) => elegirUso(u.clave, ev.target.value)}>
-                <option value="">{u.clave === 'bienvenida_web' ? 'El mismo saludo de arriba' : u.clave === 'bienvenida_osde' ? 'El mismo saludo de PrepagaYa' : miConexion || !u.defecto ? 'Sin elegir' : `Por defecto (${u.defecto})`}</option>{opciones}
+                <option value="">{u.clave === 'bienvenida_web' ? 'El mismo saludo de arriba' : miConexion || !u.defecto ? 'Sin elegir' : `Por defecto (${u.defecto})`}</option>{opciones}
               </select>
             </label>
           ))}
