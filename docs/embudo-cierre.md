@@ -36,8 +36,12 @@ Código: `lib/ia/salud.js` (lo que sigue y lo que no) y `lib/ia/asesor.js` (prom
 Tarjeta de crédito, débito, Rapipago, Pago Fácil y billeteras digitales.
 
 ## 3. Directo: cobro
-1. A las 24 h de completar el link se genera el **link de pago**: `linkBienvenida(DNI, N° de precarga)` en `lib/venta.js`.
-   Como el CRM ya tiene el DNI y el N° de precarga, se lo puede mandar solo.
+1. A las 24 h de completar el link se genera el **link de pago**:
+   `https://asociarme.swissmedical.com.ar/personas/DU/<DNI>/solicitudes/<N° de precarga>/bienvenida`
+   (`linkBienvenida` en `lib/venta.js`). Confirmado por Darío el 9-nov-2026: lo que va después de "solicitudes" es el
+   **N° de precarga** (8 dígitos). **No** es el N° de trámite del final del link de autogestión (9 dígitos, 302…).
+   El CRM lo toma del mail de Swiss "Pago de primera cuota" (script `herramientas/outlook-pagos.user.js`) o de la
+   precarga que carga el asesor; nunca lo arma con el trámite.
 2. Tiene **20 días** para pagarlo. Cuando paga, empieza la cobertura (y recién ahí se comisiona).
 3. Seguimiento:
    - **Vigencia inmediata**: link de pago a las 24 h; si no paga, "¿pudiste abonar?" (secuencia de cobro).
@@ -67,7 +71,7 @@ sus scripts en su propio Salesforce y Outlook, con su clave personal (Mi perfil 
 
 ## Falta definir / pedirle a Darío
 - [x] Link genérico de desregulación: `https://asociarme.swissmedical.com.ar/planes/reingreso` (`LINK_DESREGULACION` en `lib/venta.js`).
-- [ ] Confirmar que el **link de pago** es `linkBienvenida(DNI, N° de precarga)` y que sale a las 24 h (hoy
+- [x] El **link de pago** es `linkBienvenida(DNI, N° de precarga)`, con la precarga de 8 dígitos (no el trámite). Sale a las 24 h (antes
       `SECUENCIA_COBRO` en `lib/venta.js` lo manda a las 48 h).
 - [ ] Quién pide el link de alta cuando la IA deja al cliente "listo para cerrar": el asesor con el botón, o el
       CRM solo (pedido automático a la cola de Salesforce).
