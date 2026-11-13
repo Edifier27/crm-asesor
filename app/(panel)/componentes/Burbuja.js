@@ -7,6 +7,7 @@ import { abrirHaciaArriba } from './haciaArriba';
 import { createClient } from '@/lib/supabase/client';
 import { urlFirmada } from '@/lib/url-firmada';
 import { hora } from '@/lib/formato';
+import { copiarTexto } from '@/lib/copiar';
 import VisorArchivo, { muestraPdf } from './VisorArchivo';
 import NotaDeVoz from './NotaDeVoz';
 import TextoWhatsApp, { primerLink } from './TextoWhatsApp';
@@ -205,8 +206,8 @@ function Burbuja({ m, citado, acciones, equipo, cola = true, avatar, onIrA, nomb
   const texto = esAudio ? null : conArchivo ? epigrafe : m.texto;
 
   async function copiar() {
-    await navigator.clipboard?.writeText(m.texto ?? '').catch(() => {});
-    setCopiado(true); setMenu(null);
+    const ok = await copiarTexto(m.texto ?? '');
+    setCopiado(ok); setMenu(null);
     setTimeout(() => setCopiado(false), 1500);
   }
 

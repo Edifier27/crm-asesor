@@ -15,7 +15,9 @@ import BarraSeleccion from './BarraSeleccion';
 import { guardarChatEnMemoria } from '@/lib/chat-memoria';
 import { limpiarAtajo } from '../../asesor/RespuestasRapidas';
 import { useAhora } from '../../componentes/Reloj';
-import { colorAvatar, iniciales, mismoDia, nombreVisible, separadorDia, telefonoLindo, ultimoDelCliente, ventana } from '@/lib/formato';
+import { colorAvatar, iniciales, mismoDia, nombreVisible, separadorDia, telefonoCorto, telefonoLindo, ultimoDelCliente, ventana } from '@/lib/formato';
+import { copiarTexto } from '@/lib/copiar';
+import CopiarTelefono, { telefonoNacional } from '../../componentes/CopiarTelefono';
 import { CACHE_ARCHIVO } from '@/lib/cache-archivos';
 import { esperaDeEnvio, pedirAlChat } from '@/lib/chat-pedidos';
 import { avisarDiagnostico } from '@/lib/avisar-diagnostico';
@@ -24,18 +26,6 @@ const ORIGENES = { swiss_medical: 'asignado por Swiss Medical', web: 'vía formu
 // La marca vence a los 2 minutos por si una ejecución se cortó sin limpiarla
 export const iaEscribiendo = (desde, ahora = Date.now()) => Boolean(desde) && ahora - new Date(desde) < 120_000;
 const porFecha = (a, b) => new Date(a.creado_at) - new Date(b.creado_at);
-
-// Botón chiquito al lado del teléfono (Darío, 14-oct-2026): copia el número con característica, sin 54 ni 9 (ej. 1136848332)
-function CopiarTelefono({ telefono }) {
-  const [copiado, setCopiado] = useState(false);
-  const nacional = String(telefono).replace(/\D/g, '').replace(/^549?/, '');
-  return (
-    <button type="button" className="copiar-telefono" title={`Copiar ${nacional}`} aria-label="Copiar teléfono"
-      onClick={async (e) => { e.stopPropagation(); try { await navigator.clipboard.writeText(nacional); setCopiado(true); setTimeout(() => setCopiado(false), 1500); } catch {} }}>
-      {copiado ? '✓' : 'C'}
-    </button>
-  );
-}
 
 const MAX_FIJADOS = 4; // como WhatsApp
 
@@ -809,7 +799,7 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
         <div className="conv-quien">
           <button type="button" className="conv-nombre conv-nombre-ficha" onClick={onFicha} title="Ver la ficha">{nombreVisible(contacto)}</button>
           <span className="conv-detalle">{contacto.telefono
-            ? <><a className="conv-telefono" href={`tel:+${contacto.telefono}`} title="Llamar">{telefonoLindo(contacto.telefono)}</a><CopiarTelefono telefono={contacto.telefono} /></>
+            ? <><a className="conv-telefono" href={`tel:+${contacto.telefono}`} title="Llamar"><span className="tel-largo">{telefonoLindo(contacto.telefono)}</span><span className="tel-corto">{telefonoCorto(contacto.telefono)}</span></a><CopiarTelefono telefono={contacto.telefono} /></>
             : <span className="conv-telefono-revisar" title="Corregilo en la ficha para poder escribirle">⚠️ Teléfono a revisar</span>}<span className="conv-origen"> · {ORIGENES[contacto.origen]}{contacto.origen_detalle ? ` (${contacto.origen_detalle})` : ''}</span></span>
         </div>
         {cliente && (
@@ -839,6 +829,13 @@ export default function Conversacion({ conversacion, mensajesIniciales, hayAnter
           </button>
           {menuCabecera && (
             <div className="menu-mensaje" role="menu">
+              {contacto.telefono && (
+                <button type="button" role="menuitem" onClick={async () => {
+                  setMenuCabecera(false);
+                  setAvisoAccion((await copiarTexto(telefonoNacional(contacto.telefono))) ? `Teléfono copiado: ${telefonoNacional(contacto.telefono)}` : 'No se pudo copiar el teléfono.');
+                  setTimeout(() => setAvisoAccion(''), 2500);
+                }}>Copiar teléfono</button>
+              )}
               <button type="button" role="menuitem" onClick={() => { setMenuCabecera(false); setPanelChat('buscar'); }}>Buscar mensajes</button>
               <button type="button" role="menuitem" onClick={() => { setMenuCabecera(false); setPanelChat('destacados'); }}>Mensajes destacados</button>
               <button type="button" role="menuitem" onClick={() => bloquearIA(!bloqueada)}>{bloqueada ? 'Liberar el chat para la IA' : '🔒 Que la IA no toque este chat'}</button>

@@ -575,3 +575,20 @@
 /* Enviar ↔ micrófono: el botón que entra crece desde el centro, como en WhatsApp (antes cambiaba de golpe) */
 .redactor .boton-enviar { animation: wa-boton 140ms var(--curva-entra) both; }
 @media (prefers-reduced-motion: reduce) { .redactor .boton-enviar, .bajar-al-final .bajar-contador { animation: none; } }
+
+/* ═════════ Teléfono copiable (13-nov-2026) ═════════ */
+.conv-telefono .tel-corto { display: none; }
+.dato-telefono { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dato-telefono a { color: inherit; text-decoration: none; }
+.copiar-telefono.con-texto { width: auto; height: 28px; margin: 0; padding: 0 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+@media (max-width: 760px) {
+  /* En el celular el número va corto (11 2233-4455) y el botón de copiar queda a la vista y fácil de tocar: antes el
+     número largo lo empujaba afuera de la cabecera */
+  .conv-telefono .tel-largo { display: none; }
+  .conv-telefono .tel-corto { display: inline; }
+  .conv-cabecera .conv-detalle { display: flex; align-items: center; gap: 2px; overflow: visible; }
+  .conv-cabecera .conv-telefono { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .conv-cabecera .copiar-telefono { flex: 0 0 auto; width: 28px; height: 28px; margin-left: 4px; font-size: 13px; }
+  .conv-cabecera .conv-telefono-revisar { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+:root[data-modo="oscuro"] .app .copiar-telefono.con-texto { background: #2A2D2D; border-color: #3A4042; color: rgba(255, 255, 255, 0.8); }

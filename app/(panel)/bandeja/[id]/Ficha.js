@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { CHAT_CERRADO, TAREA_LINK_PAGO } from '@/lib/consultas';
 import { contactarEn60, corregirTelefono, pasarAColumnaDeEspera } from './acciones';
-import { COLORES_ETIQUETA, COLUMNAS_60, COLUMNAS_ESPERA_A_MANO, ETAPA_COTIZADO_30, ETAPA_NO_CONTESTA_30, MOTIVOS_PERDIDA, colorEtiqueta, nombreVisible } from '@/lib/formato';
+import { COLORES_ETIQUETA, COLUMNAS_60, COLUMNAS_ESPERA_A_MANO, ETAPA_COTIZADO_30, ETAPA_NO_CONTESTA_30, MOTIVOS_PERDIDA, colorEtiqueta, nombreVisible, telefonoLindo } from '@/lib/formato';
 import Cotizacion from './Cotizacion';
 import ProximoPaso from './ProximoPaso';
 import Venta from './Venta';
 import PedidoSalesforce from './PedidoSalesforce';
 import Documentacion from './Documentacion';
 import AuditoriaMedica from './AuditoriaMedica';
+import CopiarTelefono from '../../componentes/CopiarTelefono';
 
 const ORIGENES = { swiss_medical: 'Swiss Medical', web: 'Web', whatsapp: 'WhatsApp', manual: 'Manual' };
 
@@ -263,6 +264,9 @@ export default function Ficha({ conversacion, etapas, todasEtiquetas, lista, aud
       </div>
 
       <dl className="datos">
+        {contacto.telefono && (
+          <div><dt>Teléfono</dt><dd className="dato-telefono"><a href={`tel:+${contacto.telefono}`}>{telefonoLindo(contacto.telefono)}</a> <CopiarTelefono telefono={contacto.telefono} etiqueta="Copiar" /></dd></div>
+        )}
         <div><dt>Origen</dt><dd>{ORIGENES[contacto.origen]}{contacto.origen_detalle ? ` · ${contacto.origen_detalle}` : ''}</dd></div>
         {/* Situación y empleador ya no se muestran acá (Darío, 14-oct-2026): siguen guardados para la IA y el cotizador,
             y la razón social y el CUIT se copian desde el recibo agrandado */}
