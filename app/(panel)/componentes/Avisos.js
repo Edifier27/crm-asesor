@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { nombreVisible } from '@/lib/formato';
 import { leerPreferencias, notificarSistema, sonarAviso } from './avisos-prefs';
+import { recordarChat } from '@/lib/chat-abriendo';
 
 const VISTA_PREVIA = { audio: '🎤 Nota de voz', imagen: '📷 Foto', documento: '📄 Documento', video: '🎥 Video', sticker: 'Sticker', ubicacion: '📍 Ubicación' };
 const DURACION_MS = 6000;
@@ -51,7 +52,7 @@ export default function Avisos() {
         try { conPush = localStorage.getItem('crm-push') === '1'; } catch {}
         if (!mirando && !conPush) notificarSistema(nombre, texto, conv.id, () => router.push(`/bandeja/${conv.id}`));
         if (p.cartel) {
-          const aviso = { id: m.id, conversacionId: conv.id, nombre, texto };
+          const aviso = { id: m.id, conversacionId: conv.id, nombre, texto, contacto: conv.contacto };
           setCarteles((l) => [aviso, ...l.filter((x) => x.conversacionId !== conv.id)].slice(0, 3));
           setTimeout(() => setCarteles((l) => l.filter((x) => x.id !== aviso.id)), DURACION_MS);
         }
@@ -65,7 +66,7 @@ export default function Avisos() {
     <div className="avisos" aria-live="polite">
       {carteles.map((a) => (
         <div key={a.id} className="aviso-mensaje">
-          <button type="button" className="aviso-cuerpo" onClick={() => { setCarteles((l) => l.filter((x) => x.id !== a.id)); router.push(`/bandeja/${a.conversacionId}`); }}>
+          <button type="button" className="aviso-cuerpo" onClick={() => { setCarteles((l) => l.filter((x) => x.id !== a.id)); recordarChat(a.conversacionId, a.contacto); router.push(`/bandeja/${a.conversacionId}`); }}>
             <span className="aviso-avatar" aria-hidden="true">{iniciales(a.nombre)}</span>
             <span className="aviso-textos">
               <strong>{a.nombre}</strong>

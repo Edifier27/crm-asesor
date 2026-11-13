@@ -208,6 +208,13 @@ Nunca commitear secretos.
   (`VolverAChats` + lib/ruta-anterior.js), tocar foto o nombre abre la ficha, `AlVolver` le pide un latido a la conexión
   en vivo al volver a la app, y `AltoVisible` se vuelve a medir al volver, girar o cambiar de cuadro de texto.
   Probar sin servidor: `/vista-previa?chat&largo=400` (solo el chat, como en el celular; `window.__llegaMensaje('hola')`).
+- CELULAR: TELÉFONO COPIABLE Y ALTO DE PANTALLA QUE SE CORRIGE SOLO (13-nov-2026): en la cabecera del chat el número va
+  corto (`telefonoCorto`) y el botón C (`componentes/CopiarTelefono.js`) queda a la vista; también "Copiar teléfono" en el ⋮ y
+  una fila Teléfono con "Copiar" en la ficha. `lib/copiar.js` copia con respaldo (textarea escondido) para los WebView sin
+  navigator.clipboard. `AltoVisible` ahora fija `--alto-visible` SIEMPRE desde visualViewport en el celular (≤760 px), lo
+  vuelve a medir en cada cambio de pantalla y una vez por segundo, y compara con lo que hay en la página (antes, un alto viejo
+  dejaba la barra de escribir afuera hasta cerrar y abrir el CRM). Si la barra igual queda afuera avisa `barra_oculta` a
+  diagnóstico (con medidas). El cartel de aviso (Avisos.js) anota el chat que se abre (`recordarChat`).
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.
