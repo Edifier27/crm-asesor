@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { pesos } from '@/lib/cotizador';
-import { recalcularCargaBU, recordarPago } from './acciones';
+import { mensajeCobro } from '@/lib/venta';
+import { avisoHecho, enviarLinkDePago, marcarLinkEnviado, recalcularCargaBU, recordarPago } from './acciones';
 
 // Planilla de ventas del mes (Darío, 9-nov-2026; migración 0075). Cada celda se corrige ahí mismo y se guarda al salir;
 // lo corregido a mano ya no lo pisa la venta del CRM (salvo el estado, que sigue a la etapa: impactada / falta de cobro).
@@ -14,9 +15,9 @@ const AUDITORIA = 'auditoria_medica';
 const ESTADOS = { impactada: 'Impactada', falta_de_cobro: 'Falta de cobro', [AUDITORIA]: 'Auditoría médica', baja: 'Baja' };
 const TIPOS = { directo: 'Directo', desregulado: 'Desregulado' };
 const COLUMNAS = [
-  ['fecha_venta', 'Fecha', 'date'], ['nombre', 'Nombre y apellido', 'text'], ['dni', 'DNI', 'num'], ['precarga', 'N° de precarga', 'num'],
+  ['fecha_venta', 'Fecha de venta', 'date'], ['nombre', 'Nombre y apellido', 'text'], ['dni', 'DNI', 'num'], ['precarga', 'N° de precarga', 'num'],
   ['plan', 'Plan', 'text'], ['carga_bu', 'Carga BU', 'pesos'], ['tipo', 'Tipo', 'tipo'], ['estado', 'Estado', 'estado'],
-  ['vigencia', 'Vigencia', 'date'], ['notas', 'Notas', 'text']
+  ['vigencia', 'Vigencia', 'vigencia'], ['notas', 'Notas', 'text']
 ];
 
 // Origen del dato con su color (Darío, 9-nov-2026: solo estos). Las ventas viejas con otro origen (Kommo, Botmaker…) lo
@@ -38,10 +39,59 @@ function vigenciaDe(f) {
   return { texto: `Vigencia ${new Date(`${v}-01T12:00:00Z`).toLocaleDateString('es-AR', { month: 'long', timeZone: 'UTC' })}`, clase: 'futura' };
 }
 
+// Vigencia en la celda: inmediata (el mismo mes de la venta) o el mes que viene, con la fecha de venta al lado para leerlas juntas
+function vigenciaCorta(f) {
+  if (!f.vigencia) return { texto: 'Sin vigencia', clase: 'sin' };
+  const v = String(f.vigencia).slice(0, 7);
+  if (v <= String(f.fecha_venta).slice(0, 7)) return { texto: 'Inmediata', clase: 'inmediata' };
+  const mes = new Date(`${v}-01T12:00:00Z`).toLocaleDateString('es-AR', { month: 'long', timeZone: 'UTC' });
+  return { texto: mes.charAt(0).toUpperCase() + mes.slice(1), clase: 'futura' };
+}
+const ddmm = (iso) => (iso ? String(iso).slice(0, 10).split('-').reverse().slice(0, 2).join('/') : '');
+// "13/11 10:32" en hora de Argentina; armado a mano para que el servidor y el navegador escriban lo mismo
+const FORMATO_HORA = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Argentina/Buenos_Aires', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const cuando = (iso) => { const p = Object.fromEntries(FORMATO_HORA.formatToParts(new Date(iso)).map((x) => [x.type, x.value])); return `${p.day}/${p.month} ${p.hour}:${p.minute}`; };
+const hace = (iso, ahora) => {
+  const h = Math.floor((ahora - new Date(iso)) / 3_600_000);
+  return h < 1 ? 'hace menos de 1 h' : h < 48 ? `hace ${h} h` : `hace ${Math.floor(h / 24)} días`;
+};
+
+// Cuándo avisar que hay que preguntarle al socio si abonó (Darío, 16-nov-2026): a las 48 h de mandado el link si la vigencia
+// es inmediata; si es del mes que viene, a fin de mes (los últimos 5 días), salvo que el link se haya mandado tan tarde que
+// las 48 h caigan después.
+function avisoDesde(f) {
+  if (!f.link_pago_enviado_at) return null;
+  const envio = new Date(f.link_pago_enviado_at);
+  const a48 = envio.getTime() + 48 * 3_600_000;
+  const futura = f.vigencia && String(f.vigencia).slice(0, 7) > String(f.fecha_venta).slice(0, 7);
+  if (!futura) return a48;
+  const [a, m] = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit' }).format(envio).split('-').map(Number);
+  const ultimo = new Date(Date.UTC(a, m, 0)).getUTCDate();
+  return Math.max(a48, Date.UTC(a, m - 1, ultimo - 4, 3, 0, 0)); // 00:00 de Argentina
+}
+const debeAvisar = (f, ahora) => {
+  const desde = f.estado === 'falta_de_cobro' ? avisoDesde(f) : null;
+  return desde !== null && ahora >= desde && (!f.link_pago_aviso_at || new Date(f.link_pago_aviso_at).getTime() < desde);
+};
+// Teléfono de la planilla → link de WhatsApp (sin chat en el CRM se manda desde tu WhatsApp)
+function urlWhatsApp(telefono, texto) {
+  let d = String(telefono ?? '').replace(/\D/g, '');
+  if (d.length === 10) d = `549${d}`;
+  else if (d.length === 11 && d.startsWith('0')) d = `549${d.slice(1)}`;
+  return d.length >= 11 ? `https://wa.me/${d}?text=${encodeURIComponent(texto)}` : null;
+}
+function textoRecordatorio(f) {
+  const n = f.nombre?.trim().split(/\s+/)[0];
+  const v = vigenciaCorta(f);
+  return v.clase === 'futura'
+    ? `Hola${n ? ` ${n}` : ''}! Te recuerdo abonar el link de pago para que tu cobertura arranque el 1 de ${v.texto.toLowerCase()}. Te lo dejo acá: ${f.link_pago} Si ya lo hiciste, genial; si no, avisame y lo vemos.`
+    : `Hola${n ? ` ${n}` : ''}! ¿Pudiste abonar el link de pago? Tu cobertura arranca cuando se acredita. Te lo dejo de nuevo: ${f.link_pago} Si tuviste algún problema, avisame y te ayudo.`;
+}
+
 const hoyAR = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date());
 const csv = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
-export default function PlanillaVentas({ mes, conMes = false, conInclusion = false, conTelefono = false, conCapitas = false, opcionesMes = [], inicial }) {
+export default function PlanillaVentas({ mes, conMes = false, conInclusion = false, conTelefono = false, conCapitas = false, conLinkPago = false, opcionesMes = [], inicial }) {
   // Primera columna: el mes de producción (se completa solo con el de la venta; se cambia a mano, ej. a octubre)
   // Y, con la misma migración (0076), el origen del dato después del nombre
   const base = conMes
@@ -52,7 +102,15 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
   const conTel = conTelefono ? [...base.slice(0, iNombre), ['telefono', 'Teléfono', 'tel'], ...base.slice(iNombre)] : base;
   // Cápitas (personas que se afilian) después del plan (Darío, 16-nov-2026; migración 0079)
   const iPlan = conTel.findIndex(([c]) => c === 'plan') + 1;
-  const columnas = conCapitas ? [...conTel.slice(0, iPlan), ['capitas', 'Cápitas', 'cant'], ...conTel.slice(iPlan)] : conTel;
+  const conCap = conCapitas ? [...conTel.slice(0, iPlan), ['capitas', 'Cápitas', 'cant'], ...conTel.slice(iPlan)] : conTel;
+  // El link de pago va después del estado (migración 0081)
+  const iEstado = conCap.findIndex(([c]) => c === 'estado') + 1;
+  const sinOrden = conLinkPago ? [...conCap.slice(0, iEstado), ['link_pago', 'Link de pago', 'link'], ...conCap.slice(iEstado)] : conCap;
+  // Orden de lectura (Darío, 16-nov-2026): primero lo que se decide mirando la fila (las dos fechas juntas, el estado y el
+  // link de pago); después los datos de la venta
+  const ORDEN = ['mes', 'fecha_venta', 'vigencia', 'nombre', 'telefono', 'estado', 'link_pago', 'origen', 'dni', 'precarga', 'plan', 'capitas', 'carga_bu', 'tipo', 'notas'];
+  const lugar = (c) => (ORDEN.includes(c) ? ORDEN.indexOf(c) : ORDEN.length);
+  const columnas = [...sinOrden].sort((a, b) => lugar(a[0]) - lugar(b[0]));
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const [filas, setFilas] = useState(inicial);
@@ -64,6 +122,11 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
   const [busca, setBusca] = useState('');
   const [orden, setOrden] = useState(null); // { campo, baja } o null = como se cargaron (por fecha)
   const [recordando, setRecordando] = useState(null);
+  const [enviandoLink, setEnviandoLink] = useState(null);
+  const [soloLinks, setSoloLinks] = useState(false);
+  // La hora se lee en el navegador (los avisos de las 48 h dependen de ella) y se refresca cada minuto
+  const [ahora, setAhora] = useState(null);
+  useEffect(() => { setAhora(Date.now()); const t = setInterval(() => setAhora(Date.now()), 60_000); return () => clearInterval(t); }, []);
   const [reciente, setReciente] = useState(null);
   // Pop-up de "Cargar venta" (Darío, 16-nov-2026): se completa ahí y recién al guardar entra a la planilla
   const dialogo = useRef(null);
@@ -89,7 +152,10 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
   const coincide = (f) => !texto || (['nombre', 'dni', 'precarga', 'plan', 'notas', 'titular', 'incluido'].some((c) => sinAcentos(f[c]).includes(texto))
     || (soloNumeros(texto).length >= 4 && soloNumeros(f.telefono).includes(soloNumeros(texto))));
   // Las bajas solo se ven en su pestaña
-  const filtradas = filas.filter((f) => (estado ? f.estado === estado : f.estado !== 'baja') && (!origen || (f.origen || SIN_ORIGEN) === origen) && coincide(f));
+  const listoParaEnviar = (f) => Boolean(f.link_pago) && !f.link_pago_enviado_at && !['baja', 'impactada'].includes(f.estado);
+  const paraEnviar = filas.filter(listoParaEnviar);
+  const paraPreguntar = ahora ? filas.filter((f) => debeAvisar(f, ahora)) : [];
+  const filtradas = filas.filter((f) => (estado ? f.estado === estado : f.estado !== 'baja') && (!origen || (f.origen || SIN_ORIGEN) === origen) && (!soloLinks || listoParaEnviar(f)) && coincide(f));
   const visibles = orden ? [...filtradas].sort((x, y) => {
     const [a, b] = [x[orden.campo], y[orden.campo]];
     if (a == null || a === '') return 1;
@@ -97,10 +163,55 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
     const d = ['carga_bu', 'capitas'].includes(orden.campo) ? Number(a) - Number(b) : String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
     return orden.baja ? -d : d;
   }) : filtradas;
-  const hayFiltro = Boolean(estado || origen || texto);
-  const limpiar = () => { setEstado(null); setOrigen(null); setBusca(''); };
+  const hayFiltro = Boolean(estado || origen || texto || soloLinks);
+  const limpiar = () => { setEstado(null); setOrigen(null); setBusca(''); setSoloLinks(false); };
   // Tocar un título ordena: sube, baja y a la tercera vuelve al orden de carga
   const ordenar = (campo) => setOrden((o) => (o?.campo !== campo ? { campo, baja: false } : o.baja ? null : { campo, baja: true }));
+
+  const marcar = (f, cambios) => setFilas((l) => l.map((x) => (x.id === f.id ? { ...x, ...cambios } : x)));
+
+  // "Enviar link de pago": con chat en el CRM sale por ahí; sin chat se abre WhatsApp con el mensaje armado y la fila queda enviada
+  async function enviarLink(f) {
+    setEnviandoLink(f.id);
+    try {
+      if (!f.chat) {
+        const url = urlWhatsApp(f.telefono, mensajeCobro(f.nombre?.trim().split(/\s+/)[0] ?? null, f.link_pago, 1));
+        if (!url) return avisar('Para abrir WhatsApp falta el teléfono: cargalo en la columna Teléfono.');
+        window.open(url, '_blank', 'noopener');
+        const r = await marcarLinkEnviado(f.id, true);
+        if (r.error) return avisar(r.error);
+        marcar(f, { link_pago_enviado_at: r.enviado_at, link_pago_aviso_at: null });
+        return avisar(`Link de ${f.nombre || 'la venta'} abierto en WhatsApp: quedó como enviado`);
+      }
+      const r = await enviarLinkDePago(f.id).catch((e) => ({ error: e.message }));
+      if (r.error) return avisar(r.error);
+      marcar(f, { link_pago_enviado_at: new Date().toISOString(), link_pago_aviso_at: null });
+      avisar(`Link de pago enviado a ${f.nombre || 'el cliente'}`);
+    } finally { setEnviandoLink(null); }
+  }
+  async function deshacerEnvio(f) {
+    const r = await marcarLinkEnviado(f.id, false);
+    if (r.error) return avisar(r.error);
+    marcar(f, { link_pago_enviado_at: null, link_pago_aviso_at: null });
+  }
+  async function yaPregunte(f) {
+    const r = await avisoHecho(f.id);
+    if (r.error) return avisar(r.error);
+    marcar(f, { link_pago_aviso_at: r.aviso_at });
+  }
+  async function preguntarSiAbono(f) {
+    if (f.chat) {
+      setRecordando(f.id);
+      const r = await recordarPago(f.id).catch((e) => ({ error: e.message }));
+      setRecordando(null);
+      if (r.error) return avisar(r.error);
+      await yaPregunte(f);
+      return avisar(`Le preguntamos a ${f.nombre || 'el cliente'} por WhatsApp`);
+    }
+    const url = urlWhatsApp(f.telefono, textoRecordatorio(f));
+    if (!url) return avisar('Para abrir WhatsApp falta el teléfono: cargalo en la columna Teléfono.');
+    window.open(url, '_blank', 'noopener');
+  }
 
   async function recordar(f) {
     setRecordando(f.id);
@@ -186,7 +297,7 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
   function exportar() {
     const extra = conInclusion ? ['Titular', 'Persona a incluir', 'Valor de la inclusión'] : [];
     const lineas = [[...columnas.map(([, t]) => csv(t)), ...(conMes ? [csv('Onboarding')] : []), ...extra.map(csv)].join(';'), ...visibles.map((f) => [
-      ...columnas.map(([c]) => csv(c === 'estado' ? ESTADOS[f[c]] : c === 'tipo' ? TIPOS[f[c]] : c === 'mes' ? String(f.mes ?? '').slice(0, 7) : f[c])),
+      ...columnas.map(([c]) => csv(c === 'estado' ? ESTADOS[f[c]] : c === 'tipo' ? TIPOS[f[c]] : c === 'mes' ? String(f.mes ?? '').slice(0, 7) : c === 'link_pago' ? (f.link_pago_enviado_at ? 'Enviado' : f.link_pago ? 'Por enviar' : '') : f[c])),
       ...(conMes ? [csv(f.onboarding ? 'Sí' : '')] : []),
       ...(conInclusion ? [csv(f.titular), csv(f.incluido), csv(f.valor_inclusion)] : [])
     ].join(';'))];
@@ -247,6 +358,38 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
         title={f.estado === AUDITORIA ? 'En auditoría médica: no suma a la carga BU' : undefined}
         onBlur={(e) => guardar(f, campo, e.target.value)} />;
     }
+    if (tipo === 'link') {
+      if (f.link_pago_enviado_at) {
+        return (
+          <span className="lp-celda">
+            <span className="lp-enviado" title={`Enviado el ${cuando(f.link_pago_enviado_at)}`}>✓ Enviado {cuando(f.link_pago_enviado_at)}</span>
+            <button type="button" className="boton-link-texto" onClick={() => deshacerEnvio(f)} title="Volver a dejarlo como no enviado">Deshacer</button>
+          </span>
+        );
+      }
+      if (f.link_pago && !['baja', 'impactada'].includes(f.estado)) {
+        return (
+          <span className="lp-celda">
+            <button type="button" className="lp-boton" disabled={enviandoLink === f.id} onClick={() => enviarLink(f)}>
+              <span className="lp-punto" aria-hidden="true" />{enviandoLink === f.id ? 'Enviando…' : 'Enviar link de pago'}
+            </button>
+            {f.vence_primera_cuota && <small className="lp-vence">vence {ddmm(f.vence_primera_cuota)}</small>}
+          </span>
+        );
+      }
+      return <span className="lp-sin">{f.estado === 'falta_de_cobro' ? 'Esperando el mail de Swiss' : '—'}</span>;
+    }
+    if (tipo === 'vigencia') {
+      const v = vigenciaCorta(f);
+      return (
+        <span className="vig-celda">
+          <input {...comun} type="date" defaultValue={f.vigencia ?? ''} onBlur={(e) => guardar(f, campo, e.target.value.trim())} />
+          <span className="vig-detalle" title={`Venta del ${ddmm(f.fecha_venta)}: ${v.clase === 'inmediata' ? 'la cobertura arranca el mismo mes' : v.clase === 'futura' ? 'la cobertura arranca el mes que viene' : 'sin vigencia cargada'}`}>
+            <span className={`chip-vigencia ${v.clase}`}>{v.texto}</span>
+          </span>
+        </span>
+      );
+    }
     if (tipo === 'cant') {
       return <input {...comun} inputMode="numeric" defaultValue={f.capitas ?? ''} placeholder="—" onBlur={(e) => guardar(f, campo, e.target.value)} />;
     }
@@ -296,6 +439,45 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
           </div>
         )}
       </div>
+
+      {(paraPreguntar.length > 0 || paraEnviar.length > 0) && (
+        <div className="pv-avisos">
+          {paraPreguntar.length > 0 && (
+            <section className="pv-aviso-card pv-aviso-preguntar" role="alert">
+              <header><span aria-hidden="true">🔔</span><strong>Preguntales si abonaron ({paraPreguntar.length})</strong></header>
+              <ul>
+                {paraPreguntar.map((f) => {
+                  const v = vigenciaCorta(f);
+                  return (
+                    <li key={f.id}>
+                      <div className="pv-aviso-texto">
+                        <b>{f.nombre || 'Sin nombre'}</b>
+                        <span>El link de pago se mandó {hace(f.link_pago_enviado_at, ahora)}{f.telefono ? ` · ${f.telefono}` : ''}</span>
+                        <span className={`chip-vigencia ${v.clase}`}>{v.clase === 'futura' ? `Vigencia ${v.texto.toLowerCase()}: aviso de fin de mes` : 'Vigencia inmediata'}</span>
+                      </div>
+                      <div className="pv-aviso-botones">
+                        <button type="button" className="boton-primario" disabled={recordando === f.id} onClick={() => preguntarSiAbono(f)}>
+                          {recordando === f.id ? 'Enviando…' : f.chat ? 'Preguntar por WhatsApp' : 'Abrir WhatsApp'}
+                        </button>
+                        <button type="button" className="boton-secundario" onClick={() => yaPregunte(f)}>Ya le pregunté ✓</button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+          {paraEnviar.length > 0 && (
+            <section className="pv-aviso-card pv-aviso-enviar">
+              <header>
+                <span aria-hidden="true">🔗</span>
+                <strong>{paraEnviar.length === 1 ? '1 link de pago listo para enviar' : `${paraEnviar.length} links de pago listos para enviar`}</strong>
+                <button type="button" className="boton-secundario" onClick={() => { setSoloLinks(!soloLinks); setEstado(null); }}>{soloLinks ? 'Ver todas' : 'Ver cuáles'}</button>
+              </header>
+            </section>
+          )}
+        </div>
+      )}
 
       <section className="tarjeta pv-tarjeta">
         <div className="pv-barra-acciones">

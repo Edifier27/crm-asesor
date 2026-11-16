@@ -45,6 +45,9 @@ export default async function PaginaPlanilla({ searchParams }) {
   // Cápitas: cuántas personas se afilian en la venta (migración 0079)
   const { error: sinCapitas } = await supabase.from('ventas').select('capitas').limit(1);
   const conCapitas = !sinCapitas;
+  // Link de pago (migración 0081): el botón "Enviar link de pago" y el aviso de las 48 h
+  const { error: sinLink } = await supabase.from('ventas').select('link_pago').limit(1);
+  const conLinkPago = !sinLink;
 
   // Meses con ventas (para las pestañas) + el actual
   const campoMes = conMes ? 'mes' : 'fecha_venta';
@@ -105,7 +108,7 @@ export default async function PaginaPlanilla({ searchParams }) {
           <Link key={m} href={`/ventas/planilla?mes=${m}`} className={`chip-filtro${m === mes ? ' activo' : ''}`}>{nombreMes(`${m}-01`)}</Link>
         ))}
       </nav>
-      <PlanillaVentas key={mes} mes={mes} conMes={conMes} conInclusion={conInclusion} conTelefono={conTelefono} conCapitas={conCapitas} opcionesMes={opcionesMes.map((m) => ({ valor: m, rotulo: nombreMes(`${m}-01`) }))}
+      <PlanillaVentas key={mes} mes={mes} conMes={conMes} conInclusion={conInclusion} conTelefono={conTelefono} conCapitas={conCapitas} conLinkPago={conLinkPago} opcionesMes={opcionesMes.map((m) => ({ valor: m, rotulo: nombreMes(`${m}-01`) }))}
         inicial={(filas ?? []).map((f) => ({ ...f, chat: chatDe[f.contacto_id] ?? null }))} />
     </div>
   );

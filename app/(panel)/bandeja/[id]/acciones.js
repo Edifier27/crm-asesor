@@ -329,7 +329,7 @@ export async function enviarLinkPago(conversacionId, { dni, precarga, linkAlta }
   const nombre = conv.contacto.nombre?.trim().split(/\s+/)[0] ?? null;
   try {
     if (ventana(conv.ventana_expira_at).abierta) {
-      await enviarMensaje({ conversacionId, tipo: 'texto', texto: autogestion ? mensajeAltaOnline(nombre, link) : mensajeCobro(nombre, link, 1), autor: 'asesor', perfilId: user.id });
+      await enviarMensaje({ conversacionId, tipo: 'texto', texto: autogestion && !/\/bienvenida\/?$/i.test(autogestion) ? mensajeAltaOnline(nombre, link) : mensajeCobro(nombre, link, 1), autor: 'asesor', perfilId: user.id });
     } else {
       // La plantilla del link de pago es la de la cuenta de WhatsApp del chat (cada asesor elige la suya)
       const config = await configDe(admin, conv.cuenta, 'plantillas_uso');

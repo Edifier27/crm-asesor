@@ -5,6 +5,7 @@ import { enviarMensaje } from '@/lib/whatsapp/enviar';
 import { ventana } from '@/lib/formato';
 import { enviarLinkPago } from '../../bandeja/[id]/acciones';
 import { cargaDeLaVenta } from '@/lib/planilla';
+import { mensajeCobro } from '@/lib/venta';
 
 const mesLargo = (iso) => new Date(`${String(iso).slice(0, 7)}-01T12:00:00Z`).toLocaleDateString('es-AR', { month: 'long', timeZone: 'UTC' });
 
@@ -63,4 +64,48 @@ export async function recalcularCargaBU(ventaId) {
   const { error } = await supabase.from('ventas').update({ carga_bu: valor, actualizado_at: new Date().toISOString() }).eq('id', v.id);
   if (error) return { error: error.message };
   return { carga_bu: valor };
+}
+
+/**
+ * Botón "Enviar link de pago" de la planilla (Darío, 16-nov-2026). El link salió del mail de Swiss "Pago de primera cuota".
+ * Con chat en el CRM se lo manda por WhatsApp (texto con la ventana abierta, plantilla del link de pago si está cerrada) y
+ * la fila queda como enviada. Sin chat (venta cargada a mano) devuelve el texto para abrirlo en WhatsApp y que el cliente
+ * lo reciba desde tu número; ahí la fila se marca con marcarLinkEnviado.
+ */
+export async function enviarLinkDePago(ventaId) {
+  const supabase = await createClient();
+  const user = await usuarioActual(supabase);
+  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  const { data: v } = await supabase.from('ventas').select('id, nombre, contacto_id, link_pago').eq('id', ventaId).maybeSingle();
+  if (!v) return { error: 'No encuentro la venta.' };
+  if (!v.link_pago) return { error: 'Esta venta todavía no tiene el link de pago (llega por mail de Swiss).' };
+  const nombre = v.nombre?.trim().split(/\s+/)[0] ?? null;
+  const conv = v.contacto_id
+    ? (await supabase.from('conversaciones').select('id').eq('contacto_id', v.contacto_id).order('ultimo_mensaje_at', { ascending: false }).limit(1).maybeSingle()).data
+    : null;
+  if (!conv) return { manual: true, texto: mensajeCobro(nombre, v.link_pago, 1) };
+  const r = await enviarLinkPago(conv.id, { linkAlta: v.link_pago });
+  if (r.error) return { error: r.error };
+  await supabase.from('ventas').update({ link_pago_enviado_at: new Date().toISOString(), link_pago_aviso_at: null, actualizado_at: new Date().toISOString() }).eq('id', v.id);
+  return { ok: true, como: 'crm' };
+}
+
+/** Marca (o desmarca) el link de pago como enviado: para las ventas sin chat, o para corregir un error. */
+export async function marcarLinkEnviado(ventaId, enviado = true) {
+  const supabase = await createClient();
+  const user = await usuarioActual(supabase);
+  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  const ahora = new Date().toISOString();
+  const { error } = await supabase.from('ventas').update({ link_pago_enviado_at: enviado ? ahora : null, link_pago_aviso_at: null, actualizado_at: ahora }).eq('id', ventaId);
+  return error ? { error: error.message } : { ok: true, enviado_at: enviado ? ahora : null };
+}
+
+/** "Ya le pregunté": el aviso de las 48 h deja de aparecer para esta venta. */
+export async function avisoHecho(ventaId) {
+  const supabase = await createClient();
+  const user = await usuarioActual(supabase);
+  if (!user) return { error: 'Tu sesión expiró. Volvé a ingresar.' };
+  const ahora = new Date().toISOString();
+  const { error } = await supabase.from('ventas').update({ link_pago_aviso_at: ahora, actualizado_at: ahora }).eq('id', ventaId);
+  return error ? { error: error.message } : { ok: true, aviso_at: ahora };
 }
