@@ -6,6 +6,9 @@ import PlanillaVentas from './PlanillaVentas';
 
 export const metadata = { title: 'Planilla de ventas' };
 
+// Formulario de Microsoft donde se informa cada venta (boca de urna): a mano en la planilla (Darío, 16-nov-2026)
+const FORMULARIO_CARGA = 'https://forms.office.com/r/76aUFDmHfJ';
+
 // Mes actual en Argentina, como 'AAAA-MM'
 const mesDeHoy = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit' }).format(new Date());
 const siguiente = (mes) => { const [a, m] = mes.split('-').map(Number); return m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, '0')}`; };
@@ -65,7 +68,10 @@ export default async function PaginaPlanilla({ searchParams }) {
     <div className="pagina pagina-planilla">
       <div className="tablero-cabecera">
         <h1>Planilla de ventas</h1>
-        <Link href="/ventas" className="boton-secundario">Tablero semanal</Link>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <a href={FORMULARIO_CARGA} target="_blank" rel="noopener noreferrer" className="boton-primario">Cargar venta (formulario) ↗</a>
+          <Link href="/ventas" className="boton-secundario">Tablero semanal</Link>
+        </div>
       </div>
       <nav className="pp-atajos" aria-label="Mes de producción">
         {meses.map((m) => (
