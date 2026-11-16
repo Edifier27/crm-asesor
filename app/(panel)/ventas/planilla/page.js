@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { cargaDeLaVenta } from '@/lib/planilla';
+import { miembrosDesdeRelevamiento } from '@/lib/cotizador';
 import { nombreMes, telefonoLindo } from '@/lib/formato';
 import PlanillaVentas from './PlanillaVentas';
 
@@ -41,6 +42,9 @@ export default async function PaginaPlanilla({ searchParams }) {
   // Teléfono del cliente (migración 0078): sin la columna no se muestra
   const { error: sinTelefono } = await supabase.from('ventas').select('telefono').limit(1);
   const conTelefono = !sinTelefono;
+  // Cápitas: cuántas personas se afilian en la venta (migración 0079)
+  const { error: sinCapitas } = await supabase.from('ventas').select('capitas').limit(1);
+  const conCapitas = !sinCapitas;
 
   // Meses con ventas (para las pestañas) + el actual
   const campoMes = conMes ? 'mes' : 'fecha_venta';
@@ -69,6 +73,16 @@ export default async function PaginaPlanilla({ searchParams }) {
       await supabase.from('ventas').update({ telefono: tel }).eq('id', f.id);
     }
   }
+  // Las ventas del CRM toman las cápitas del grupo relevado en el lead (después se pueden corregir a mano)
+  if (conCapitas) {
+    for (const f of conContacto) {
+      if (f.capitas != null) continue;
+      const n = miembrosDesdeRelevamiento((contactos ?? []).find((c) => c.id === f.contacto_id)?.relevamiento?.integrantes ?? []).length;
+      if (!n) continue;
+      f.capitas = n;
+      await supabase.from('ventas').update({ capitas: n }).eq('id', f.id);
+    }
+  }
   for (const f of conContacto) {
     if (f.carga_bu !== null) continue;
     const valor = cargaDeLaVenta(lista, (contactos ?? []).find((c) => c.id === f.contacto_id), f);
@@ -91,7 +105,7 @@ export default async function PaginaPlanilla({ searchParams }) {
           <Link key={m} href={`/ventas/planilla?mes=${m}`} className={`chip-filtro${m === mes ? ' activo' : ''}`}>{nombreMes(`${m}-01`)}</Link>
         ))}
       </nav>
-      <PlanillaVentas key={mes} mes={mes} conMes={conMes} conInclusion={conInclusion} conTelefono={conTelefono} opcionesMes={opcionesMes.map((m) => ({ valor: m, rotulo: nombreMes(`${m}-01`) }))}
+      <PlanillaVentas key={mes} mes={mes} conMes={conMes} conInclusion={conInclusion} conTelefono={conTelefono} conCapitas={conCapitas} opcionesMes={opcionesMes.map((m) => ({ valor: m, rotulo: nombreMes(`${m}-01`) }))}
         inicial={(filas ?? []).map((f) => ({ ...f, chat: chatDe[f.contacto_id] ?? null }))} />
     </div>
   );

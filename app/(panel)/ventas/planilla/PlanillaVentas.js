@@ -39,7 +39,7 @@ function vigenciaDe(f) {
 const hoyAR = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date());
 const csv = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
-export default function PlanillaVentas({ mes, conMes = false, conInclusion = false, conTelefono = false, opcionesMes = [], inicial }) {
+export default function PlanillaVentas({ mes, conMes = false, conInclusion = false, conTelefono = false, conCapitas = false, opcionesMes = [], inicial }) {
   // Primera columna: el mes de producción (se completa solo con el de la venta; se cambia a mano, ej. a octubre)
   // Y, con la misma migración (0076), el origen del dato después del nombre
   const base = conMes
@@ -47,7 +47,10 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
     : COLUMNAS;
   // El teléfono va al lado del nombre (Darío, 16-nov-2026; migración 0078)
   const iNombre = base.findIndex(([c]) => c === 'nombre') + 1;
-  const columnas = conTelefono ? [...base.slice(0, iNombre), ['telefono', 'Teléfono', 'tel'], ...base.slice(iNombre)] : base;
+  const conTel = conTelefono ? [...base.slice(0, iNombre), ['telefono', 'Teléfono', 'tel'], ...base.slice(iNombre)] : base;
+  // Cápitas (personas que se afilian) después del plan (Darío, 16-nov-2026; migración 0079)
+  const iPlan = conTel.findIndex(([c]) => c === 'plan') + 1;
+  const columnas = conCapitas ? [...conTel.slice(0, iPlan), ['capitas', 'Cápitas', 'cant'], ...conTel.slice(iPlan)] : conTel;
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const [filas, setFilas] = useState(inicial);
@@ -70,6 +73,7 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
   const activas = filas.filter((f) => f.estado !== 'baja');
   const bajas = filas.length - activas.length;
   const carga = (l) => l.reduce((s, f) => s + (Number(f.carga_bu) || 0), 0);
+  const capitas = (l) => l.reduce((s, f) => s + (Number(f.capitas) || 0), 0);
   const impactadas = activas.filter((f) => f.estado === 'impactada');
   const enCobro = activas.filter((f) => f.estado === 'falta_de_cobro');
   // Reparto por origen de las ventas activas, de mayor a menor
@@ -85,7 +89,7 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
     const [a, b] = [x[orden.campo], y[orden.campo]];
     if (a == null || a === '') return 1;
     if (b == null || b === '') return -1;
-    const d = orden.campo === 'carga_bu' ? Number(a) - Number(b) : String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
+    const d = ['carga_bu', 'capitas'].includes(orden.campo) ? Number(a) - Number(b) : String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
     return orden.baja ? -d : d;
   }) : filtradas;
   const hayFiltro = Boolean(estado || origen || texto);
@@ -114,7 +118,7 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
   }
 
   async function guardar(fila, campo, valor) {
-    const limpio = typeof valor === 'boolean' ? valor : valor === '' ? null : ['carga_bu', 'valor_inclusion'].includes(campo) ? Number(String(valor).replace(/\D/g, '')) || null : valor;
+    const limpio = typeof valor === 'boolean' ? valor : valor === '' ? null : ['carga_bu', 'valor_inclusion', 'capitas'].includes(campo) ? Number(String(valor).replace(/\D/g, '')) || null : valor;
     if ((fila[campo] ?? null) === limpio) return;
     const antes = fila[campo];
     setFilas((l) => l.map((f) => (f.id === fila.id ? { ...f, [campo]: limpio } : f)));
@@ -153,6 +157,7 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
       carga_bu: plata(d.carga_bu), tipo: d.tipo || 'directo', estado: d.estado || 'falta_de_cobro', vigencia: d.vigencia || null, notas: txt(d.notas),
       ...(conMes ? { mes: `${mes}-01`, ...(conOrigen ? { origen: conOrigen } : {}), ...(nueva.onboarding ? { onboarding: true } : {}) } : {}),
       ...(conTelefono && txt(d.telefono) ? { telefono: txt(d.telefono) } : {}),
+      ...(conCapitas && plata(d.capitas) ? { capitas: plata(d.capitas) } : {}),
       ...(conInclusion && conOrigen === INCLUSION ? { titular: txt(d.titular), incluido: txt(d.incluido), valor_inclusion: plata(d.valor_inclusion) } : {}),
       editada_a_mano: true
     }).select().single();
@@ -236,6 +241,9 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
       return <input {...comun} key={`bu-${f.id}-${f.carga_bu ?? ''}`} inputMode="numeric" defaultValue={f.carga_bu ? Number(f.carga_bu).toLocaleString('es-AR') : ''} placeholder="—"
         onBlur={(e) => guardar(f, campo, e.target.value)} />;
     }
+    if (tipo === 'cant') {
+      return <input {...comun} inputMode="numeric" defaultValue={f.capitas ?? ''} placeholder="—" onBlur={(e) => guardar(f, campo, e.target.value)} />;
+    }
     return <input {...comun} type={tipo === 'date' ? 'date' : tipo === 'tel' ? 'tel' : 'text'} inputMode={tipo === 'num' ? 'numeric' : undefined}
       defaultValue={f[campo] ?? ''} placeholder="—" onBlur={(e) => guardar(f, campo, tipo === 'num' ? e.target.value.replace(/\D/g, '') : e.target.value.trim())} />;
   };
@@ -254,7 +262,7 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
         <div className="pv-cifra pv-principal">
           <span className="pv-rotulo">Carga BU del mes</span>
           <strong>{pesos(carga(activas))}</strong>
-          <small>{activas.length} {activas.length === 1 ? 'venta' : 'ventas'}{activas.length ? ` · promedio ${pesos(Math.round(carga(activas) / activas.length))}` : ''}</small>
+          <small>{activas.length} {activas.length === 1 ? 'venta' : 'ventas'}{conCapitas ? ` · ${capitas(activas)} ${capitas(activas) === 1 ? 'cápita' : 'cápitas'}` : ''}{activas.length ? ` · promedio ${pesos(Math.round(carga(activas) / activas.length))}` : ''}</small>
         </div>
         {cifra('impactada', 'Impactadas', impactadas.length, `${pct(impactadas.length, activas.length)}% de las ventas · ${pesos(carga(impactadas))}`,
           <span className="pv-barra" aria-hidden="true"><i style={{ width: `${pct(impactadas.length, activas.length)}%` }} /></span>)}
@@ -360,7 +368,7 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
               <tfoot><tr>
                 <td className="col-n" />
                 {columnas.map(([c]) => (
-                  <td key={c} className={`col-${c}`}>{c === 'nombre' ? `${visibles.length} ${visibles.length === 1 ? 'venta' : 'ventas'}` : c === 'carga_bu' ? pesos(carga(visibles)) : ''}</td>
+                  <td key={c} className={`col-${c}`}>{c === 'nombre' ? `${visibles.length} ${visibles.length === 1 ? 'venta' : 'ventas'}` : c === 'carga_bu' ? pesos(carga(visibles)) : c === 'capitas' ? capitas(visibles) : ''}</td>
                 ))}
                 <td />
               </tr></tfoot>
@@ -391,6 +399,7 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
               <label className="campo"><span>Plan</span><input name="plan" placeholder="Ej.: SMG02" autoComplete="off" /></label>
               <label className="campo"><span>Carga BU $</span><input name="carga_bu" inputMode="numeric" autoComplete="off" /></label>
             </div>
+            {conCapitas && <label className="campo"><span>Cápitas (personas que se afilian)</span><input name="capitas" type="number" min="1" max="20" inputMode="numeric" defaultValue="1" /></label>}
             <div className="campos-dobles">
               <label className="campo"><span>Tipo</span>
                 <select name="tipo" defaultValue="directo">{Object.entries(TIPOS).map(([k, r]) => <option key={k} value={k}>{r}</option>)}</select></label>
