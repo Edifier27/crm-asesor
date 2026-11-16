@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { cargaDeLaVenta } from '@/lib/planilla';
-import { nombreMes } from '@/lib/formato';
+import { nombreMes, telefonoLindo } from '@/lib/formato';
 import PlanillaVentas from './PlanillaVentas';
 
 export const metadata = { title: 'Planilla de ventas' };
@@ -38,6 +38,9 @@ export default async function PaginaPlanilla({ searchParams }) {
   // Inclusiones (migración 0077): titular, persona a incluir y valor; sin las columnas no se ofrecen
   const { error: sinInclusion } = await supabase.from('ventas').select('titular, incluido, valor_inclusion').limit(1);
   const conInclusion = conMes && !sinInclusion;
+  // Teléfono del cliente (migración 0078): sin la columna no se muestra
+  const { error: sinTelefono } = await supabase.from('ventas').select('telefono').limit(1);
+  const conTelefono = !sinTelefono;
 
   // Meses con ventas (para las pestañas) + el actual
   const campoMes = conMes ? 'mes' : 'fecha_venta';
@@ -51,11 +54,21 @@ export default async function PaginaPlanilla({ searchParams }) {
   const conContacto = (filas ?? []).filter((f) => f.contacto_id);
   const ids = conContacto.map((f) => f.contacto_id);
   const [{ data: contactos }, { data: convs }, { data: lista }] = ids.length ? await Promise.all([
-    supabase.from('contactos').select('id, zona, relevamiento, cotizacion').in('id', ids),
+    supabase.from('contactos').select('id, telefono, zona, relevamiento, cotizacion').in('id', ids),
     supabase.from('conversaciones').select('id, contacto_id').in('contacto_id', ids),
     supabase.from('listas_precios').select('precios, tope_aportes, aumento').eq('activa', true).maybeSingle()
   ]) : [{ data: [] }, { data: [] }, { data: null }];
   const chatDe = Object.fromEntries((convs ?? []).map((c) => [c.contacto_id, c.id]));
+  // Las ventas del CRM toman el teléfono del lead la primera vez que aparecen (después se puede corregir a mano)
+  if (conTelefono) {
+    for (const f of conContacto) {
+      if (f.telefono) continue;
+      const tel = telefonoLindo((contactos ?? []).find((c) => c.id === f.contacto_id)?.telefono);
+      if (!tel) continue;
+      f.telefono = tel;
+      await supabase.from('ventas').update({ telefono: tel }).eq('id', f.id);
+    }
+  }
   for (const f of conContacto) {
     if (f.carga_bu !== null) continue;
     const valor = cargaDeLaVenta(lista, (contactos ?? []).find((c) => c.id === f.contacto_id), f);
@@ -78,7 +91,7 @@ export default async function PaginaPlanilla({ searchParams }) {
           <Link key={m} href={`/ventas/planilla?mes=${m}`} className={`chip-filtro${m === mes ? ' activo' : ''}`}>{nombreMes(`${m}-01`)}</Link>
         ))}
       </nav>
-      <PlanillaVentas key={mes} mes={mes} conMes={conMes} conInclusion={conInclusion} opcionesMes={opcionesMes.map((m) => ({ valor: m, rotulo: nombreMes(`${m}-01`) }))}
+      <PlanillaVentas key={mes} mes={mes} conMes={conMes} conInclusion={conInclusion} conTelefono={conTelefono} opcionesMes={opcionesMes.map((m) => ({ valor: m, rotulo: nombreMes(`${m}-01`) }))}
         inicial={(filas ?? []).map((f) => ({ ...f, chat: chatDe[f.contacto_id] ?? null }))} />
     </div>
   );
