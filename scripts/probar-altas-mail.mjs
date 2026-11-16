@@ -31,6 +31,14 @@ ver('por nombre con tilde', por(ventaDelAlta(ventas, { solicitud: '1', dni: '2',
 ver('un solo nombre en la planilla no alcanza', por(ventaDelAlta(ventas, { solicitud: '1', dni: '2', nombre: 'GOMEZ, CARLA' })), 'sin_coincidencia');
 ver('mismo nombre con otro DNI cargado no es', por(ventaDelAlta(ventas, { solicitud: '1', dni: '39999999', nombre: 'PRUEBA, BRUNO' })), 'sin_coincidencia');
 ver('dos ventas con el mismo nombre: a mano', por(ventaDelAlta([...ventas, V('e', ['Ana Ejemplo'])], alta)), 'nombre_repetido');
+// DNI y nombre de los documentos que el cliente mandó al chat (la planilla tiene solo "Rocio")
+const conDocs = [V('x', ['Rocio'], null, null), V('y', ['Rocio'], null, null)];
+conDocs[0].dnis = ['30.000.111']; conDocs[0].nombres.push('ROCIO BELEN EJEMPLO');
+conDocs[1].dnis = ['30000222'];
+ver('por el DNI del documento del chat', por(ventaDelAlta(conDocs, { solicitud: '1', dni: '30000111', nombre: 'EJEMPLO, ROCIO BELEN' })), 'x/dni');
+ver('mismo nombre del documento pero otro DNI: no es', por(ventaDelAlta([conDocs[0]], { solicitud: '1', dni: '30000999', nombre: 'EJEMPLO, ROCIO BELEN' })), 'sin_coincidencia');
+const soloNombre = V('z', ['Rocio']); soloNombre.nombres.push('ROCIO BELEN EJEMPLO');
+ver('por el nombre completo del documento del chat', por(ventaDelAlta([soloNombre], { solicitud: '1', dni: '30000555', nombre: 'EJEMPLO, ROCIO BELEN' })), 'z/nombre');
 ver('nadie', por(ventaDelAlta(ventas, { solicitud: '1', dni: '2', nombre: 'NADIE, CONOCIDO' })), 'sin_coincidencia');
 
 console.log(fallas ? `\n${fallas} casos fallaron` : '\nTodos los casos dan lo esperado');
