@@ -53,7 +53,9 @@ console.table(CASOS.map(([texto, bloquear]) => {
 // Planes por zona (chat de Milagros, La Plata: le ofreció el S2 siendo AMBA)
 const ZONAS = [
   ['para vos te recomiendo el S2. sin autorizaciones', 'AMBA', true],
-  ['te paso el SMG20 que no tiene copago', 'AMBA', true],
+  // El SMG20 también se vende en AMBA y es otro plan (Claudio, Castelar, 16-nov-2026)
+  ['te paso el SMG20 que no tiene copago', 'AMBA', false],
+  ['te pasé el SMG02; si querés te paso también el SMG20, que es el plan que le sigue', 'AMBA', false],
   ['te recomiendo el SMG02, sin copago', 'AMBA', false],
   ['el S1 tiene un copago fijo de 14 mil', 'AMBA', false],
   ['el SMG02 es el que más eligen', 'CORDOBA', true],
