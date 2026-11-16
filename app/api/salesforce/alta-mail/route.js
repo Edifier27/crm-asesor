@@ -2,7 +2,8 @@
 // lib/salesforce.js): la venta pasa a Impactada en la planilla y el lead a Ganado.
 // Header `x-api-key` = clave personal del asesor (Mi perfil → Script de Salesforce).
 //   POST { asunto, texto }                              → el CRM lee el mail
-//   POST { solicitud, dni, nombre, asociado, vigencia } → los datos ya leídos
+//   POST { solicitud, dni, nombre, asociado, vigencia, fecha_alta, plan } → los datos ya leídos
+//   Si ninguna venta coincide, la crea ya impactada (con la carga BU vacía).
 //   POST { altas: [ … ] }                               → varios de una vez (hasta 50)
 //   → { resultados: [{ solicitud, encontrado, hizo, por, venta } | { solicitud, encontrado: false, motivo }] }
 import { createAdminClient } from '@/lib/supabase/admin';
