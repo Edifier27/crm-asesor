@@ -24,6 +24,7 @@ const ORIGENES = {
 };
 const INCLUSION = 'Inclusión';
 const SIN_ORIGEN = 'Sin origen';
+const soloNumeros = (v) => String(v ?? '').replace(/\D/g, '');
 const colorOrigen = (o) => ORIGENES[o] ?? '#64748B';
 const sinAcentos = (v) => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
@@ -38,12 +39,15 @@ function vigenciaDe(f) {
 const hoyAR = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date());
 const csv = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
-export default function PlanillaVentas({ mes, conMes = false, conInclusion = false, opcionesMes = [], inicial }) {
+export default function PlanillaVentas({ mes, conMes = false, conInclusion = false, conTelefono = false, opcionesMes = [], inicial }) {
   // Primera columna: el mes de producción (se completa solo con el de la venta; se cambia a mano, ej. a octubre)
   // Y, con la misma migración (0076), el origen del dato después del nombre
-  const columnas = conMes
+  const base = conMes
     ? [['mes', 'Mes de producción', 'mes'], ...COLUMNAS.slice(0, 2), ['origen', 'Origen', 'origen'], ...COLUMNAS.slice(2)]
     : COLUMNAS;
+  // El teléfono va al lado del nombre (Darío, 16-nov-2026; migración 0078)
+  const iNombre = base.findIndex(([c]) => c === 'nombre') + 1;
+  const columnas = conTelefono ? [...base.slice(0, iNombre), ['telefono', 'Teléfono', 'tel'], ...base.slice(iNombre)] : base;
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const [filas, setFilas] = useState(inicial);
@@ -73,7 +77,8 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
     .map(([nombre, lista]) => ({ nombre, cantidad: lista.length, carga: carga(lista) })).sort((x, y) => y.cantidad - x.cantidad);
 
   const texto = sinAcentos(busca.trim());
-  const coincide = (f) => !texto || ['nombre', 'dni', 'precarga', 'plan', 'notas', 'titular', 'incluido'].some((c) => sinAcentos(f[c]).includes(texto));
+  const coincide = (f) => !texto || (['nombre', 'dni', 'precarga', 'plan', 'notas', 'titular', 'incluido'].some((c) => sinAcentos(f[c]).includes(texto))
+    || (soloNumeros(texto).length >= 4 && soloNumeros(f.telefono).includes(soloNumeros(texto))));
   // Las bajas solo se ven en su pestaña
   const filtradas = filas.filter((f) => (estado ? f.estado === estado : f.estado !== 'baja') && (!origen || (f.origen || SIN_ORIGEN) === origen) && coincide(f));
   const visibles = orden ? [...filtradas].sort((x, y) => {
@@ -147,6 +152,7 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
       fecha_venta: d.fecha_venta || nueva.fecha, nombre: txt(d.nombre), dni: num(d.dni), precarga: num(d.precarga), plan: txt(d.plan)?.toUpperCase() ?? null,
       carga_bu: plata(d.carga_bu), tipo: d.tipo || 'directo', estado: d.estado || 'falta_de_cobro', vigencia: d.vigencia || null, notas: txt(d.notas),
       ...(conMes ? { mes: `${mes}-01`, ...(conOrigen ? { origen: conOrigen } : {}), ...(nueva.onboarding ? { onboarding: true } : {}) } : {}),
+      ...(conTelefono && txt(d.telefono) ? { telefono: txt(d.telefono) } : {}),
       ...(conInclusion && conOrigen === INCLUSION ? { titular: txt(d.titular), incluido: txt(d.incluido), valor_inclusion: plata(d.valor_inclusion) } : {}),
       editada_a_mano: true
     }).select().single();
@@ -230,7 +236,7 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
       return <input {...comun} key={`bu-${f.id}-${f.carga_bu ?? ''}`} inputMode="numeric" defaultValue={f.carga_bu ? Number(f.carga_bu).toLocaleString('es-AR') : ''} placeholder="—"
         onBlur={(e) => guardar(f, campo, e.target.value)} />;
     }
-    return <input {...comun} type={tipo === 'date' ? 'date' : 'text'} inputMode={tipo === 'num' ? 'numeric' : undefined}
+    return <input {...comun} type={tipo === 'date' ? 'date' : tipo === 'tel' ? 'tel' : 'text'} inputMode={tipo === 'num' ? 'numeric' : undefined}
       defaultValue={f[campo] ?? ''} placeholder="—" onBlur={(e) => guardar(f, campo, tipo === 'num' ? e.target.value.replace(/\D/g, '') : e.target.value.trim())} />;
   };
 
@@ -280,7 +286,7 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
         <div className="pv-barra-acciones">
           <label className="pv-buscador">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-            <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nombre, DNI, precarga o plan" aria-label="Buscar en la planilla" />
+            <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={conTelefono ? 'Buscar por nombre, teléfono, DNI o plan' : 'Buscar por nombre, DNI, precarga o plan'} aria-label="Buscar en la planilla" />
           </label>
           <div className="pv-pestanias" role="group" aria-label="Filtrar por estado">
             {[[null, 'Todas', activas.length], ['impactada', 'Impactadas', impactadas.length], ['falta_de_cobro', 'Falta de cobro', enCobro.length], ...(bajas ? [['baja', 'Bajas', bajas]] : [])].map(([k, r, n]) => (
@@ -376,6 +382,7 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
               <button type="button" className="boton-icono" aria-label="Cerrar" onClick={cerrarCarga}>×</button>
             </div>
             <label className="campo"><span>Nombre y apellido</span><input name="nombre" required autoFocus autoComplete="off" /></label>
+            {conTelefono && <label className="campo"><span>Teléfono</span><input name="telefono" type="tel" inputMode="tel" placeholder="Ej.: 11 4165-9833" autoComplete="off" /></label>}
             <div className="campos-dobles">
               <label className="campo"><span>DNI</span><input name="dni" inputMode="numeric" autoComplete="off" /></label>
               <label className="campo"><span>N° de precarga</span><input name="precarga" inputMode="numeric" autoComplete="off" /></label>
