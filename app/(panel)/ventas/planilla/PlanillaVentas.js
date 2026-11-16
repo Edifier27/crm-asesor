@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -23,7 +23,9 @@ const ORIGENES = {
   SGC: '#B45309', Salesforce: '#0176D3', PrepagaYa: '#0E7490', Referido: '#15803D', Afinidad: '#DB2777', 'Inclusión': '#7C3AED'
 };
 const INCLUSION = 'Inclusión';
+const SIN_ORIGEN = 'Sin origen';
 const colorOrigen = (o) => ORIGENES[o] ?? '#64748B';
+const sinAcentos = (v) => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 // Vigencia de una venta: inmediata (mismo mes de la venta) o del mes que viene ("Vigencia diciembre")
 function vigenciaDe(f) {
@@ -45,32 +47,46 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const [filas, setFilas] = useState(inicial);
-  const [verBajas, setVerBajas] = useState(false);
   const [aviso, setAviso] = useState('');
   const [borrando, setBorrando] = useState(null);
-  // Filtro de las tarjetas de arriba: estado ('impactada', 'falta_de_cobro') u origen ('o:PrepagaYa', 'o:Salesforce')
-  const [filtro, setFiltro] = useState(null);
+  // Filtros combinables: por estado (las tarjetas y las pestañas), por origen (la barra de orígenes) y por texto
+  const [estado, setEstado] = useState(null);
+  const [origen, setOrigen] = useState(null);
+  const [busca, setBusca] = useState('');
+  const [orden, setOrden] = useState(null); // { campo, baja } o null = como se cargaron (por fecha)
   const [recordando, setRecordando] = useState(null);
+  const [reciente, setReciente] = useState(null);
+  // Pop-up de "Cargar venta" (Darío, 16-nov-2026): se completa ahí y recién al guardar entra a la planilla
+  const dialogo = useRef(null);
+  const [nueva, setNueva] = useState(null);
+  const [guardandoNueva, setGuardandoNueva] = useState(false);
+  const [errorNueva, setErrorNueva] = useState('');
 
   const avisar = (t) => { setAviso(t); setTimeout(() => setAviso(''), 2500); };
-  const pasaFiltro = (f) => !filtro || (filtro.startsWith('o:') ? f.origen === filtro.slice(2) : f.estado === filtro);
-  const visibles = filas.filter((f) => (verBajas || f.estado !== 'baja') && pasaFiltro(f));
   const activas = filas.filter((f) => f.estado !== 'baja');
+  const bajas = filas.length - activas.length;
   const carga = (l) => l.reduce((s, f) => s + (Number(f.carga_bu) || 0), 0);
-  const deOrigen = (o) => activas.filter((f) => f.origen === o);
-  const totales = {
-    ventas: activas.length,
-    impactadas: activas.filter((f) => f.estado === 'impactada').length,
-    cobro: activas.filter((f) => f.estado === 'falta_de_cobro').length,
-    carga: carga(activas),
-    prepagaya: deOrigen('PrepagaYa'), salesforce: deOrigen('Salesforce')
-  };
-  const tarjeta = (clave, rotulo, valor, detalle) => (
-    <button type="button" className={`tarjeta tarjeta-filtro${filtro === clave ? ' activa' : ''}`} aria-pressed={filtro === clave}
-      onClick={() => setFiltro(filtro === clave ? null : clave)} title={filtro === clave ? 'Tocá para ver todas' : 'Tocá para filtrar'}>
-      <span>{rotulo}</span><strong>{valor}</strong>{detalle ? <small>{detalle}</small> : null}
-    </button>
-  );
+  const impactadas = activas.filter((f) => f.estado === 'impactada');
+  const enCobro = activas.filter((f) => f.estado === 'falta_de_cobro');
+  // Reparto por origen de las ventas activas, de mayor a menor
+  const porOrigen = Object.entries(activas.reduce((m, f) => { const o = f.origen || SIN_ORIGEN; (m[o] ??= []).push(f); return m; }, {}))
+    .map(([nombre, lista]) => ({ nombre, cantidad: lista.length, carga: carga(lista) })).sort((x, y) => y.cantidad - x.cantidad);
+
+  const texto = sinAcentos(busca.trim());
+  const coincide = (f) => !texto || ['nombre', 'dni', 'precarga', 'plan', 'notas', 'titular', 'incluido'].some((c) => sinAcentos(f[c]).includes(texto));
+  // Las bajas solo se ven en su pestaña
+  const filtradas = filas.filter((f) => (estado ? f.estado === estado : f.estado !== 'baja') && (!origen || (f.origen || SIN_ORIGEN) === origen) && coincide(f));
+  const visibles = orden ? [...filtradas].sort((x, y) => {
+    const [a, b] = [x[orden.campo], y[orden.campo]];
+    if (a == null || a === '') return 1;
+    if (b == null || b === '') return -1;
+    const d = orden.campo === 'carga_bu' ? Number(a) - Number(b) : String(a).localeCompare(String(b), 'es', { numeric: true, sensitivity: 'base' });
+    return orden.baja ? -d : d;
+  }) : filtradas;
+  const hayFiltro = Boolean(estado || origen || texto);
+  const limpiar = () => { setEstado(null); setOrigen(null); setBusca(''); };
+  // Tocar un título ordena: sube, baja y a la tercera vuelve al orden de carga
+  const ordenar = (campo) => setOrden((o) => (o?.campo !== campo ? { campo, baja: false } : o.baja ? null : { campo, baja: true }));
 
   async function recordar(f) {
     setRecordando(f.id);
@@ -111,13 +127,37 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
   }
 
   // onboarding: venta hecha en el otro sistema (OV larga); se ve en otro color
-  async function agregar(onboarding = false) {
-    const fecha = hoyAR().startsWith(mes) ? hoyAR() : `${mes}-01`;
+  function abrirCarga(onboarding = false) {
+    setErrorNueva('');
+    setNueva({ onboarding, origen: '', fecha: hoyAR().startsWith(mes) ? hoyAR() : `${mes}-01` });
+    dialogo.current?.showModal();
+  }
+  const cerrarCarga = () => { dialogo.current?.close(); setNueva(null); };
+
+  async function agregar(e) {
+    e.preventDefault();
+    const d = Object.fromEntries(new FormData(e.currentTarget));
+    const txt = (v) => String(v ?? '').trim() || null;
+    const num = (v) => String(v ?? '').replace(/\D/g, '') || null;
+    const plata = (v) => Number(num(v)) || null;
+    if (!txt(d.nombre)) return setErrorNueva('Falta el nombre y apellido.');
+    const conOrigen = conMes && txt(d.origen);
+    setGuardandoNueva(true); setErrorNueva('');
     const { data, error } = await supabase.from('ventas').insert({
-      fecha_venta: fecha, ...(conMes ? { mes: `${mes}-01`, ...(onboarding ? { onboarding: true } : {}) } : {}), tipo: 'directo', estado: 'falta_de_cobro', editada_a_mano: true
+      fecha_venta: d.fecha_venta || nueva.fecha, nombre: txt(d.nombre), dni: num(d.dni), precarga: num(d.precarga), plan: txt(d.plan)?.toUpperCase() ?? null,
+      carga_bu: plata(d.carga_bu), tipo: d.tipo || 'directo', estado: d.estado || 'falta_de_cobro', vigencia: d.vigencia || null, notas: txt(d.notas),
+      ...(conMes ? { mes: `${mes}-01`, ...(conOrigen ? { origen: conOrigen } : {}), ...(nueva.onboarding ? { onboarding: true } : {}) } : {}),
+      ...(conInclusion && conOrigen === INCLUSION ? { titular: txt(d.titular), incluido: txt(d.incluido), valor_inclusion: plata(d.valor_inclusion) } : {}),
+      editada_a_mano: true
     }).select().single();
-    if (error) return avisar(`No se pudo agregar: ${error.message}`);
+    setGuardandoNueva(false);
+    if (error) return setErrorNueva(`No se pudo agregar: ${error.message}`);
     setFilas((l) => [...l, { ...data, chat: null }]);
+    cerrarCarga();
+    // Que se vea la fila nueva aunque hubiera un filtro puesto
+    limpiar(); setOrden(null);
+    setReciente(data.id); setTimeout(() => setReciente(null), 2600);
+    avisar(`Venta de ${data.nombre} agregada`);
   }
 
   async function borrar(fila) {
@@ -194,34 +234,101 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
       defaultValue={f[campo] ?? ''} placeholder="—" onBlur={(e) => guardar(f, campo, tipo === 'num' ? e.target.value.replace(/\D/g, '') : e.target.value.trim())} />;
   };
 
+  const pct = (n, total) => (total ? Math.round((n / total) * 100) : 0);
+  const cifra = (clave, rotulo, valor, detalle, extra) => (
+    <button type="button" className={`pv-cifra pv-${clave}${estado === clave ? ' activa' : ''}`} aria-pressed={estado === clave}
+      onClick={() => setEstado(estado === clave ? null : clave)} title={estado === clave ? 'Tocá para ver todas' : 'Tocá para filtrar'}>
+      <span className="pv-rotulo">{rotulo}</span><strong>{valor}</strong><small>{detalle}</small>{extra}
+    </button>
+  );
+
   return (
     <>
-      <div className="tablero-cifras planilla-cifras">
-        {tarjeta(null, 'Ventas', totales.ventas, filtro ? 'Ver todas' : null)}
-        {tarjeta('impactada', 'Impactadas', totales.impactadas)}
-        {tarjeta('falta_de_cobro', 'Falta de cobro', totales.cobro)}
-        <div className="tarjeta"><span>Carga BU</span><strong>{pesos(totales.carga)}</strong></div>
-        {conMes && tarjeta('o:PrepagaYa', 'Vendido PrepagaYa', totales.prepagaya.length, `Carga BU ${pesos(carga(totales.prepagaya))}`)}
-        {conMes && tarjeta('o:Salesforce', 'Vendido Salesforce', totales.salesforce.length, `Carga BU ${pesos(carga(totales.salesforce))}`)}
+      <div className="pv-resumen">
+        <div className="pv-cifra pv-principal">
+          <span className="pv-rotulo">Carga BU del mes</span>
+          <strong>{pesos(carga(activas))}</strong>
+          <small>{activas.length} {activas.length === 1 ? 'venta' : 'ventas'}{activas.length ? ` · promedio ${pesos(Math.round(carga(activas) / activas.length))}` : ''}</small>
+        </div>
+        {cifra('impactada', 'Impactadas', impactadas.length, `${pct(impactadas.length, activas.length)}% de las ventas · ${pesos(carga(impactadas))}`,
+          <span className="pv-barra" aria-hidden="true"><i style={{ width: `${pct(impactadas.length, activas.length)}%` }} /></span>)}
+        {cifra('falta_de_cobro', 'Falta de cobro', enCobro.length, enCobro.length ? `${pesos(carga(enCobro))} por cobrar` : 'Nada pendiente')}
+        {conMes && (
+          <div className="pv-cifra pv-origenes">
+            <span className="pv-rotulo">Por origen</span>
+            {porOrigen.length ? (
+              <>
+                <span className="pv-reparto" aria-hidden="true">
+                  {porOrigen.map((o) => <i key={o.nombre} style={{ flexGrow: o.cantidad, background: colorOrigen(o.nombre), opacity: origen && origen !== o.nombre ? 0.25 : 1 }} />)}
+                </span>
+                <span className="pv-leyenda">
+                  {porOrigen.map((o) => (
+                    <button key={o.nombre} type="button" className={`pv-origen${origen === o.nombre ? ' activa' : ''}`} aria-pressed={origen === o.nombre}
+                      title={`${o.nombre}: ${o.cantidad} ${o.cantidad === 1 ? 'venta' : 'ventas'} · Carga BU ${pesos(o.carga)}. Tocá para filtrar`}
+                      onClick={() => setOrigen(origen === o.nombre ? null : o.nombre)}>
+                      <i style={{ background: colorOrigen(o.nombre) }} />{o.nombre} <b>{o.cantidad}</b><em>{pesos(o.carga)}</em>
+                    </button>
+                  ))}
+                </span>
+              </>
+            ) : <small>Todavía sin ventas</small>}
+          </div>
+        )}
       </div>
 
-      <section className="tarjeta">
-        <div className="planilla-acciones">
-          <button type="button" className="boton-primario" onClick={() => agregar(false)}>+ Cargar venta</button>
-          {conMes && <button type="button" className="boton-secundario boton-venta-ov" onClick={() => agregar(true)}>+ Venta por onboarding</button>}
-          <button type="button" className="boton-secundario" onClick={exportar} disabled={!visibles.length}>Descargar para Excel</button>
-          <label className="planilla-bajas"><input type="checkbox" checked={verBajas} onChange={(e) => setVerBajas(e.target.checked)} /> Ver bajas</label>
+      <section className="tarjeta pv-tarjeta">
+        <div className="pv-barra-acciones">
+          <label className="pv-buscador">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+            <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nombre, DNI, precarga o plan" aria-label="Buscar en la planilla" />
+          </label>
+          <div className="pv-pestanias" role="group" aria-label="Filtrar por estado">
+            {[[null, 'Todas', activas.length], ['impactada', 'Impactadas', impactadas.length], ['falta_de_cobro', 'Falta de cobro', enCobro.length], ...(bajas ? [['baja', 'Bajas', bajas]] : [])].map(([k, r, n]) => (
+              <button key={r} type="button" className={estado === k ? 'activa' : ''} aria-pressed={estado === k} onClick={() => setEstado(k)}>{r} <b>{n}</b></button>
+            ))}
+          </div>
+          <div className="pv-botones">
+            <button type="button" className="boton-secundario" onClick={exportar} disabled={!visibles.length}>Descargar Excel</button>
+            {conMes && <button type="button" className="boton-secundario boton-venta-ov" onClick={() => abrirCarga(true)}>+ Onboarding</button>}
+            <button type="button" className="boton-primario" onClick={() => abrirCarga(false)}>+ Cargar venta</button>
+          </div>
+        </div>
+        <div className="pv-estado" aria-live="polite">
+          <span>{hayFiltro ? `${visibles.length} de ${estado === 'baja' ? bajas : activas.length} ventas · Carga BU ${pesos(carga(visibles))}` : `${visibles.length} ${visibles.length === 1 ? 'venta' : 'ventas'}`}</span>
+          {hayFiltro && <button type="button" className="boton-link-texto" onClick={limpiar}>Quitar filtros</button>}
           {aviso && <span className="pp-aviso">{aviso}</span>}
         </div>
-        {visibles.length === 0 ? (
-          <p className="selector-detalle">Todavía no hay ventas este mes. Las del CRM aparecen solas cuando marcás "Venta hecha" o sale el link de alta; las demás cargalas con "+ Cargar venta".</p>
+        {filas.length === 0 ? (
+          <div className="pv-vacio">
+            <strong>Todavía no hay ventas este mes</strong>
+            <p>Las del CRM aparecen solas cuando marcás "Venta hecha" o sale el link de alta. Las demás las cargás vos.</p>
+            <button type="button" className="boton-primario" onClick={() => abrirCarga(false)}>+ Cargar venta</button>
+          </div>
+        ) : visibles.length === 0 ? (
+          <div className="pv-vacio">
+            <strong>Ninguna venta coincide</strong>
+            <p>Probá con otra búsqueda o quitá los filtros.</p>
+            <button type="button" className="boton-secundario" onClick={limpiar}>Quitar filtros</button>
+          </div>
         ) : (
-          <div className="tabla-scroll">
+          <div className="tabla-scroll pv-scroll">
             <table className="tabla planilla">
-              <thead><tr>{columnas.map(([c, t]) => <th key={c}>{t}</th>)}<th>Conversación</th></tr></thead>
+              <thead><tr>
+                <th className="col-n" aria-label="Número">#</th>
+                {columnas.map(([c, t]) => (
+                  <th key={c} className={`col-${c}`} aria-sort={orden?.campo === c ? (orden.baja ? 'descending' : 'ascending') : undefined}>
+                    <button type="button" className="pv-orden" onClick={() => ordenar(c)} title="Ordenar">
+                      {t}<span aria-hidden="true">{orden?.campo === c ? (orden.baja ? '↓' : '↑') : ''}</span>
+                    </button>
+                  </th>
+                ))}
+                <th>Conversación</th>
+              </tr></thead>
               <tbody>
-                {visibles.map((f) => (
-                  <tr key={f.id} className={[f.estado === 'baja' ? 'fila-baja' : '', f.onboarding ? 'fila-ov' : ''].join(' ').trim() || undefined}>
+                {visibles.map((f, i) => (
+                  <tr key={f.id} className={[f.estado === 'baja' ? 'fila-baja' : '', f.onboarding ? 'fila-ov' : '', reciente === f.id ? 'fila-nueva' : ''].join(' ').trim() || undefined}
+                    ref={reciente === f.id ? (el) => el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) : undefined}>
+                    <td className="col-n">{i + 1}</td>
                     {columnas.map((col) => <td key={col[0]} data-label={col[1]} className={`col-${col[0]}`}>{celda(f, col)}</td>)}
                     <td className="planilla-fila-acciones" data-label="Conversación">
                       {f.chat
@@ -244,6 +351,13 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
                   </tr>
                 ))}
               </tbody>
+              <tfoot><tr>
+                <td className="col-n" />
+                {columnas.map(([c]) => (
+                  <td key={c} className={`col-${c}`}>{c === 'nombre' ? `${visibles.length} ${visibles.length === 1 ? 'venta' : 'ventas'}` : c === 'carga_bu' ? pesos(carga(visibles)) : ''}</td>
+                ))}
+                <td />
+              </tr></tfoot>
             </table>
           </div>
         )}
@@ -253,6 +367,58 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
           del lead; si no tiene, cargala a mano.
         </p>
       </section>
+
+      <dialog ref={dialogo} className="dialogo dialogo-venta" aria-labelledby="titulo-cargar-venta" onClose={() => setNueva(null)}>
+        {nueva && (
+          <form onSubmit={agregar} className="form-audio">
+            <div className="selector-cabecera">
+              <h2 id="titulo-cargar-venta">{nueva.onboarding ? 'Cargar venta por onboarding' : 'Cargar venta'}</h2>
+              <button type="button" className="boton-icono" aria-label="Cerrar" onClick={cerrarCarga}>×</button>
+            </div>
+            <label className="campo"><span>Nombre y apellido</span><input name="nombre" required autoFocus autoComplete="off" /></label>
+            <div className="campos-dobles">
+              <label className="campo"><span>DNI</span><input name="dni" inputMode="numeric" autoComplete="off" /></label>
+              <label className="campo"><span>N° de precarga</span><input name="precarga" inputMode="numeric" autoComplete="off" /></label>
+            </div>
+            <div className="campos-dobles">
+              <label className="campo"><span>Plan</span><input name="plan" placeholder="Ej.: SMG02" autoComplete="off" /></label>
+              <label className="campo"><span>Carga BU $</span><input name="carga_bu" inputMode="numeric" autoComplete="off" /></label>
+            </div>
+            <div className="campos-dobles">
+              <label className="campo"><span>Tipo</span>
+                <select name="tipo" defaultValue="directo">{Object.entries(TIPOS).map(([k, r]) => <option key={k} value={k}>{r}</option>)}</select></label>
+              <label className="campo"><span>Estado</span>
+                <select name="estado" defaultValue="falta_de_cobro">{Object.entries(ESTADOS).filter(([k]) => k !== 'baja').map(([k, r]) => <option key={k} value={k}>{r}</option>)}</select></label>
+            </div>
+            <div className="campos-dobles">
+              <label className="campo"><span>Fecha de la venta</span><input name="fecha_venta" type="date" defaultValue={nueva.fecha} required /></label>
+              <label className="campo"><span>Vigencia</span><input name="vigencia" type="date" /></label>
+            </div>
+            {conMes && (
+              <label className="campo"><span>Origen</span>
+                <select name="origen" value={nueva.origen} onChange={(e) => setNueva((n) => ({ ...n, origen: e.target.value }))}>
+                  <option value="">Sin origen</option>
+                  {Object.keys(ORIGENES).filter((o) => o !== INCLUSION || conInclusion).map((o) => <option key={o} value={o}>{o}</option>)}
+                </select></label>
+            )}
+            {conInclusion && nueva.origen === INCLUSION && (
+              <>
+                <label className="campo"><span>Titular (nombre y apellido)</span><input name="titular" autoComplete="off" /></label>
+                <div className="campos-dobles">
+                  <label className="campo"><span>Persona a incluir</span><input name="incluido" autoComplete="off" /></label>
+                  <label className="campo"><span>Valor de la inclusión $</span><input name="valor_inclusion" inputMode="numeric" autoComplete="off" /></label>
+                </div>
+              </>
+            )}
+            <label className="campo"><span>Notas (opcional)</span><input name="notas" autoComplete="off" /></label>
+            {errorNueva && <p className="aviso-error" role="alert">{errorNueva}</p>}
+            <div className="dialogo-botones">
+              <button type="button" className="boton-secundario" onClick={cerrarCarga}>Cancelar</button>
+              <button type="submit" className="boton-primario" disabled={guardandoNueva}>{guardandoNueva ? 'Guardando…' : 'Agregar a la planilla'}</button>
+            </div>
+          </form>
+        )}
+      </dialog>
     </>
   );
 }
