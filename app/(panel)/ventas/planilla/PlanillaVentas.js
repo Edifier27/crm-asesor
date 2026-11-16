@@ -9,7 +9,9 @@ import { recalcularCargaBU, recordarPago } from './acciones';
 
 // Planilla de ventas del mes (Darío, 9-nov-2026; migración 0075). Cada celda se corrige ahí mismo y se guarda al salir;
 // lo corregido a mano ya no lo pisa la venta del CRM (salvo el estado, que sigue a la etapa: impactada / falta de cobro).
-const ESTADOS = { impactada: 'Impactada', falta_de_cobro: 'Falta de cobro', baja: 'Baja' };
+// Auditoría médica (Darío, 16-nov-2026; migración 0080): la venta está en auditoría y todavía no suma a la carga BU
+const AUDITORIA = 'auditoria_medica';
+const ESTADOS = { impactada: 'Impactada', falta_de_cobro: 'Falta de cobro', [AUDITORIA]: 'Auditoría médica', baja: 'Baja' };
 const TIPOS = { directo: 'Directo', desregulado: 'Desregulado' };
 const COLUMNAS = [
   ['fecha_venta', 'Fecha', 'date'], ['nombre', 'Nombre y apellido', 'text'], ['dni', 'DNI', 'num'], ['precarga', 'N° de precarga', 'num'],
@@ -72,7 +74,10 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
   const avisar = (t) => { setAviso(t); setTimeout(() => setAviso(''), 2500); };
   const activas = filas.filter((f) => f.estado !== 'baja');
   const bajas = filas.length - activas.length;
-  const carga = (l) => l.reduce((s, f) => s + (Number(f.carga_bu) || 0), 0);
+  // La carga BU nunca suma las ventas en auditoría médica
+  const carga = (l) => l.reduce((s, f) => s + (f.estado === AUDITORIA ? 0 : Number(f.carga_bu) || 0), 0);
+  const enAuditoria = activas.filter((f) => f.estado === AUDITORIA);
+  const suman = activas.length - enAuditoria.length;
   const capitas = (l) => l.reduce((s, f) => s + (Number(f.capitas) || 0), 0);
   const impactadas = activas.filter((f) => f.estado === 'impactada');
   const enCobro = activas.filter((f) => f.estado === 'falta_de_cobro');
@@ -239,6 +244,7 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
     if (tipo === 'pesos') {
       // key con el valor: si se recalcula (cambio de plan o tipo), la celda muestra el nuevo
       return <input {...comun} key={`bu-${f.id}-${f.carga_bu ?? ''}`} inputMode="numeric" defaultValue={f.carga_bu ? Number(f.carga_bu).toLocaleString('es-AR') : ''} placeholder="—"
+        title={f.estado === AUDITORIA ? 'En auditoría médica: no suma a la carga BU' : undefined}
         onBlur={(e) => guardar(f, campo, e.target.value)} />;
     }
     if (tipo === 'cant') {
@@ -262,7 +268,8 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
         <div className="pv-cifra pv-principal">
           <span className="pv-rotulo">Carga BU del mes</span>
           <strong>{pesos(carga(activas))}</strong>
-          <small>{activas.length} {activas.length === 1 ? 'venta' : 'ventas'}{conCapitas ? ` · ${capitas(activas)} ${capitas(activas) === 1 ? 'cápita' : 'cápitas'}` : ''}{activas.length ? ` · promedio ${pesos(Math.round(carga(activas) / activas.length))}` : ''}</small>
+          <small>{activas.length} {activas.length === 1 ? 'venta' : 'ventas'}{conCapitas ? ` · ${capitas(activas)} ${capitas(activas) === 1 ? 'cápita' : 'cápitas'}` : ''}{suman ? ` · promedio ${pesos(Math.round(carga(activas) / suman))}` : ''}</small>
+          {enAuditoria.length > 0 && <small>{enAuditoria.length} en auditoría médica, no {enAuditoria.length === 1 ? 'suma' : 'suman'}</small>}
         </div>
         {cifra('impactada', 'Impactadas', impactadas.length, `${pct(impactadas.length, activas.length)}% de las ventas · ${pesos(carga(impactadas))}`,
           <span className="pv-barra" aria-hidden="true"><i style={{ width: `${pct(impactadas.length, activas.length)}%` }} /></span>)}
@@ -297,7 +304,7 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
             <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={conTelefono ? 'Buscar por nombre, teléfono, DNI o plan' : 'Buscar por nombre, DNI, precarga o plan'} aria-label="Buscar en la planilla" />
           </label>
           <div className="pv-pestanias" role="group" aria-label="Filtrar por estado">
-            {[[null, 'Todas', activas.length], ['impactada', 'Impactadas', impactadas.length], ['falta_de_cobro', 'Falta de cobro', enCobro.length], ...(bajas ? [['baja', 'Bajas', bajas]] : [])].map(([k, r, n]) => (
+            {[[null, 'Todas', activas.length], ['impactada', 'Impactadas', impactadas.length], ['falta_de_cobro', 'Falta de cobro', enCobro.length], ...(enAuditoria.length ? [[AUDITORIA, 'Auditoría médica', enAuditoria.length]] : []), ...(bajas ? [['baja', 'Bajas', bajas]] : [])].map(([k, r, n]) => (
               <button key={r} type="button" className={estado === k ? 'activa' : ''} aria-pressed={estado === k} onClick={() => setEstado(k)}>{r} <b>{n}</b></button>
             ))}
           </div>
@@ -340,7 +347,7 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
               </tr></thead>
               <tbody>
                 {visibles.map((f, i) => (
-                  <tr key={f.id} className={[f.estado === 'baja' ? 'fila-baja' : '', f.onboarding ? 'fila-ov' : '', reciente === f.id ? 'fila-nueva' : ''].join(' ').trim() || undefined}
+                  <tr key={f.id} className={[f.estado === 'baja' ? 'fila-baja' : '', f.onboarding ? 'fila-ov' : '', f.estado === AUDITORIA ? 'fila-auditoria' : '', reciente === f.id ? 'fila-nueva' : ''].join(' ').trim() || undefined}
                     ref={reciente === f.id ? (el) => el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) : undefined}>
                     <td className="col-n">{i + 1}</td>
                     {columnas.map((col) => <td key={col[0]} data-label={col[1]} className={`col-${col[0]}`}>{celda(f, col)}</td>)}
