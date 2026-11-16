@@ -1133,3 +1133,40 @@ button.pv-cifra.activa { border-color: var(--acento); box-shadow: inset 0 0 0 1p
 .planilla select.estado-auditoria_medica { background: #1D4ED81A; border-color: #1D4ED833; color: #1D4ED8; font-weight: 700; }
 .planilla tr.fila-auditoria .col-carga_bu .celda { color: var(--texto-suave); text-decoration: line-through; }
 :root[data-modo="oscuro"] .app .planilla select.estado-auditoria_medica { background-color: #1D4ED833; color: #93B4FF; border-color: #1D4ED866; }
+
+/* Link de pago en la planilla (Darío, 16-nov-2026): botón que señala lo que hay que enviar, "Enviado" con la hora y avisos */
+.planilla .col-link_pago { min-width: 200px; }
+.lp-celda { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.lp-boton { position: relative; display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 999px; padding: 7px 13px; background: var(--acento); color: #fff; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 8px #0F6B5D55; transition: transform .12s, box-shadow .12s, background-color .12s; }
+.lp-boton:hover:not(:disabled) { background: var(--acento-hover); transform: translateY(-1px); box-shadow: 0 4px 12px #0F6B5D66; }
+.lp-boton:disabled { opacity: .7; cursor: progress; }
+.lp-punto { width: 8px; height: 8px; border-radius: 50%; background: #FFD166; box-shadow: 0 0 0 0 #FFD16699; animation: lp-latido 1.8s infinite; }
+@keyframes lp-latido { 0% { box-shadow: 0 0 0 0 #FFD16699; } 70% { box-shadow: 0 0 0 7px #FFD16600; } 100% { box-shadow: 0 0 0 0 #FFD16600; } }
+@media (prefers-reduced-motion: reduce) { .lp-punto { animation: none; } .lp-boton { transition: none; } }
+.lp-enviado { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: #15803D1A; color: var(--pv-ok, #15803D); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.lp-sin { font-size: 12px; color: var(--texto-suave); font-style: italic; white-space: nowrap; }
+.lp-vence { font-size: 11px; color: #B45309; font-weight: 600; padding-left: 4px; }
+.vig-celda { display: inline-flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+.vig-detalle { display: inline-flex; align-items: center; gap: 6px; padding-left: 4px; }
+.vig-venta { font-size: 11px; color: var(--texto-suave); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.planilla .vig-detalle .chip-vigencia { font-size: 10.5px; padding: 2px 8px; }
+
+.pv-avisos { display: grid; gap: 10px; }
+.pv-aviso-card { border-radius: 14px; padding: 14px 16px; border: 1px solid var(--linea); background: var(--pv-fondo); }
+.pv-aviso-card header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pv-aviso-card header strong { font-size: 14px; }
+.pv-aviso-card header .boton-secundario { margin-left: auto; min-height: 32px; font-size: 12px; }
+.pv-aviso-preguntar { background: #FFF8E1; border-color: #F2D27A; }
+.pv-aviso-preguntar ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.pv-aviso-preguntar li { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px solid #F2E3B0; }
+.pv-aviso-texto { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 13px; }
+.pv-aviso-texto span:not(.chip-vigencia) { color: var(--texto-suave); font-size: 12px; }
+.pv-aviso-texto .chip-vigencia { align-self: flex-start; }
+.pv-aviso-botones { display: flex; gap: 8px; flex-wrap: wrap; }
+.pv-aviso-botones button { min-height: 34px; font-size: 12.5px; }
+.pv-aviso-enviar { background: #ECF7F4; border-color: #BFE3DA; }
+:root[data-modo="oscuro"] .app .pv-aviso-preguntar { background: #3A3112; border-color: #6B5A1E; }
+:root[data-modo="oscuro"] .app .pv-aviso-preguntar li { background: #242626; border-color: #4A4220; }
+:root[data-modo="oscuro"] .app .pv-aviso-enviar { background: #153A33; border-color: #1F5A4E; }
+:root[data-modo="oscuro"] .app .lp-vence { color: #F5B454; }
+@media (max-width: 760px) { .pv-aviso-botones { width: 100%; } .pv-aviso-botones button { flex: 1; } }
