@@ -29,7 +29,7 @@ import { esGba } from '@/lib/provincias';
 import { fuenteDelLead } from '@/lib/fuentes';
 import { ETIQUETA_IA_COMPLETA } from '@/lib/ia/ia-completa';
 import { ventaSugerida } from '@/lib/venta-automatica';
-import { datosDelPedido, tipoDePedido } from '@/lib/salesforce';
+import { datosDelPedido, dniDelContacto, tipoDePedido } from '@/lib/salesforce';
 
 // Solo se pueden ver/enviar los PDF del catálogo (planes y cartillas)
 const DOCUMENTOS_VALIDOS = new Set([...Object.values(PLANES_PDF).map((p) => p.path), ...CARTILLAS_ARCHIVOS.map((c) => c.path)]);
@@ -697,7 +697,9 @@ export async function pedirLinkSalesforce(conversacionId, { dni } = {}) {
   const { conv, admin, user } = ctx;
   const { data: contacto } = await admin.from('contactos').select('*').eq('id', conv.contacto.id).maybeSingle();
   if (!contacto) return { error: 'No encuentro el contacto.' };
-  const datos = datosDelPedido(contacto, { dni });
+  // El nombre completo, la fecha de nacimiento y el domicilio salen de la foto del DNI que mandó el cliente
+  const delDni = await dniDelContacto(admin, contacto);
+  const datos = datosDelPedido(contacto, { dni: dni ?? delDni.dni, nombreCompleto: delDni.nombreCompleto, fechaNacimiento: delDni.fechaNacimiento, domicilio: delDni.domicilio });
   if (!datos.dni) return { error: 'Cargá el DNI del titular: sin DNI no se puede armar el link de alta.' };
   if (!datos.plan) return { error: 'Falta el plan: cotizale primero o registrá la venta con el plan.' };
   const { data, error } = await admin.from('acciones_salesforce').insert({
