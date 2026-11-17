@@ -124,6 +124,13 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
   const [recordando, setRecordando] = useState(null);
   const [enviandoLink, setEnviandoLink] = useState(null);
   const [soloLinks, setSoloLinks] = useState(false);
+  // Lista (la planilla de siempre) o tablero (una tarjeta por venta, en columnas por estado). Se acuerda la última (Darío, 17-nov-2026)
+  const [vista, setVista] = useState('lista');
+  const [columnaSobre, setColumnaSobre] = useState(null);
+  useEffect(() => {
+    try { if (localStorage.getItem('planilla-vista') === 'tablero') setVista('tablero'); } catch {}
+  }, []);
+  const elegirVista = (v) => { setVista(v); try { localStorage.setItem('planilla-vista', v); } catch {} };
   // La hora se lee en el navegador (los avisos de las 48 h dependen de ella) y se refresca cada minuto
   const [ahora, setAhora] = useState(null);
   useEffect(() => { setAhora(Date.now()); const t = setInterval(() => setAhora(Date.now()), 60_000); return () => clearInterval(t); }, []);
@@ -167,6 +174,27 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
   const limpiar = () => { setEstado(null); setOrigen(null); setBusca(''); setSoloLinks(false); };
   // Tocar un título ordena: sube, baja y a la tercera vuelve al orden de carga
   const ordenar = (campo) => setOrden((o) => (o?.campo !== campo ? { campo, baja: false } : o.baja ? null : { campo, baja: true }));
+
+  // Correr la planilla agarrándola con el mouse, sin ir a la barra de abajo (Darío, 17-nov-2026). No arranca sobre campos,
+  // botones ni links, así que escribir y tocar sigue igual
+  const empezarArrastre = (e) => {
+    if (e.button !== 0 || e.target.closest('input, select, textarea, button, a, label, [draggable="true"]')) return;
+    const caja = e.currentTarget;
+    const x0 = e.clientX; const y0 = e.clientY; const l0 = caja.scrollLeft; const t0 = caja.scrollTop;
+    let movio = false;
+    const mover = (ev) => {
+      const dx = ev.clientX - x0; const dy = ev.clientY - y0;
+      if (!movio && Math.abs(dx) + Math.abs(dy) < 4) return;
+      if (!movio) { movio = true; caja.classList.add('arrastrando'); window.getSelection()?.removeAllRanges(); }
+      caja.scrollLeft = l0 - dx; caja.scrollTop = t0 - dy;
+      ev.preventDefault();
+    };
+    const soltar = () => {
+      window.removeEventListener('mousemove', mover); window.removeEventListener('mouseup', soltar);
+      caja.classList.remove('arrastrando');
+    };
+    window.addEventListener('mousemove', mover); window.addEventListener('mouseup', soltar);
+  };
 
   const marcar = (f, cambios) => setFilas((l) => l.map((x) => (x.id === f.id ? { ...x, ...cambios } : x)));
 
@@ -491,6 +519,10 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
             ))}
           </div>
           <div className="pv-botones">
+            <div className="pv-pestanias pv-vista" role="group" aria-label="Vista">
+              <button type="button" className={vista === 'lista' ? 'activa' : ''} aria-pressed={vista === 'lista'} onClick={() => elegirVista('lista')}>Lista</button>
+              <button type="button" className={vista === 'tablero' ? 'activa' : ''} aria-pressed={vista === 'tablero'} onClick={() => elegirVista('tablero')}>Tablero</button>
+            </div>
             <button type="button" className="boton-secundario" onClick={exportar} disabled={!visibles.length}>Descargar Excel</button>
             {conMes && <button type="button" className="boton-secundario boton-venta-ov" onClick={() => abrirCarga(true)}>+ Onboarding</button>}
             <button type="button" className="boton-primario" onClick={() => abrirCarga(false)}>+ Cargar venta</button>
@@ -513,8 +545,69 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
             <p>Probá con otra búsqueda o quitá los filtros.</p>
             <button type="button" className="boton-secundario" onClick={limpiar}>Quitar filtros</button>
           </div>
+        ) : vista === 'tablero' ? (
+          <div className="pv-tablero planilla" onMouseDown={empezarArrastre}>
+            {[['impactada', 'Impactadas'], ['falta_de_cobro', 'Falta de cobro'], ...(enAuditoria.length || estado === AUDITORIA ? [[AUDITORIA, 'Auditoría médica']] : []), ...(estado === 'baja' ? [['baja', 'Bajas']] : [])]
+              .filter(([k]) => !estado || estado === k)
+              .map(([k, titulo]) => {
+                const lista = visibles.filter((f) => f.estado === k);
+                const nombreCol = columnas.find(([c]) => c === 'nombre');
+                const datos = columnas.filter(([c]) => !['nombre', 'estado'].includes(c));
+                return (
+                  <section key={k} className={`pv-col pv-col-${k}${columnaSobre === k ? ' sobre' : ''}`} aria-label={titulo}
+                    onDragOver={(e) => { e.preventDefault(); setColumnaSobre(k); }}
+                    onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setColumnaSobre(null); }}
+                    onDrop={(e) => {
+                      e.preventDefault(); setColumnaSobre(null);
+                      const f = filas.find((x) => x.id === e.dataTransfer.getData('text/plain'));
+                      if (f && f.estado !== k) guardar(f, 'estado', k);
+                    }}>
+                    <header className="pv-col-cab">
+                      <h3>{titulo} <b>{lista.length}</b></h3>
+                      {k !== AUDITORIA && <span>{pesos(carga(lista))}</span>}
+                    </header>
+                    <div className="pv-col-lista">
+                      {lista.length === 0 && <p className="pv-col-vacia">Nada acá. Arrastrá una tarjeta para moverla.</p>}
+                      {lista.map((f) => (
+                        <article key={f.id} className={['pv-tv', f.onboarding ? 'fila-ov' : '', reciente === f.id ? 'fila-nueva' : ''].join(' ').trim()}>
+                          <header className="pv-tv-cab">
+                            <span className="pv-tv-asa" draggable="true" title="Arrastrá para cambiarla de columna" aria-hidden="true"
+                              onDragStart={(e) => { e.dataTransfer.setData('text/plain', f.id); e.dataTransfer.effectAllowed = 'move'; const t = e.currentTarget.closest('.pv-tv'); if (t) e.dataTransfer.setDragImage(t, 20, 20); }}>⠿</span>
+                            {nombreCol && celda(f, nombreCol)}
+                          </header>
+                          <div className="pv-tv-estado">{celda(f, ['estado', 'Estado', 'estado'])}</div>
+                          <div className="pv-tv-datos">
+                            {datos.map((col) => (
+                              <label key={col[0]} className={`pv-tv-dato dato-${col[0]}`}><span>{col[1]}</span><div>{celda(f, col)}</div></label>
+                            ))}
+                          </div>
+                          <footer className="pv-tv-pie">
+                            {f.chat
+                              ? <Link href={`/bandeja/${f.chat}`} className="boton-secundario boton-ir-chat">Ir a la conversación</Link>
+                              : <span className="sin-chat">Cargada a mano</span>}
+                            {f.estado === 'falta_de_cobro' && (
+                              <>
+                                <span className={`chip-vigencia ${vigenciaDe(f).clase}`}>{vigenciaDe(f).texto}</span>
+                                {f.chat && (
+                                  <button type="button" className="boton-secundario boton-recordar" disabled={recordando === f.id} onClick={() => recordar(f)}>
+                                    {recordando === f.id ? 'Enviando…' : 'Recordar pago'}
+                                  </button>
+                                )}
+                              </>
+                            )}
+                            {!f.contacto_id && (
+                              <button type="button" className="boton-link-texto" onClick={() => borrar(f)}>{borrando === f.id ? '¿Seguro?' : 'Borrar'}</button>
+                            )}
+                          </footer>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
+          </div>
         ) : (
-          <div className="tabla-scroll pv-scroll">
+          <div className="tabla-scroll pv-scroll" onMouseDown={empezarArrastre}>
             <table className="tabla planilla">
               <thead><tr>
                 <th className="col-n" aria-label="Número">#</th>

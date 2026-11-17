@@ -1105,6 +1105,43 @@ button.pv-cifra.activa { border-color: var(--acento); box-shadow: inset 0 0 0 1p
 @media (min-width: 761px) { .planilla td.col-origen { min-width: 280px; } .planilla-fila-acciones { flex-wrap: nowrap; } }
 .planilla .origen-celda .pildora-origen { width: auto; flex: 0 0 150px; }
 @media (max-width: 760px) { .pv-pestanias button { padding: 6px 8px; font-size: 12px; } }
+/* Planilla: agarrar y arrastrar con el mouse, y vista de tablero (Darío, 17-nov-2026) */
+.pv-scroll, .pv-tablero { cursor: grab; }
+.pv-scroll .celda, .pv-tablero .celda { cursor: text; }
+.pv-scroll select.celda, .pv-tablero select.celda, .pv-scroll button, .pv-tablero button, .pv-scroll a, .pv-tablero a { cursor: pointer; }
+.pv-scroll.arrastrando, .pv-tablero.arrastrando, .pv-scroll.arrastrando *, .pv-tablero.arrastrando * { cursor: grabbing !important; user-select: none; }
+.pv-vista { padding: 3px; }
+.pv-tablero { display: flex; align-items: flex-start; gap: 14px; overflow: auto; padding: 14px 18px 18px; border-top: 1px solid var(--linea-suave); border-bottom: 1px solid var(--linea-suave); max-height: calc(100vh - 150px); }
+.pv-col { flex: 0 0 340px; min-width: 0; display: flex; flex-direction: column; max-height: 100%; background: var(--pv-suave); border: 1px solid var(--linea-suave); border-top: 3px solid var(--texto-suave); border-radius: 14px; }
+.pv-col-impactada { border-top-color: #15803D; }
+.pv-col-falta_de_cobro { border-top-color: #C2410C; }
+.pv-col-auditoria_medica { border-top-color: #3B5BDB; }
+.pv-col.sobre { outline: 2px dashed var(--acento); outline-offset: 2px; }
+.pv-col-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 12px 14px 8px; }
+.pv-col-cab h3 { margin: 0; font-size: 13px; font-weight: 700; }
+.pv-col-cab h3 b { font-weight: 600; opacity: .6; margin-left: 4px; font-variant-numeric: tabular-nums; }
+.pv-col-cab span { font-size: 12px; color: var(--texto-suave); font-variant-numeric: tabular-nums; }
+.pv-col-lista { display: flex; flex-direction: column; gap: 10px; padding: 4px 10px 12px; overflow-y: auto; min-height: 60px; }
+.pv-col-vacia { margin: 8px 4px; font-size: 12px; color: var(--texto-suave); }
+.pv-tv { background: var(--pv-fondo); border: 1px solid var(--linea-suave); border-radius: 12px; padding: 10px 12px 12px; box-shadow: 0 1px 2px #0000000F; cursor: default; }
+.pv-tv.fila-ov { background: #F3EEFC; }
+:root[data-modo="oscuro"] .pv-tv.fila-ov { background: #2B2340; }
+.pv-tv.fila-nueva { animation: pv-nueva 2.4s ease-out; }
+.pv-tv-cab { display: flex; align-items: center; gap: 6px; }
+.pv-tv-cab .celda { font-weight: 700; font-size: 14px; min-width: 0; }
+.pv-tv-asa { cursor: grab; color: var(--texto-suave); font-size: 16px; line-height: 1; padding: 4px 2px; user-select: none; }
+.pv-tv-estado { margin: 4px 0 6px; }
+.pv-tv-estado .celda { min-width: 0; width: auto; }
+.pv-tv-datos { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+.pv-tv-dato { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.pv-tv-dato > span { font-size: 11px; font-weight: 600; color: var(--texto-suave); }
+.pv-tv-dato .celda { min-width: 0; }
+.pv-tv-dato.dato-origen, .pv-tv-dato.dato-link_pago, .pv-tv-dato.dato-notas { grid-column: 1 / -1; }
+.pv-tv-dato .origen-celda { max-width: none; }
+.pv-tv-pie { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--linea-suave); }
+.pv-tv-pie .boton-ir-chat { font-size: 12px; padding: 5px 10px; text-decoration: none; white-space: nowrap; }
+.pv-tv-pie .sin-chat { font-size: 12px; color: var(--texto-suave); }
+@media (max-width: 760px) { .pv-tablero { flex-direction: column; align-items: stretch; max-height: none; padding: 12px; } .pv-col { flex: none; } }
 /* Modo oscuro: las celdas siguen sin caja (el tema les pone fondo a todos los campos) y las cifras conservan su color */
 :root[data-modo="oscuro"] .app .planilla .celda:not(.pildora-origen):not([class*="estado-"]) { background-color: transparent; border-color: transparent; }
 :root[data-modo="oscuro"] .app .planilla .celda:not(.pildora-origen):not([class*="estado-"]):hover { border-color: #3A4042; }
