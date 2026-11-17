@@ -1123,24 +1123,30 @@ button.pv-cifra.activa { border-color: var(--acento); box-shadow: inset 0 0 0 1p
 .pv-col-cab span { font-size: 12px; color: var(--texto-suave); font-variant-numeric: tabular-nums; }
 .pv-col-lista { display: flex; flex-direction: column; gap: 10px; padding: 4px 10px 12px; overflow-y: auto; min-height: 60px; }
 .pv-col-vacia { margin: 8px 4px; font-size: 12px; color: var(--texto-suave); }
-.pv-tv { background: var(--pv-fondo); border: 1px solid var(--linea-suave); border-radius: 12px; padding: 10px 12px 12px; box-shadow: 0 1px 2px #0000000F; cursor: default; }
+.pv-tv { position: relative; display: flex; flex-direction: column; gap: 10px; background: var(--pv-fondo); border: 1px solid var(--linea-suave); border-radius: 14px; padding: 34px 14px 14px; box-shadow: 0 1px 2px #0000000F; cursor: grab; transition: box-shadow .15s, transform .15s; }
+.pv-tv:hover { box-shadow: 0 6px 16px #0000001A; transform: translateY(-1px); }
+.pv-tv:active { cursor: grabbing; }
 .pv-tv.fila-ov { background: #F3EEFC; }
 :root[data-modo="oscuro"] .pv-tv.fila-ov { background: #2B2340; }
 .pv-tv.fila-nueva { animation: pv-nueva 2.4s ease-out; }
-.pv-tv-cab { display: flex; align-items: center; gap: 6px; }
-.pv-tv-cab .celda { font-weight: 700; font-size: 14px; min-width: 0; }
-.pv-tv-asa { cursor: grab; color: var(--texto-suave); font-size: 16px; line-height: 1; padding: 4px 2px; user-select: none; }
-.pv-tv-estado { margin: 4px 0 6px; }
-.pv-tv-estado .celda { min-width: 0; width: auto; }
-.pv-tv-datos { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
-.pv-tv-dato { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.pv-tv-dato > span { font-size: 11px; font-weight: 600; color: var(--texto-suave); }
-.pv-tv-dato .celda { min-width: 0; }
-.pv-tv-dato.dato-origen, .pv-tv-dato.dato-link_pago, .pv-tv-dato.dato-notas { grid-column: 1 / -1; }
-.pv-tv-dato .origen-celda { max-width: none; }
-.pv-tv-pie { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--linea-suave); }
-.pv-tv-pie .boton-ir-chat { font-size: 12px; padding: 5px 10px; text-decoration: none; white-space: nowrap; }
-.pv-tv-pie .sin-chat { font-size: 12px; color: var(--texto-suave); }
+/* Banderita con el mes del alta, pegada al borde de arriba */
+.pv-tv-bandera { position: absolute; top: 0; left: 14px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 5px 12px 9px 10px; color: #fff; background: #64748B; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 5px), 0 100%); border-radius: 0 0 2px 2px; }
+.pv-tv-bandera.futura { background: #2F5BD8; }
+.pv-tv-bandera.inmediata { background: #D92D20; }
+.pv-tv-bandera.sin { background: #94A3B8; }
+.pv-tv-nombre { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.pv-tv-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pv-tv-estado, .pv-tv-origen, .pv-tv-ov { font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 3px 10px; border: 1px solid transparent; white-space: nowrap; }
+.pv-tv-estado { background: var(--linea-suave); color: var(--texto-suave); }
+.pv-tv-estado.estado-impactada { background: #E3F6EA; color: #15803D; }
+.pv-tv-estado.estado-falta_de_cobro { background: #FDEBDD; color: #C2410C; }
+.pv-tv-estado.estado-auditoria_medica { background: #E3EBFD; color: #1D4ED8; }
+.pv-tv-ov { border: 1px dashed #B9A6E8; color: #7C5CC4; font-size: 10.5px; letter-spacing: .03em; text-transform: uppercase; }
+.pv-tv-bu { display: flex; align-items: baseline; gap: 8px; }
+.pv-tv-bu small { font-size: 11px; font-weight: 600; color: var(--texto-suave); }
+.pv-tv-bu strong { font-size: 18px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.pv-tv .boton-ir-chat { align-self: stretch; text-align: center; font-size: 12.5px; padding: 7px 10px; text-decoration: none; }
+.pv-tv .sin-chat { font-size: 12px; color: var(--texto-suave); }
 @media (max-width: 760px) { .pv-tablero { flex-direction: column; align-items: stretch; max-height: none; padding: 12px; } .pv-col { flex: none; } }
 /* Modo oscuro: las celdas siguen sin caja (el tema les pone fondo a todos los campos) y las cifras conservan su color */
 :root[data-modo="oscuro"] .app .planilla .celda:not(.pildora-origen):not([class*="estado-"]) { background-color: transparent; border-color: transparent; }
