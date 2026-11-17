@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { cancelarPedidoSalesforce, enviarLinkPago, guardarResultadoClaude, ordenParaClaude, pedirLinkSalesforce } from './acciones';
+import { cancelarPedidoSalesforce, enviarLinkPago, guardarResultadoClaude, ordenParaClaude } from './acciones';
 
 // Link de alta desde Salesforce (Darío, 9-nov-2026; lib/salesforce.js). Se pide desde acá y lo resuelve el script de
 // Salesforce del asesor (Tampermonkey, en su compu, con Salesforce abierto). El estado se ve en vivo; cuando vuelve con el
@@ -17,7 +17,6 @@ const ESTADOS = {
 export default function PedidoSalesforce({ conversacionId, contacto, etapa, dniLeido, onContacto }) {
   const supabase = useMemo(() => createClient(), []);
   const [pedido, setPedido] = useState(undefined); // undefined = cargando; null = ninguno; false = sin la migración
-  const [dni, setDni] = useState(contacto.venta?.dni ?? dniLeido ?? '');
   const [aviso, setAviso] = useState('');
   // Alta con Claude in Chrome: el botón elegido, la orden armada y lo que Claude devolvió
   const [modo, setModo] = useState(null);
@@ -127,21 +126,6 @@ export default function PedidoSalesforce({ conversacionId, contacto, etapa, dniL
               <div className="acciones"><button type="button" className="boton-secundario" disabled={ocupado || !resultado.trim()} onClick={guardarResultado}>Guardar resultado</button></div>
             </div>
           )}
-          <details className="alta-claude-script">
-            <summary>O pedírselo al script de Salesforce</summary>
-          <label className="campo"><span>DNI del titular</span>
-            <input inputMode="numeric" value={dni} maxLength={10} placeholder="Sin puntos"
-              onChange={(e) => setDni(e.target.value.replace(/\D/g, ''))} /></label>
-          <p className="pp-explicacion">
-            El script de Salesforce {contacto.salesforce_id || /^salesforce/i.test(contacto.origen_detalle ?? '') ? 'busca este lead' : 'lo carga como lead nuevo'}, lo cotiza con el plan de la ficha y te devuelve el link de autogestión. Tiene que estar Salesforce abierto en tu compu.
-          </p>
-          <div className="acciones">
-            <button type="button" className="boton-primario" disabled={ocupado || dni.length < 7}
-              onClick={() => correr(() => pedirLinkSalesforce(conversacionId, { dni }), 'Pedido enviado a Salesforce')}>
-              {pedido?.estado === 'error' ? 'Pedir de nuevo' : 'Pedir link a Salesforce'}
-            </button>
-          </div>
-          </details>
         </>
       )}
       {aviso && <span className="pp-aviso">{aviso}</span>}
