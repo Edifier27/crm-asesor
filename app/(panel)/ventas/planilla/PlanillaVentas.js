@@ -551,8 +551,6 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
               .filter(([k]) => !estado || estado === k)
               .map(([k, titulo]) => {
                 const lista = visibles.filter((f) => f.estado === k);
-                const nombreCol = columnas.find(([c]) => c === 'nombre');
-                const datos = columnas.filter(([c]) => !['nombre', 'estado'].includes(c));
                 return (
                   <section key={k} className={`pv-col pv-col-${k}${columnaSobre === k ? ' sobre' : ''}`} aria-label={titulo}
                     onDragOver={(e) => { e.preventDefault(); setColumnaSobre(k); }}
@@ -568,39 +566,33 @@ export default function PlanillaVentas({ mes, conMes = false, conInclusion = fal
                     </header>
                     <div className="pv-col-lista">
                       {lista.length === 0 && <p className="pv-col-vacia">Nada acá. Arrastrá una tarjeta para moverla.</p>}
-                      {lista.map((f) => (
-                        <article key={f.id} className={['pv-tv', f.onboarding ? 'fila-ov' : '', reciente === f.id ? 'fila-nueva' : ''].join(' ').trim()}>
-                          <header className="pv-tv-cab">
-                            <span className="pv-tv-asa" draggable="true" title="Arrastrá para cambiarla de columna" aria-hidden="true"
-                              onDragStart={(e) => { e.dataTransfer.setData('text/plain', f.id); e.dataTransfer.effectAllowed = 'move'; const t = e.currentTarget.closest('.pv-tv'); if (t) e.dataTransfer.setDragImage(t, 20, 20); }}>⠿</span>
-                            {nombreCol && celda(f, nombreCol)}
-                          </header>
-                          <div className="pv-tv-estado">{celda(f, ['estado', 'Estado', 'estado'])}</div>
-                          <div className="pv-tv-datos">
-                            {datos.map((col) => (
-                              <label key={col[0]} className={`pv-tv-dato dato-${col[0]}`}><span>{col[1]}</span><div>{celda(f, col)}</div></label>
-                            ))}
-                          </div>
-                          <footer className="pv-tv-pie">
+                      {lista.map((f) => {
+                        const v = vigenciaCorta(f);
+                        const color = colorOrigen(f.origen);
+                        return (
+                          <article key={f.id} className={['pv-tv', f.onboarding ? 'fila-ov' : '', reciente === f.id ? 'fila-nueva' : ''].join(' ').trim()}
+                            draggable="true" title="Arrastrala a otra columna para cambiarle el estado"
+                            onDragStart={(e) => { e.dataTransfer.setData('text/plain', f.id); e.dataTransfer.effectAllowed = 'move'; }}>
+                            <span className={`pv-tv-bandera ${v.clase}`}>
+                              {v.clase === 'sin' ? 'Alta sin definir' : v.clase === 'inmediata' ? 'Alta inmediata' : `Alta ${v.texto.toLowerCase()}`}
+                            </span>
+                            <h4 className="pv-tv-nombre">{f.nombre || 'Sin nombre'}</h4>
+                            <div className="pv-tv-fila">
+                              <span className={`pv-tv-estado estado-${f.estado}`}>{ESTADOS[f.estado]}</span>
+                              <span className="pv-tv-origen" style={{ color, background: `${color}1A`, borderColor: `${color}40` }}>{f.origen || 'Sin origen'}</span>
+                              {f.onboarding && <span className="pv-tv-ov">Onboarding</span>}
+                            </div>
+                            <div className="pv-tv-bu">
+                              <small>Carga BU</small>
+                              <strong>{f.carga_bu ? pesos(Number(f.carga_bu)) : '—'}</strong>
+                              {f.estado === AUDITORIA && <small>no suma</small>}
+                            </div>
                             {f.chat
                               ? <Link href={`/bandeja/${f.chat}`} className="boton-secundario boton-ir-chat">Ir a la conversación</Link>
                               : <span className="sin-chat">Cargada a mano</span>}
-                            {f.estado === 'falta_de_cobro' && (
-                              <>
-                                <span className={`chip-vigencia ${vigenciaDe(f).clase}`}>{vigenciaDe(f).texto}</span>
-                                {f.chat && (
-                                  <button type="button" className="boton-secundario boton-recordar" disabled={recordando === f.id} onClick={() => recordar(f)}>
-                                    {recordando === f.id ? 'Enviando…' : 'Recordar pago'}
-                                  </button>
-                                )}
-                              </>
-                            )}
-                            {!f.contacto_id && (
-                              <button type="button" className="boton-link-texto" onClick={() => borrar(f)}>{borrando === f.id ? '¿Seguro?' : 'Borrar'}</button>
-                            )}
-                          </footer>
-                        </article>
-                      ))}
+                          </article>
+                        );
+                      })}
                     </div>
                   </section>
                 );
