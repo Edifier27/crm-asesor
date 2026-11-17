@@ -29,7 +29,9 @@ import { esGba } from '@/lib/provincias';
 import { fuenteDelLead } from '@/lib/fuentes';
 import { ETIQUETA_IA_COMPLETA } from '@/lib/ia/ia-completa';
 import { ventaSugerida } from '@/lib/venta-automatica';
-import { datosDelPedido, dniDelContacto, tipoDePedido } from '@/lib/salesforce';
+import { cerrarPedido, datosDelPedido, dniDelContacto, tipoDePedido } from '@/lib/salesforce';
+import { datosDelAlta } from '@/lib/ia/datos-alta';
+import { armarOrden, leerResultado } from '@/lib/alta-claude';
 
 // Solo se pueden ver/enviar los PDF del catálogo (planes y cartillas)
 const DOCUMENTOS_VALIDOS = new Set([...Object.values(PLANES_PDF).map((p) => p.path), ...CARTILLAS_ARCHIVOS.map((c) => c.path)]);
@@ -719,4 +721,50 @@ export async function cancelarPedidoSalesforce(id) {
     .eq('id', id).in('estado', ['pendiente', 'en_curso', 'error']).select().maybeSingle();
   if (error) return { error: error.message };
   return data ? { ok: true, accion: data } : { error: 'Ese pedido ya terminó.' };
+}
+
+// ───────────── Alta con Claude in Chrome (Darío, 17-nov-2026; lib/alta-claude.js) ─────────────
+async function datosParaClaude(admin, contacto, modo) {
+  const [{ data: docs }, delDni] = await Promise.all([
+    admin.from('documentos_cliente').select('tipo, persona, estado, datos').eq('contacto_id', contacto.id),
+    dniDelContacto(admin, contacto)
+  ]);
+  const datos = datosDelPedido(contacto, { dni: delDni.dni, nombreCompleto: delDni.nombreCompleto, fechaNacimiento: delDni.fechaNacimiento, domicilio: delDni.domicilio });
+  // Según el botón que se tocó: si ya está en Salesforce el mail y el domicilio están allá; si es nuevo, hay que cargarlos
+  const alta = datosDelAlta({ ...contacto, salesforce_id: modo === 'salesforce' ? (contacto.salesforce_id ?? 'en Salesforce') : null }, docs ?? []);
+  return { datos, alta };
+}
+
+/** La orden para pegar en Claude in Chrome, con los datos del lead (cliente nuevo o que ya está en Salesforce). */
+export async function ordenParaClaude(conversacionId, modo) {
+  const ctx = await contextoVenta(conversacionId);
+  if (ctx.error) return ctx;
+  const { conv, admin } = ctx;
+  const { data: contacto } = await admin.from('contactos').select('*').eq('id', conv.contacto.id).maybeSingle();
+  if (!contacto) return { error: 'No encuentro el contacto.' };
+  const m = modo === 'salesforce' ? 'salesforce' : 'nuevo';
+  const { datos, alta } = await datosParaClaude(admin, contacto, m);
+  return { texto: armarOrden(m, datos, { faltan: alta.faltan, chequear: alta.chequear }), faltan: alta.faltan };
+}
+
+/** Lo que Claude devolvió (link, candidato y Oportunidad): queda en la ficha, listo para "Enviar al cliente". */
+export async function guardarResultadoClaude(conversacionId, modo, texto) {
+  const ctx = await contextoVenta(conversacionId);
+  if (ctx.error) return ctx;
+  const { conv, admin, user } = ctx;
+  const r = leerResultado(texto);
+  if (!r.link) return { error: 'No encontré el link de autogestión en lo que pegaste (empieza con https://asociarme…). Pegá el bloque "RESULTADO PARA EL CRM" completo.' };
+  const { data: contacto } = await admin.from('contactos').select('*').eq('id', conv.contacto.id).maybeSingle();
+  if (!contacto) return { error: 'No encuentro el contacto.' };
+  const m = modo === 'salesforce' ? 'salesforce' : 'nuevo';
+  const { datos } = await datosParaClaude(admin, contacto, m);
+  const { data: accion, error } = await admin.from('acciones_salesforce').insert({
+    cuenta: conv.cuenta, contacto_id: contacto.id, conversacion_id: conv.id, tipo: m === 'salesforce' ? 'transicionar' : 'cargar_nuevo',
+    estado: 'en_curso', tomado_at: new Date().toISOString(), datos: { ...datos, via: 'claude' }, creado_por: user.id
+  }).select().single();
+  if (error) return { error: error.message };
+  const cerrado = await cerrarPedido(admin, accion, { dni: datos.dni, link: r.link, salesforceId: r.salesforceId, oportunidad: r.oportunidad });
+  if (cerrado.error) return cerrado;
+  const { data: c } = await admin.from('contactos').select('venta').eq('id', contacto.id).maybeSingle();
+  return { accion: cerrado.accion, venta: c?.venta, diferencias: r.diferencias };
 }
