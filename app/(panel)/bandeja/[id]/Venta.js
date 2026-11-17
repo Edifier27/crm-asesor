@@ -108,7 +108,9 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
   }
 
   // ── Ganado ──
-  if (etapa === 'Ganado') {
+  // Ganado sin venta cargada (lo pasó el CRM solo, o fue por OB): se sigue de largo al formulario para dejarla en la planilla
+  const ganadoSinVenta = etapa === 'Ganado' && !venta;
+  if (etapa === 'Ganado' && !ganadoSinVenta) {
     return venta ? (
       <div className="bloque venta ganada">
         <span className="bloque-titulo">✅ Venta {venta.tipo === 'desregulado' ? 'desregulada' : 'directa'}</span>
@@ -122,6 +124,7 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
     <div className="bloque venta">
       {!abierto ? (
         <div className="acciones">
+          {ganadoSinVenta && <span className="selector-detalle">Está en Ganado pero no en la planilla de ventas. Marcá la venta para cargarla.</span>}
           <button type="button" className="boton-primario boton-venta" onClick={() => abrir(false)}>Venta hecha</button>
           <button type="button" className="boton-secundario boton-venta-ov" title="Venta o inclusión hecha por onboarding: va directo a la planilla"
             onClick={() => abrir(true)}>Venta por OB</button>
@@ -174,16 +177,18 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
             </>
           )}
           <p className="pp-explicacion">
-            {borrador.tipo === 'directo'
+            {ganadoSinVenta
+              ? 'Sigue en "Ganado" y queda cargada en la planilla de ventas como impactada.'
+              : borrador.tipo === 'directo'
               ? 'Pasa a "Falta de cobro" y ya te queda en Mis chats para mandarle el link de pago (cargás DNI y N° de precarga). Después, cada 48 h hábiles sin pago te vuelve a aparecer para recordárselo. No sale nada automático.'
               : 'Pasa directo a "Ganado": al derivar aportes ya queda impactado.'}
           </p>
           <div className="acciones">
             <button type="button" className="boton-primario" disabled={ocupado}
               onClick={() => correr(() => registrarVenta(conversacionId, {
-                ...borrador,
+                ...borrador, yaGanado: ganadoSinVenta,
                 inclusion: borrador.onboarding && borrador.esInclusion ? { titular: borrador.titular, incluido: borrador.incluido, valor: borrador.valorInclusion } : null
-              }), `${borrador.onboarding ? 'Venta por OB: ya está en la planilla. ' : ''}${borrador.tipo === 'directo' ? 'Pasa a Falta de cobro' : '¡Venta ganada!'}`)}>
+              }), `${borrador.onboarding ? 'Venta por OB: ya está en la planilla. ' : ''}${borrador.tipo === 'directo' && !ganadoSinVenta ? 'Pasa a Falta de cobro' : '¡Venta ganada!'}`)}>
               Confirmar venta
             </button>
             <button type="button" className="boton-secundario" onClick={() => setAbierto(false)}>Cancelar</button>

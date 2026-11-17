@@ -279,7 +279,8 @@ export async function sugerirVenta(conversacionId) {
 
 // Venta por onboarding (OB, Darío 9-nov-2026): la venta o la inclusión se hizo en el otro sistema; con el botón "Venta
 // por OB" la fila de la planilla sale completa (DNI, N° de precarga y, si es inclusión, titular, incluido y valor).
-export async function registrarVenta(conversacionId, { tipo, plan, monto, dni, precarga, onboarding, inclusion }) {
+// yaGanado: el lead ya está en Ganado sin venta cargada (ej. lo pasó el CRM solo, o una venta por OB): se registra en la planilla y sigue en Ganado
+export async function registrarVenta(conversacionId, { tipo, plan, monto, dni, precarga, onboarding, inclusion, yaGanado }) {
   const ctx = await contextoVenta(conversacionId);
   if (ctx.error) return ctx;
   const { conv, etapa, admin } = ctx;
@@ -289,16 +290,16 @@ export async function registrarVenta(conversacionId, { tipo, plan, monto, dni, p
   const soloDigitos = (v) => String(v ?? '').replace(/\D/g, '') || null;
   const esInclusion = Boolean(onboarding && inclusion && (inclusion.titular || inclusion.incluido));
   const venta = {
-    tipo, plan: plan || null, monto: Number(monto) || null, fecha: new Date().toISOString(),
+    tipo, plan: plan || null, monto: Number(monto) || null, fecha: new Date().toISOString(), ...(yaGanado ? { pagado_at: new Date().toISOString() } : {}),
     origen: esInclusion ? 'Inclusión' : fuenteDelLead(conv.contacto), ...(onboarding ? { onboarding: true } : {}),
     // Por OB, el DNI y el N° de precarga van a la planilla aunque no se arme el link de pago
     ...(onboarding ? { ...(soloDigitos(dni) ? { dni: soloDigitos(dni) } : {}), ...(soloDigitos(precarga) ? { precarga: soloDigitos(precarga) } : {}) } : {}),
     ...(tipo === 'directo' && link ? { dni: String(dni).replace(/\D/g, ''), precarga: String(precarga).replace(/\D/g, ''), link_pago: link } : {}),
     ...(esInclusion ? { inclusion: { titular: inclusion.titular?.trim() || null, incluido: inclusion.incluido?.trim() || null, valor: Number(inclusion.valor) || null } } : {})
   };
-  const etapaId = etapa(tipo === 'directo' ? 'Falta de cobro' : 'Ganado');
+  const etapaId = etapa(tipo === 'directo' && !yaGanado ? 'Falta de cobro' : 'Ganado');
   await admin.from('contactos').update({ venta, etapa_id: etapaId, ...(venta.monto ? { valor: venta.monto } : {}), ...(plan ? { plan_cotizado: plan } : {}) }).eq('id', conv.contacto.id);
-  await admin.from('conversaciones').update(tipo === 'directo'
+  await admin.from('conversaciones').update(tipo === 'directo' && !yaGanado
     ? { ...TAREA_LINK_PAGO, seguimiento_at: new Date().toISOString() }
     : { modo: 'pausada', seguimiento_at: null, seguimiento_motivo: null, seguimiento_cadencia: null }).eq('id', conv.id);
   // La fila de la planilla la crea el trigger (0075/0076) con DNI, precarga, origen y onboarding; la inclusión se completa acá
@@ -308,7 +309,7 @@ export async function registrarVenta(conversacionId, { tipo, plan, monto, dni, p
   }
   await admin.from('mensajes').insert({
     conversacion_id: conv.id, direccion: 'saliente', autor: 'sistema', tipo: 'texto', estado: 'enviado',
-    texto: `${onboarding ? (esInclusion ? 'Inclusión por OB' : 'Venta por OB') : 'Venta'}${tipo === 'directo' ? ' directa' : ' desregulada'}${plan ? ` (${plan})` : ''}: ${tipo === 'directo' ? 'pasa a Falta de cobro.' : 'ganada.'} Ya está en la planilla de ventas.`
+    texto: `${onboarding ? (esInclusion ? 'Inclusión por OB' : 'Venta por OB') : 'Venta'}${tipo === 'directo' ? ' directa' : ' desregulada'}${plan ? ` (${plan})` : ''}: ${tipo === 'directo' && !yaGanado ? 'pasa a Falta de cobro.' : 'ganada.'} Ya está en la planilla de ventas.`
   });
   return { ok: true, etapaId, venta };
 }
