@@ -106,15 +106,31 @@ export default function PedidoSalesforce({ conversacionId, contacto, etapa, dniL
       ) : (
         <>
           {pedido?.estado === 'error' && <span className="selector-detalle aviso-error">{ESTADOS.error}: {pedido.error}</span>}
-          <p className="pp-explicacion">Elegí cómo está este cliente. Se arma la orden con los datos de la ficha para pegarla en Claude in Chrome (con Salesforce abierto en otra pestaña).</p>
-          <div className="alta-claude-botones">
-            <button type="button" className={`alta-claude-boton${modo === 'nuevo' ? ' activo' : ''}`} disabled={ocupado} onClick={() => abrirOrden('nuevo')}>
-              <strong>Cliente nuevo</strong><span>No está en Salesforce: crearlo y generar el link</span>{sugerido === 'nuevo' && <em>Sugerido</em>}
-            </button>
-            <button type="button" className={`alta-claude-boton${modo === 'salesforce' ? ' activo' : ''}`} disabled={ocupado} onClick={() => abrirOrden('salesforce')}>
-              <strong>Ya está en Salesforce</strong><span>Buscarlo, chequear los datos y generar el link</span>{sugerido === 'salesforce' && <em>Sugerido</em>}
-            </button>
-          </div>
+          {(() => {
+            // El botón sale según por dónde entró el dato (Darío, 17-nov-2026): de Salesforce → "Ya está en Salesforce";
+            // cualquier otro origen (prepaga ya, referido, web…) → "Cliente nuevo". El otro queda como link chico por si el origen no coincide.
+            const TEXTOS = {
+              nuevo: ['Cliente nuevo', 'No está en Salesforce: crearlo y generar el link'],
+              salesforce: ['Ya está en Salesforce', 'Buscarlo, chequear los datos y generar el link']
+            };
+            const otro = sugerido === 'nuevo' ? 'salesforce' : 'nuevo';
+            const elegido = modo ?? sugerido;
+            return (
+              <>
+                <p className="pp-explicacion">
+                  {sugerido === 'salesforce' ? 'Este lead viene de Salesforce.' : 'Este lead no viene de Salesforce.'} Se arma la orden con los datos de la ficha para pegarla en Claude in Chrome (con Salesforce abierto en otra pestaña).
+                </p>
+                <div className="alta-claude-botones">
+                  <button type="button" className={`alta-claude-boton${modo === elegido ? ' activo' : ''}`} disabled={ocupado} onClick={() => abrirOrden(elegido)}>
+                    <strong>{TEXTOS[elegido][0]}</strong><span>{TEXTOS[elegido][1]}</span>
+                  </button>
+                </div>
+                <button type="button" className="boton-link-texto" disabled={ocupado} onClick={() => abrirOrden(elegido === 'nuevo' ? 'salesforce' : 'nuevo')}>
+                  {elegido === sugerido ? `¿No es así? Cambiar a "${TEXTOS[otro][0]}"` : `Volver a "${TEXTOS[sugerido][0]}"`}
+                </button>
+              </>
+            );
+          })()}
           {modo && orden && (
             <div className="alta-claude-orden">
               {faltan.length > 0 && <span className="selector-detalle aviso-error">Todavía falta: {faltan.join('; ')}. Podés seguir: Claude te lo va a preguntar.</span>}
