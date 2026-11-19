@@ -58,6 +58,28 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
 
   if (etapa === 'Perdido') return null;
 
+  // Link de pago de Swiss ya guardado en la ficha (llegó el mail "Pago de primera cuota"): se ve en cualquier etapa hasta que paga
+  const plata = (m) => (String(m).trim().startsWith('$') ? String(m).trim() : `$ ${String(m).trim()}`);
+  const linkGuardado = venta?.link_pago && !venta.pagado_at && etapa !== 'Ganado' ? (
+    <div className="link-guardado">
+      <span className="bloque-titulo">🔗 Link de pago de Swiss{venta.link_enviado_at ? ` · enviado ${fechaCorta(venta.link_enviado_at)}` : ' · listo para enviar'}</span>
+      {(venta.monto_primera_cuota || venta.vence_primera_cuota) && (
+        <span className="selector-detalle">
+          {venta.monto_primera_cuota ? `Primera cuota ${plata(venta.monto_primera_cuota)}` : ''}{venta.monto_primera_cuota && venta.vence_primera_cuota ? ' · ' : ''}{venta.vence_primera_cuota ? `vence el ${venta.vence_primera_cuota}` : ''}
+        </span>
+      )}
+      <div className="acciones">
+        <button type="button" className="boton-secundario"
+          onClick={() => navigator.clipboard?.writeText(venta.link_pago).then(() => setAviso('Link copiado'), () => setAviso(venta.link_pago))}>Copiar link</button>
+        <a className="boton-secundario boton-link" href={venta.link_pago} target="_blank" rel="noreferrer">Abrir</a>
+        {!venta.link_enviado_at && (
+          <button type="button" className="boton-primario" disabled={ocupado}
+            onClick={() => correr(() => enviarLinkPago(conversacionId, { dni: venta.dni, precarga: venta.precarga }), 'Link enviado. Si en 48 h hábiles no marcás Pagó, vuelve a tu bandeja.')}>Enviar al cliente</button>
+        )}
+      </div>
+    </div>
+  ) : null;
+
   const camposCobro = (
     <div className="campos-dobles">
       <label className="campo"><span>DNI</span>
@@ -74,6 +96,8 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
     const venta = contacto.venta ?? {};
     const dias = venta.fecha ? diasDesde(venta.fecha) : null;
     return (
+      <>
+      {!venta.link_enviado_at && linkGuardado}
       <div className="bloque venta cobro">
         <span className="bloque-titulo">💳 Falta de cobro · {dias === null ? 'mandale el link de pago' : dias === 0 ? 'vendido hoy' : `hace ${dias} día${dias === 1 ? '' : 's'}`}</span>
         <span className="selector-detalle">
@@ -104,6 +128,7 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
         </div>
         {aviso && <span className="pp-aviso">{aviso}</span>}
       </div>
+      </>
     );
   }
 
@@ -122,6 +147,7 @@ export default function Venta({ conversacionId, contacto, etapas, onCambio, dniL
   // ── Antes de vender ──
   return (
     <div className="bloque venta">
+      {linkGuardado}
       {!abierto ? (
         <div className="acciones">
           {ganadoSinVenta && <span className="selector-detalle">Está en Ganado pero no en la planilla de ventas. Marcá la venta para cargarla.</span>}

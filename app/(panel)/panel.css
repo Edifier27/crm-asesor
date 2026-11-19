@@ -1230,3 +1230,7 @@ button.pv-cifra.activa { border-color: var(--acento); box-shadow: inset 0 0 0 1p
 :root[data-modo="oscuro"] .app .alta-claude-boton { background: #242626; }
 :root[data-modo="oscuro"] .app .alta-claude-boton.activo { background: #153A33; }
 @media (max-width: 520px) { .alta-claude-botones { grid-template-columns: 1fr; } }
+
+/* Link de pago de Swiss guardado en el panel del lead (Darío, 19-nov-2026) */
+.link-guardado { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--linea-suave); border-radius: 10px; background: var(--pv-suave, #f5f8f7); }
+.link-guardado .boton-link { text-decoration: none; }
