@@ -44,7 +44,7 @@ export default function PedidoSalesforce({ conversacionId, contacto, etapa, dniL
     onContacto?.({ venta: { ...(contacto.venta ?? {}), dni: pedido.datos?.dni ?? contacto.venta?.dni, link_alta: pedido.link } });
   }, [listoId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (pedido === undefined || pedido === false || ['Perdido', 'Auditoría médica'].includes(etapa)) return null;
+  if (pedido === undefined || pedido === false || etapa === 'Perdido') return null;
   // Ya mandado: no hace falta mostrar nada más
   if (contacto.venta?.link_enviado_at && pedido?.estado === 'listo') return null;
 
