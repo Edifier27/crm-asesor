@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Outlook → AsesorCRM — Mails de Swiss (altas impactadas y links de pago)
 // @namespace    outlook-crm-mails
-// @version      0.1
+// @version      0.2
 // @description  Varias veces por día busca en Outlook web los mails de Swiss "Informe de Alta … impactada" y "Pago de primera cuota" y se los manda al CRM: la venta pasa a Impactada y el link de pago queda guardado en la ficha y la planilla (NO se le manda al cliente: lo mandás vos con el botón). Solo lectura.
 // @match        https://outlook.cloud.microsoft/*
 // @match        https://outlook.office.com/*
@@ -129,10 +129,29 @@
     background: '#1D2B28', color: '#fff', font: '12px/1.4 sans-serif', boxShadow: '0 2px 8px rgba(0,0,0,.3)'
   });
   document.body.appendChild(panel);
-  function mostrar(estado, extra = '') {
-    panel.innerHTML = `<b>Mails de Swiss → CRM</b> · ${estado}${extra ? `<div style="margin-top:4px">${extra}</div>` : ''}
-      <div style="margin-top:6px"><button id="crm-revisar-mails" style="border:0;border-radius:6px;padding:3px 8px;cursor:pointer">Revisar ahora</button></div>`;
-    panel.querySelector('#crm-revisar-mails').onclick = () => revisar(true);
+  // Sin innerHTML: Outlook bloquea esa asignación (Trusted Types) y el cuadro quedaba vacío
+  function mostrar(estado, avisos = []) {
+    panel.textContent = '';
+    const titulo = document.createElement('div');
+    const negrita = document.createElement('b');
+    negrita.textContent = 'Mails de Swiss → CRM';
+    titulo.append(negrita, ` · ${estado}`);
+    panel.appendChild(titulo);
+    if (avisos.length) {
+      const caja = document.createElement('div');
+      caja.style.marginTop = '4px';
+      caja.append('Fijate a mano:');
+      for (const s of avisos) { const l = document.createElement('div'); l.textContent = `· ${s}`; caja.appendChild(l); }
+      panel.appendChild(caja);
+    }
+    const fila = document.createElement('div');
+    fila.style.marginTop = '6px';
+    const boton = document.createElement('button');
+    boton.textContent = 'Revisar ahora';
+    Object.assign(boton.style, { border: '0', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer' });
+    boton.onclick = () => revisar(true);
+    fila.appendChild(boton);
+    panel.appendChild(fila);
   }
 
   let revisando = false;
@@ -200,7 +219,7 @@
       revisando = false;
       const hora = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
       mostrar(`última revisión ${hora}: ${res.altas} altas, ${res.pagos} links de pago${res.altasYaEstaban ? `, ${res.altasYaEstaban} ya estaban` : ''}${res.errores ? `, ${res.errores} con error` : ''}`,
-        res.avisos.length ? `Fijate a mano:<br>${res.avisos.map((s) => `· ${s}`).join('<br>')}` : '');
+        res.avisos);
       if (!aMano) localStorage.setItem(VUELTA_KEY, vueltaActual());
     }
   }
