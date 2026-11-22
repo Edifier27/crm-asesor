@@ -17,6 +17,10 @@ Te informamos que la solicitud ha sido impactada.
 <li>Plan: S2 </li><li>Tarifa: 0S2_X </li></ul>`;
 const alta = leerMailDeAlta({ asunto: 'Informe de Alta Total impactada -Solicitud Nro 18000001', texto: CUERPO });
 ver('lee el mail', alta, { solicitud: '18000001', dni: '30000001', nombre: 'EJEMPLO PRUEBA, ANA MARIA', asociado: '2300001', vigencia: '2026-12-01', fechaAlta: '2026-11-12', plan: 'S2', integrante: 'Titular', parcial: false });
+// El texto que saca el navegador puede venir con todos los campos en una sola línea (pasó el 22-nov-2026)
+const UNA_LINEA = CUERPO.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+ver('mail en una sola línea', leerMailDeAlta({ asunto: 'Informe de Alta Total impactada -Solicitud Nro 18000001', texto: UNA_LINEA }), alta);
+ver('un N° de solicitud y un DNI imposibles no se usan', leerMailDeAlta({ asunto: 'Informe de Alta Total impactada', texto: 'Te informamos que la solicitud ha sido impactada. Número de solicitud:: 179040253236679601122026\nNúmero de DNI: 25400521123456789' }), null);
 ver('nombre lindo', [nombreLindo('VELASQUEZ BENITEZ, JULIO CESAR'), nombreLindo('SCHULZ, JULIETA'), nombreLindo("D'ANGELO, MARÍA-JOSÉ")], ['Julio Cesar Velasquez Benitez', 'Julieta Schulz', "María-José D'Angelo"]);
 ver('alta parcial', leerMailDeAlta({ asunto: 'Informe de Alta Parcial impactada -Solicitud Nro 18000002', texto: CUERPO }).parcial, true);
 ver('otro mail no es un alta', leerMailDeAlta({ asunto: 'Notificación dictamen DDJJ', texto: 'Te informamos que la solicitud ha sido Rechazada\nNúmero de precarga: 18000003' }), null);
