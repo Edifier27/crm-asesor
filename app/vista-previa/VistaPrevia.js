@@ -11,6 +11,8 @@ import VisorArchivo from '../(panel)/componentes/VisorArchivo';
 import ReproductorGlobal from '../(panel)/componentes/ReproductorGlobal';
 import Intro from '../(panel)/componentes/Intro';
 import Tablero from '../(panel)/embudo/Tablero';
+import MiDia from '../(panel)/mi-dia/MiDia';
+import { armarMiDia } from '@/lib/mi-dia';
 import CalculadoraImc from '../(panel)/formularios/CalculadoraImc';
 import CalculadoraCuil from '../(panel)/formularios/CalculadoraCuil';
 
@@ -84,6 +86,8 @@ export default function VistaPrevia() {
   // /vista-previa?chat&vista=celular|compu → el chat tal como lo arma la pantalla real (ChatVista), con la ficha diferida o no
   const [vista, setVista] = useState(null);
   useEffect(() => { setVista(new URLSearchParams(location.search).get('vista')); }, []);
+  const [midia, setMidia] = useState(false);
+  useEffect(() => { setMidia(new URLSearchParams(location.search).has('midia')); }, []);
   const [imc, setImc] = useState(false);
   useEffect(() => { setImc(new URLSearchParams(location.search).has('imc')); }, []);
   // /vista-previa?imc → la calculadora de IMC de Formularios
@@ -111,8 +115,28 @@ export default function VistaPrevia() {
   const lista = [
     { id: conversacion.id, modo: 'humano', ultimo_mensaje_at: hace(2), ultimo_mensaje_texto: 'Perfecto, ya te armo la cotización 🙌', ultimo_es_propio: true, no_leidos: 0, contacto: { ...contacto, temperatura: 'caliente' } },
     { id: 'c2', modo: 'humano', ultimo_mensaje_at: hace(15), ultimo_mensaje_texto: 'me pasás los valores?', no_leidos: 2, espera_desde: hace(15), contacto: { id: 'x', nombre: 'Martín Gómez', telefono: '5491133445566', temperatura: 'tibio', etiquetas: [] } },
-    { id: 'c3', modo: 'humano', ultimo_mensaje_at: hace(300), ultimo_mensaje_texto: '🎤 Audio', no_leidos: 0, espera_desde: hace(95), seguimiento_responsable: 'asesor', seguimiento_at: hace(10), seguimiento_motivo: 'Volver a contactar: quedó en verlo', contacto: { id: 'y', nombre: 'Carla Ruiz', telefono: '5491144556677', temperatura: 'frio', etiquetas: [] } }
+    { id: 'c3', modo: 'humano', ultimo_mensaje_at: hace(300), ultimo_mensaje_texto: '🎤 Audio', no_leidos: 0, espera_desde: hace(95), seguimiento_responsable: 'asesor', seguimiento_at: hace(10), seguimiento_motivo: 'Volver a contactar: quedó en verlo', contacto: { id: 'y', nombre: 'Carla Ruiz', telefono: '5491144556677', temperatura: 'frio', etiquetas: [] } },
+    // Mensaje erróneo: uno donde WhatsApp rechazó el último mensaje (pasaron más de 24 h) y otro sin teléfono válido
+    { id: 'c4', modo: 'humano', ultimo_mensaje_at: hace(200), ultimo_mensaje_texto: 'Te dejo el link de pago', ultimo_es_propio: true, no_leidos: 0, envio_fallido_at: hace(200), envio_fallido_motivo: '(#131047) Re-engagement message',
+      contacto: { id: 'y', nombre: 'Rosa Benítez', telefono: '5491155667788', temperatura: 'caliente', etiquetas: [] } },
+    { id: 'c5', modo: 'humano', ultimo_mensaje_at: hace(900), ultimo_mensaje_texto: 'Sin mensajes', no_leidos: 0, contacto: { id: 'z', nombre: 'Tomás Acuña', telefono: null, etiquetas: [] } }
   ];
+
+  // /vista-previa?midia → la pantalla Mi día con datos de ejemplo
+  if (midia) {
+    const ventas = [
+      { id: 1, nombre: 'Lucía Fernández', estado: 'falta_de_cobro', plan: 'SMG50', fecha_venta: new Date(Date.now() - 4 * 86_400_000).toISOString().slice(0, 10), vigencia: null, contacto_id: contacto.id, carga_bu: 180000 },
+      { id: 2, nombre: 'Pedro Gil', estado: 'falta_de_cobro', plan: 'S2', fecha_venta: new Date(Date.now() - 1 * 86_400_000).toISOString().slice(0, 10), vigencia: '2099-12-01', contacto_id: null, carga_bu: 90000 },
+      { id: 3, nombre: 'Ana Paz', estado: 'impactada', plan: 'SMG20', fecha_venta: new Date().toISOString().slice(0, 10), contacto_id: null, carga_bu: 150000 }
+    ];
+    const ahoraMs = Date.now();
+    return (
+      <div className="app">
+        <RielPlegable><div className="riel-marca">AC</div><RielLinks esAdmin /></RielPlegable>
+        <MiDia datos={armarMiDia({ lista, ventas, ahora: ahoraMs })} ahora={ahoraMs} />
+      </div>
+    );
+  }
 
   return (
     <div className="app">
