@@ -1,16 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 // Animación de entrada al abrir el CRM (Darío, 18-oct-2026): el ícono aparece con un rebote, saluda y se abre a la
 // pantalla. Sale solo cuando se ABRE el CRM: la cookie "intro" marca la última vez que se usó (se renueva al salir
 // de la app) y dura 10 minutos, así no se repite al recargar ni cuando Vigia carga una página entera.
 // No frena nada: la pantalla de abajo carga igual, y tocarla la saltea. CSS: .intro en whatsapp-2025.css
 const MARCA = 'intro=1; max-age=600; path=/; samesite=lax';
-const DURA_MS = 1500;
+// 26-nov-2026: de 1,5 s a 0,75 s (Darío: "acortala"). El CSS (.intro) dura lo mismo: sale a los 0,5 s y termina a los 0,72 s
+const DURA_MS = 760;
 
 export default function Intro({ mostrar, nombre }) {
-  const [visible, setVisible] = useState(mostrar);
+  // Si el CRM se abre directo en un chat (tocando un aviso), la animación no tapa ese chat: va solo al abrir la lista
+  const ruta = usePathname();
+  const [visible, setVisible] = useState(mostrar && !/^\/bandeja\/[^/]+/.test(ruta ?? ''));
 
   useEffect(() => {
     const marcar = () => { document.cookie = MARCA; };

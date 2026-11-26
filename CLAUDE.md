@@ -227,6 +227,16 @@ Nunca commitear secretos.
   audio que sale es el del plan tope, el de la zona del audio elegido (o el de "todas"); si ya se lo mandó en las últimas
   48 h no se repite (contestá por texto) y si no hay audio de ese plan no sale ninguno (nunca el de otro plan). Lo
   común del cálculo quedó en `calcularLead`. Prueba: `node scripts/probar-audio-aportes.mjs`.
+- MENSAJE ERRÓNEO, MI DÍA Y ENTRADA CORTA (26-nov-2026, migración 0082): globito rojo "Mensaje erróneo N" en Mis chats
+  (`esErroneo` en lib/mi-dia.js) que junta los chats cuyo último mensaje nuestro NO salió (`conversaciones.envio_fallido_at`/
+  `envio_fallido_motivo`, los pone el trigger `marcar_envio_fallido` sobre `mensajes` y los saca cuando sale un mensaje igual
+  o posterior; las notas del sistema no cuentan) y los que no tienen teléfono válido (`contactos.telefono` vacío: el análisis
+  automático no pudo arreglarlo). Cada fila lleva un cartel con el motivo en castellano (`motivoErroneo`, códigos de Meta) y
+  el menú de la flechita tiene "Mensaje erróneo: ya lo resolví". Perdido no cuenta. `traerLista` sigue andando si falta la
+  0082 (reintenta sin esas columnas). MI DÍA (`/mi-dia`, `armarMiDia` en lib/mi-dia.js, `MiDia.js` sin estado): mensajes
+  erróneos, te esperan, para hoy (lo programado por el asesor, vencido o de hoy), falta de cobro (de `ventas`; "Reclamar" desde
+  2 días) y el resumen del mes; cada chat sale una sola vez, en ese orden. La animación de entrada (Intro) dura 0,75 s (antes
+  1,5 s) y no sale si el CRM se abre directo en un chat. Probar sin servidor: `/vista-previa?midia`.
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.

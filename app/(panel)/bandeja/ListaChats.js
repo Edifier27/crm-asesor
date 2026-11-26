@@ -16,6 +16,7 @@ import { useAhora } from '../componentes/Reloj';
 import { recordarChat } from '@/lib/chat-abriendo';
 import { alCambiarBorradores, todosLosBorradores } from '@/lib/borradores';
 import { guardarListaEnMemoria } from '@/lib/chat-memoria';
+import { esErroneo, motivoErroneo } from '@/lib/mi-dia';
 
 // En el celular la lista se dibuja de a tandas (Darío, 21-oct-2026: "que cargue más rápido"): los primeros 60 chats y
 // el resto a medida que bajás. Los datos de los 300 ya están (contadores y filtros iguales); solo se dibuja menos.
@@ -45,9 +46,9 @@ const etiquetasDe = (c) => (c.contacto?.etiquetas ?? []).map((e) => e.etiqueta).
 
 // Chip de filtro. Va afuera de ListaChats: definido adentro era un componente nuevo en cada dibujo y los botones se
 // desmontaban y se volvían a montar cada vez que se redibujaba la lista.
-function Filtro({ valor, filtro, setFiltro, children }) {
+function Filtro({ valor, filtro, setFiltro, alerta = false, children }) {
   return (
-    <button type="button" className={`chip-filtro${filtro === valor ? ' activo' : ''}`} aria-pressed={filtro === valor}
+    <button type="button" className={`chip-filtro${alerta ? ' alerta' : ''}${filtro === valor ? ' activo' : ''}`} aria-pressed={filtro === valor}
       onClick={() => setFiltro(filtro === valor && valor !== 'todos' ? 'todos' : valor)}>
       {children}
     </button>
@@ -125,6 +126,8 @@ export default function ListaChats({ inicial, iaInicial }) {
     setAvisoLista(error ? `No se pudo: ${error.message}` : aviso);
     setTimeout(() => setAvisoLista(''), 2500);
   }
+  // "Ya lo resolví": saca el chat de Mensaje erróneo sin esperar a que salga otro mensaje (migración 0082)
+  const resolverErroneo = (c) => cambiarChat(c, { envio_fallido_at: null, envio_fallido_motivo: null }, 'Listo: salió de Mensaje erróneo');
   function fijar(c) {
     if (!c.fijada_at && conversaciones.filter((x) => x.fijada_at).length >= 3) {
       setMenuDe(null); setAvisoLista('Ya tenés 3 chats fijados: desfijá uno primero.'); setTimeout(() => setAvisoLista(''), 3000); return;
@@ -315,12 +318,14 @@ export default function ListaChats({ inicial, iaInicial }) {
   const archivados = useMemo(() => enBandeja.filter((c) => c.chat_archivado_at), [enBandeja]);
   const conteos = useMemo(() => ({
     sinResponder: enBandeja.filter((c) => c.espera_desde).length,
+    // Mensaje erróneo: de todos los chats cargados (no solo los de la bandeja): un envío que falló importa aunque el chat esté cerrado
+    erroneo: conversaciones.filter((c) => esErroneo(c) && !c.chat_archivado_at).length,
     importante: enBandeja.filter((c) => c.importante_at).length,
     respondidos: enBandeja.filter((c) => !c.espera_desde).length,
     hoy: enBandeja.filter((c) => pasoMio(c, ahora)?.hoy).length,
     ia: enBandeja.filter((c) => c.modo === 'ia' && !c.chat_archivado_at).length,
     yo: enBandeja.filter((c) => c.modo === 'humano' && !c.chat_archivado_at).length
-  }), [enBandeja, ahora]);
+  }), [enBandeja, conversaciones, ahora]);
 
   // Etiquetas presentes en la lista, para filtrar (orden en español fijo: el servidor ordena en inglés por defecto)
   const etiquetas = useMemo(() => {
@@ -331,7 +336,8 @@ export default function ListaChats({ inicial, iaInicial }) {
 
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    const base = filtro === 'todos' || q ? conversaciones.filter((c) => !fueraDeBandeja(c) || soloEnTodos(c)) : enBandeja;
+    const base = filtro === 'erroneo' ? conversaciones.filter(esErroneo)
+      : filtro === 'todos' || q ? conversaciones.filter((c) => !fueraDeBandeja(c) || soloEnTodos(c)) : enBandeja;
     return base.filter((c) => {
       if (Boolean(c.chat_archivado_at) !== verArchivados) return false;
       if (filtro === 'sin_responder' && !c.espera_desde) return false;
@@ -396,6 +402,7 @@ export default function ListaChats({ inicial, iaInicial }) {
         <Deslizable className="filtros">
           <Filtro {...chip} valor="todos">Todos</Filtro>
           <Filtro {...chip} valor="sin_responder">Sin responder{conteos.sinResponder ? ` ${conteos.sinResponder}` : ''}</Filtro>
+          <Filtro {...chip} valor="erroneo" alerta={conteos.erroneo > 0}>Mensaje erróneo{conteos.erroneo ? ` ${conteos.erroneo}` : ''}</Filtro>
           <Filtro {...chip} valor="importante">Importante{conteos.importante ? ` ${conteos.importante}` : ''}</Filtro>
           <Filtro {...chip} valor="hoy">Para hoy{conteos.hoy ? ` ${conteos.hoy}` : ''}</Filtro>
           <Filtro {...chip} valor="respondidos">Respondidos{conteos.respondidos ? ` ${conteos.respondidos}` : ''}</Filtro>
@@ -462,6 +469,9 @@ export default function ListaChats({ inicial, iaInicial }) {
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 10l5 5 5-5" /></svg>
                   </span>
                 </span>
+                {esErroneo(c) && (
+                  <span className="cartel-erroneo" title={motivoErroneo(c)}>⚠️ {motivoErroneo(c)}</span>
+                )}
                 {noSupo(c) && (
                   <span className="cartel-no-supo" title={c.seguimiento_motivo.slice(PREFIJO_NO_SUPO.length)}>
                     ❓ La IA no supo qué responder: <span className="cartel-no-supo-pregunta">{c.seguimiento_motivo.slice(PREFIJO_NO_SUPO.length)}</span>
@@ -480,6 +490,7 @@ export default function ListaChats({ inicial, iaInicial }) {
             </Link>
             {menuDe === c.id && (
               <div className="menu-mensaje chat-menu" role="menu" ref={abrirHaciaArriba}>
+                {c.envio_fallido_at && <button type="button" role="menuitem" onClick={() => resolverErroneo(c)}>Mensaje erróneo: ya lo resolví</button>}
                 <button type="button" role="menuitem" onClick={() => marcar(c, true)}>Marcar como leído</button>
                 <button type="button" role="menuitem" onClick={() => marcar(c, false)}>Marcar como no leído</button>
                 <button type="button" role="menuitem" onClick={() => importante(c)}>{c.importante_at ? 'Sacar de Importante' : '⭐ Mover a Importante'}</button>

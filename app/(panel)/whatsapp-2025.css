@@ -373,32 +373,32 @@
 
 /* ═════════ Entrada al abrir el CRM (componentes/Intro.js, Darío 18-oct-2026) ═════════
    El ícono aparece con un rebote, se dibuja el globito, saluda y la pantalla se descubre: la barra de abajo sube y
-   los chats entran en cascada. Todo dura poco más de un segundo y no frena la carga. Solo en el celular/tablet. */
+   los chats entran en cascada. Todo dura menos de un segundo (0,72 s) y no frena la carga. Solo en el celular/tablet. */
 .intro { display: none; }
 @media (max-width: 1180px) {
   .intro {
     display: grid; place-items: center; position: fixed; inset: 0; z-index: 1000; cursor: pointer;
     /* El mismo fondo que la pantalla de arranque de la app instalada (manifest): no se nota el cambio */
     background: #F4F5F4; color: var(--acento);
-    animation: intro-sale 300ms var(--curva-sale) 880ms both;
+    animation: intro-sale 200ms var(--curva-sale) 520ms both;
   }
   .intro-centro { position: relative; display: flex; flex-direction: column; align-items: center; gap: 18px; }
   .intro-icono {
     position: relative; display: block;
     filter: drop-shadow(0 10px 22px color-mix(in srgb, var(--acento) 35%, transparent));
-    animation: intro-icono 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    animation: intro-icono 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
   }
-  .intro-globo { stroke-dasharray: 1; stroke-dashoffset: 1; animation: intro-trazo 460ms var(--curva-entra) 200ms both; }
+  .intro-globo { stroke-dasharray: 1; stroke-dashoffset: 1; animation: intro-trazo 280ms var(--curva-entra) 90ms both; }
   .intro-onda {
     position: absolute; top: 0; left: 50%; width: 88px; height: 88px; margin-left: -44px; border-radius: 24px;
-    background: var(--acento); opacity: 0; animation: intro-onda 820ms var(--curva-entra) 220ms both;
+    background: var(--acento); opacity: 0; animation: intro-onda 520ms var(--curva-entra) 130ms both;
   }
-  .intro-hola { font-size: 20px; font-weight: 500; color: var(--texto); animation: intro-hola 380ms var(--curva-entra) 320ms both; }
+  .intro-hola { font-size: 20px; font-weight: 500; color: var(--texto); animation: intro-hola 240ms var(--curva-entra) 170ms both; }
 
   /* Lo de abajo entra cuando el ícono se va */
-  .app:has(> .intro) { --intro-espera: 860ms; }
-  .app:has(> .intro) .lista-cabecera { animation: intro-aparece 320ms var(--curva-entra) var(--intro-espera) both; }
-  .app:has(> .intro) .chat-item { animation: intro-fila 360ms var(--curva-entra) both; animation-delay: calc(var(--intro-espera) + 40ms + var(--i, 0) * 32ms); }
+  .app:has(> .intro) { --intro-espera: 480ms; }
+  .app:has(> .intro) .lista-cabecera { animation: intro-aparece 220ms var(--curva-entra) var(--intro-espera) both; }
+  .app:has(> .intro) .chat-item { animation: intro-fila 240ms var(--curva-entra) both; animation-delay: calc(var(--intro-espera) + 20ms + var(--i, 0) * 22ms); }
   .app:has(> .intro) .chat-item:nth-child(2) { --i: 1; }
   .app:has(> .intro) .chat-item:nth-child(3) { --i: 2; }
   .app:has(> .intro) .chat-item:nth-child(4) { --i: 3; }
@@ -409,7 +409,7 @@
   .app:has(> .intro) .chat-item:nth-child(n+9) { --i: 8; }
 }
 @media (max-width: 760px) {
-  .app:has(> .intro) .riel { animation: intro-barra 380ms var(--curva-entra) var(--intro-espera) both; }
+  .app:has(> .intro) .riel { animation: intro-barra 260ms var(--curva-entra) var(--intro-espera) both; }
 }
 @keyframes intro-icono { from { opacity: 0; transform: scale(0.4) rotate(-14deg); } }
 @keyframes intro-trazo { to { stroke-dashoffset: 0; } }
@@ -592,3 +592,59 @@
   .conv-cabecera .conv-telefono-revisar { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 :root[data-modo="oscuro"] .app .copiar-telefono.con-texto { background: #2A2D2D; border-color: #3A4042; color: rgba(255, 255, 255, 0.8); }
+
+/* ═════════ Globito "Mensaje erróneo" (26-nov-2026) ═════════
+   Junta los chats donde el último mensaje nuestro no salió o que no tienen teléfono válido (lib/mi-dia.js) */
+.chip-filtro.alerta { background: #FDE8E8; color: #9B1C1C; font-weight: 600; }
+.chip-filtro.alerta.activo { background: #C0392B; color: #fff; }
+.cartel-erroneo {
+  display: block; margin-top: 3px; padding: 3px 8px; border-radius: 6px; background: #FDE8E8; color: #9B1C1C;
+  font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lista.achicada .cartel-erroneo { display: none; }
+:root[data-modo="oscuro"] .app .chip-filtro.alerta { background: #3A1F1F; color: #F4A6A6; }
+:root[data-modo="oscuro"] .app .chip-filtro.alerta.activo { background: #B3392C; color: #fff; }
+:root[data-modo="oscuro"] .app .cartel-erroneo { background: #3A1F1F; color: #F4A6A6; }
+
+/* ═════════ Mi día (26-nov-2026) ═════════ */
+.midia { max-width: 760px; margin: 0 auto; width: 100%; }
+.midia-fecha { margin: 2px 0 0; }
+.midia-cifras {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0 6px; text-decoration: none; color: inherit;
+  padding: 12px; background: #fff; border-radius: 14px; box-shadow: 0 1px 2px rgba(11, 20, 26, 0.08);
+}
+.midia-cifras span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.midia-cifras small { font-size: 11.5px; color: var(--texto-suave); font-weight: 600; }
+.midia-cifras strong { font-size: 19px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.midia-vacio { margin: 28px 0; text-align: center; font-size: 16px; color: var(--texto-suave); }
+.midia-seccion { margin-top: 18px; }
+.midia-seccion h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 16px; }
+.midia-seccion.alerta h2 { color: #9B1C1C; }
+.midia-seccion > .selector-detalle { margin: 0 0 8px; }
+.midia-cuenta { font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--gris-chip); color: #33403D; }
+.midia-seccion.alerta .midia-cuenta { background: #FDE8E8; color: #9B1C1C; }
+.midia-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.midia-fila {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: #fff; border-radius: 12px; text-decoration: none; color: inherit;
+  box-shadow: 0 1px 2px rgba(11, 20, 26, 0.08); transition: background-color 120ms ease, transform 120ms var(--curva-entra);
+}
+.midia-fila:hover { background: #F7F5F3; }
+.midia-fila:active { transform: scale(0.985); }
+.midia-seccion.alerta .midia-fila { border-left: 4px solid #C0392B; }
+.midia-fila .avatar { flex: 0 0 40px; width: 40px; height: 40px; font-size: 13px; }
+.midia-textos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.midia-textos strong { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.midia-textos span { font-size: 13px; color: var(--texto-suave); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.midia-textos .midia-alerta { color: #9B1C1C; font-weight: 600; }
+.midia-chip { flex: 0 0 auto; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--gris-chip); color: #33403D; }
+.midia-chip.alerta { background: #FDE8E8; color: #9B1C1C; }
+.midia-mas { display: inline-block; margin-top: 8px; font-size: 13px; color: var(--acento); font-weight: 600; text-decoration: none; }
+@media (max-width: 560px) {
+  .midia-cifras { grid-template-columns: repeat(2, 1fr); }
+}
+:root[data-modo="oscuro"] .app :is(.midia-cifras, .midia-fila) { background: #1F2424; }
+:root[data-modo="oscuro"] .app .midia-fila:hover { background: #262B2B; }
+:root[data-modo="oscuro"] .app :is(.midia-cuenta, .midia-chip) { background: #2E3131; color: #E9EDEF; }
+:root[data-modo="oscuro"] .app :is(.midia-chip.alerta, .midia-seccion.alerta .midia-cuenta) { background: #3A1F1F; color: #F4A6A6; }
+:root[data-modo="oscuro"] .app :is(.midia-seccion.alerta h2, .midia-textos .midia-alerta) { color: #F4A6A6; }
+.midia .boton-secundario { display: inline-flex; align-items: center; text-decoration: none; }
