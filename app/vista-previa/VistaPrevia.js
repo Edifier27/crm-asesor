@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import ListaChats from '../(panel)/bandeja/ListaChats';
 import Conversacion from '../(panel)/bandeja/[id]/Conversacion';
+import ChatVista from '../(panel)/bandeja/[id]/ChatVista';
 import RielPlegable from '../(panel)/RielPlegable';
 import Ficha from '../(panel)/bandeja/[id]/Ficha';
 import RielLinks from '../(panel)/RielLinks';
@@ -77,6 +78,12 @@ export default function VistaPrevia() {
   // /vista-previa?chat → solo la conversación, como se ve en el celular (sin la lista ni la ficha)
   const [soloChat, setSoloChat] = useState(false);
   useEffect(() => { setSoloChat(new URLSearchParams(location.search).has('chat')); }, []);
+  // /vista-previa?chat&ficha → el chat solo, pero con la ficha armada (para medir lo que cuesta armarla en el celular)
+  const [conFicha, setConFicha] = useState(false);
+  useEffect(() => { setConFicha(new URLSearchParams(location.search).has('ficha')); }, []);
+  // /vista-previa?chat&vista=celular|compu → el chat tal como lo arma la pantalla real (ChatVista), con la ficha diferida o no
+  const [vista, setVista] = useState(null);
+  useEffect(() => { setVista(new URLSearchParams(location.search).get('vista')); }, []);
   const [imc, setImc] = useState(false);
   useEffect(() => { setImc(new URLSearchParams(location.search).has('imc')); }, []);
   // /vista-previa?imc → la calculadora de IMC de Formularios
@@ -116,9 +123,12 @@ export default function VistaPrevia() {
       <RielPlegable><div className="riel-marca">AC</div><RielLinks esAdmin /></RielPlegable>
       {!soloChat && <ListaChats inicial={lista} iaInicial={3} />}
       <ReproductorGlobal />
-      {conChat && <Conversacion key={largo} conversacion={conversacion} mensajesIniciales={mensajes} onFicha={() => {}} audios={[]} plantillas={PLANTILLAS_EJEMPLO} modoPrueba={false}
+      {vista && <ChatVista key={vista} celular={vista === 'celular'} sinConexion conversacion={{ ...conversacion, contacto: { ...contacto, etapa_id: 4, relevamiento: {}, documentos: [], etiquetas: [] } }}
+        mensajesIniciales={mensajes} hayAnteriores={false} etapas={[{ id: 1, nombre: 'Nuevo', orden: 1, color: '#999' }, { id: 4, nombre: 'Cotizado', orden: 4, color: '#7C3AED' }]}
+        etiquetas={[]} audios={[]} formularios={[]} plantillas={PLANTILLAS_EJEMPLO} modoPrueba={false} lista={null} equipo={{ yo: 'yo', nombres: { yo: 'Darío' } }} respuestas={[]} />}
+      {!vista && conChat && <Conversacion key={largo} conversacion={conversacion} mensajesIniciales={mensajes} onFicha={() => {}} audios={[]} plantillas={PLANTILLAS_EJEMPLO} modoPrueba={false}
         equipo={{ yo: 'yo', nombres: { yo: 'Darío' } }} respuestasIniciales={[]} sinConexion />}
-      {!soloChat && <Ficha conversacion={{ ...conversacion, contacto: { ...contacto, etapa_id: 4, relevamiento: {}, documentos: [] } }} abierta lista={null} todasEtiquetas={[]} onCerrar={() => {}}
+      {!vista && (!soloChat || conFicha) && <Ficha conversacion={{ ...conversacion, contacto: { ...contacto, etapa_id: 4, relevamiento: {}, documentos: [] } }} abierta lista={null} todasEtiquetas={[]} onCerrar={() => {}}
         formularios={[{ id: 'f1', nombre: 'Resumen de historia clínica', descripcion: 'Lo completa y firma el médico tratante', path: 'ejemplo-1.pdf', auditoria_medica: true },
           { id: 'f2', nombre: 'Certificado de buena salud', descripcion: 'Menores de 2 años: firmado y sellado por el pediatra', path: 'ejemplo-2.pdf', auditoria_medica: true },
           { id: 'f3', nombre: 'Declaración jurada', descripcion: null, path: 'ejemplo-3.pdf', auditoria_medica: false }]}

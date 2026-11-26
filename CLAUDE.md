@@ -215,6 +215,12 @@ Nunca commitear secretos.
   vuelve a medir en cada cambio de pantalla y una vez por segundo, y compara con lo que hay en la página (antes, un alto viejo
   dejaba la barra de escribir afuera hasta cerrar y abrir el CRM). Si la barra igual queda afuera avisa `barra_oculta` a
   diagnóstico (con medidas). El cartel de aviso (Avisos.js) anota el chat que se abre (`recordarChat`).
+- FICHA DIFERIDA EN EL CELULAR (26-nov-2026, auditoría de velocidad): al abrir un chat en el celular la ficha entera se
+  armaba igual aunque estaba fuera de pantalla (6 conexiones en vivo, 2 consultas, cálculo de precios y su código). Ahora
+  `ChatVista` la carga (`next/dynamic`) y la arma recién al tocar Ficha, y baja su código a los 3 s para que el primer toque
+  sea inmediato; `page.js` decide por la cabecera `sec-ch-ua-mobile`/user-agent (`celular`). Pantalla ancha (>1180 px) o
+  compu: se arma desde el servidor como siempre. Probar: `/vista-previa?chat&vista=celular|compu`. Medido (producción local,
+  celular simulado con CPU 4 veces más lenta): el chat abre en ~1 s; la ficha sumaba ~10% de CPU y ~100 nodos.
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.

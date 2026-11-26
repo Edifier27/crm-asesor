@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { SELECT_MENSAJE, MENSAJES_POR_TANDA } from '@/lib/consultas';
 import { modoPrueba } from '@/lib/whatsapp/meta';
@@ -6,7 +7,9 @@ import ChatVista from './ChatVista';
 import { datosDelEquipo } from '@/lib/datos-equipo';
 
 export default async function ChatPage({ params, searchParams }) {
-  const [{ id }, { m: buscado }] = await Promise.all([params, searchParams]);
+  const [{ id }, { m: buscado }, cabeceras] = await Promise.all([params, searchParams, headers()]);
+  // ¿Es un celular? Entonces la ficha no se arma hasta que se la abre (ChatVista.js). Chrome de Android lo avisa en una cabecera
+  const celular = cabeceras.get('sec-ch-ua-mobile') === '?1' || /Android.+Mobile|iPhone|iPod/i.test(cabeceras.get('user-agent') ?? '');
   // Los últimos mensajes (los más nuevos primero y después se dan vuelta). Desde el buscador (?m=) se traen más,
   // para que el mensaje buscado esté en pantalla. Uno de más para saber si quedan anteriores
   const limite = buscado ? 500 : MENSAJES_POR_TANDA;
@@ -44,6 +47,6 @@ export default async function ChatPage({ params, searchParams }) {
   return (
     <ChatVista key={id} conversacion={conversacion} mensajesIniciales={ultimos} hayAnteriores={hayAnteriores}
       etapas={etapas ?? []} etiquetas={etiquetas ?? []} audios={audios ?? []} formularios={formularios ?? []} plantillas={plantillas ?? []}
-      modoPrueba={modoPrueba()} lista={lista} equipo={equipo} respuestas={respuestas ?? []} />
+      modoPrueba={modoPrueba()} lista={lista} equipo={equipo} respuestas={respuestas ?? []} celular={celular} />
   );
 }
