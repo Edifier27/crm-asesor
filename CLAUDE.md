@@ -221,6 +221,12 @@ Nunca commitear secretos.
   sea inmediato; `page.js` decide por la cabecera `sec-ch-ua-mobile`/user-agent (`celular`). Pantalla ancha (>1180 px) o
   compu: se arma desde el servidor como siempre. Probar: `/vista-previa?chat&vista=celular|compu`. Medido (producción local,
   celular simulado con CPU 4 veces más lenta): el chat abre en ~1 s; la ficha sumaba ~10% de CPU y ~100 nodos.
+- AUDIO DEL PLAN QUE SE COTIZA (Darío, 26-nov-2026, chat de Yasmina): derivando aportes que cubren un plan más alto, el
+  cotizador cotiza ese (`planTopeAportes`) pero la IA elegía el audio por su cuenta: mandó el del S2 y el del SMG20 con la
+  cotización del SMG50. Ahora `enviar_audio` (lib/ia/asesor.js) pasa por `audioPorAportes` (lib/ia/cotizar-ia.js): el único
+  audio que sale es el del plan tope, el de la zona del audio elegido (o el de "todas"); si ya se lo mandó en las últimas
+  48 h no se repite (contestá por texto) y si no hay audio de ese plan no sale ninguno (nunca el de otro plan). Lo
+  común del cálculo quedó en `calcularLead`. Prueba: `node scripts/probar-audio-aportes.mjs`.
 - Pendiente: transcripción de audios entrantes (proveedor a definir), seguimientos dentro de las 24 h.
 - Registro público desactivado: los usuarios se crean desde Supabase > Authentication.
 - `robots` bloquea indexación.
